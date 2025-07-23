@@ -58,6 +58,7 @@ function initializeApp() {
     if (savedEmployee) {
         document.getElementById('employeeSelect').value = savedEmployee;
         currentEmployee = savedEmployee;
+        console.log('🔄 Loaded saved employee:', currentEmployee);
         loadEmployeeData();
     }
 
@@ -80,8 +81,23 @@ function initializeApp() {
     // Set default date to today for report
     document.getElementById('reportDate').valueAsDate = new Date();
     
-    // Initialize workflow state
+    // Force initialize workflow state even without employee
+    console.log('🔄 Initializing workflow state...');
+    currentWorkflowState = WORKFLOW_STATES.NOT_STARTED;
     initializeWorkflowState();
+    
+    // Debug: Log button state after 1 second
+    setTimeout(() => {
+        const startBtn = document.getElementById('startWorkBtn');
+        console.log('🔄 START button after init:', {
+            exists: !!startBtn,
+            disabled: startBtn ? startBtn.disabled : 'N/A',
+            classList: startBtn ? Array.from(startBtn.classList) : 'N/A',
+            style: startBtn ? startBtn.style.cssText : 'N/A',
+            workflowState: currentWorkflowState,
+            employee: currentEmployee
+        });
+    }, 1000);
 }
 
 // ============= BRISBANE CLOCK SYSTEM =============
@@ -296,7 +312,17 @@ function performShiftReset() {
 // ============= WORKFLOW STATE MANAGEMENT =============
 
 function initializeWorkflowState() {
-    // Load saved workflow state
+    console.log('🔄 initializeWorkflowState called');
+    
+    // Always start fresh if no employee is selected
+    if (!currentEmployee) {
+        console.log('🔄 No employee selected, setting to NOT_STARTED');
+        currentWorkflowState = WORKFLOW_STATES.NOT_STARTED;
+        updateWorkflowButtonStates();
+        return;
+    }
+    
+    // Load saved workflow state for this employee
     const savedState = loadWorkflowState();
     
     if (savedState && savedState.state) {
@@ -787,7 +813,12 @@ function updateWorkflowButtonStates() {
 
 // ============= ENHANCED TIME CLOCK WITH WORKFLOW VALIDATION =============
 
+// Handle start work with enhanced debugging
 async function handleStartWork() {
+    console.log('🟢 START WORK button clicked!');
+    console.log('🔄 Current employee:', currentEmployee);
+    console.log('🔄 Current workflow state:', currentWorkflowState);
+    
     if (!currentEmployee) {
         showToast('Please select an employee first', 'warning');
         return;
@@ -795,10 +826,12 @@ async function handleStartWork() {
     
     // Validate workflow state
     if (currentWorkflowState !== WORKFLOW_STATES.NOT_STARTED) {
+        console.log('❌ Wrong workflow state for starting work:', currentWorkflowState);
         showToast('You can only start work at the beginning of your shift', 'error');
         return;
     }
     
+    console.log('✅ Proceeding to task selection...');
     // Show task selection modal
     await showTaskSelectionModal();
 }
@@ -2181,41 +2214,42 @@ window.addEventListener('click', function(event) {
     }
 });
 
-// Handle employee selection
-function handleEmployeeChange(e) {
-    currentEmployee = e.target.value;
-    localStorage.setItem('selectedEmployee', currentEmployee);
+// Debug function to force enable START button
+window.debugStartButton = function() {
+    console.log('🔧 DEBUGGING START BUTTON...');
     
-    if (currentEmployee) {
-        loadEmployeeData();
+    const startBtn = document.getElementById('startWorkBtn');
+    console.log('🔄 Button element:', startBtn);
+    console.log('🔄 Current employee:', currentEmployee);
+    console.log('🔄 Current workflow state:', currentWorkflowState);
+    
+    if (startBtn) {
+        // Force enable the button
+        startBtn.disabled = false;
+        startBtn.classList.remove('btn-disabled');
+        startBtn.style.pointerEvents = 'auto';
+        startBtn.style.opacity = '1';
+        startBtn.style.filter = 'none';
+        
+        // Force set states
+        currentEmployee = currentEmployee || 'Tony Herrera';
+        currentWorkflowState = WORKFLOW_STATES.NOT_STARTED;
+        
+        console.log('✅ START button force-enabled!');
+        console.log('✅ Employee set to:', currentEmployee);
+        console.log('✅ Workflow state set to:', currentWorkflowState);
+        
+        // Update employee selector if needed
+        if (!document.getElementById('employeeSelect').value) {
+            document.getElementById('employeeSelect').value = 'Tony Herrera';
+        }
+        
+        return 'START button should now work!';
     } else {
-        clearEmployeeData();
+        console.error('❌ START button not found!');
+        return 'START button element not found!';
     }
-}
-
-async function loadEmployeeData() {
-    if (!currentEmployee) return;
-    
-    // Load assigned tasks for task selection
-    await loadAssignedTasks();
-    
-    // Load and restore work clock state
-    await loadWorkClockState();
-    
-    // Load task time data
-    loadTaskTimeData();
-    
-    // Initialize workflow state for this employee
-    initializeWorkflowState();
-}
-
-function clearEmployeeData() {
-    document.getElementById('assignedTasksList').innerHTML = '<p class="loading">Select an employee to view assigned tasks...</p>';
-    clearWorkClockState();
-    availableTasks = [];
-    taskTimeData = {};
-    currentWorkflowState = WORKFLOW_STATES.NOT_STARTED;
-    updateWorkflowButtonStates();
-}
+};
 
 console.log('🚀 Enhanced VEBLEN Task Tracker loaded with workflow controls and Brisbane clock!');
+console.log('🔧 If START button doesn\'t work, run: debugStartButton() in console');
