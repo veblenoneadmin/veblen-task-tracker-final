@@ -274,7 +274,9 @@
             </div>
         </header>
 
-        <!-- Time Clock Section - NOW AT TOP -->
+        <!-- Brisbane Clock will be inserted here by JavaScript -->
+
+        <!-- Time Clock Section -->
         <section class="time-clock-section">
             <h2>🕐 Time Clock</h2>
             
@@ -319,10 +321,9 @@
                 <button id="endWorkBtn" class="btn btn-danger">🔴 END WORK</button>
             </div>
             <div id="timeClockStatus" class="time-clock-status"></div>
-        </section
+        </section>
 
-<!-- Add this section AFTER the Time Clock section and BEFORE Task Intake section -->
-        <!-- NEW: Active Task Display Section -->
+        <!-- Active Task Display Section -->
         <section class="active-task-section" id="activeTaskSection" style="display: none;">
             <h2>🎯 Currently Working On</h2>
             <div id="activeTaskInfo">
@@ -330,13 +331,13 @@
             </div>
         </section>
 
-        <!-- Task Intake Section -->
+        <!-- Task Intake Section - UPDATED WITH REQUIRED FIELDS -->
         <section class="task-intake-section">
             <h2>📝 Create New Task</h2>
             <form id="taskIntakeForm">
                 <!-- Company Selection -->
                 <div class="form-group">
-                    <label for="taskCompany">Company*</label>
+                    <label for="taskCompany">Company* <span style="color: #f56565;">●</span></label>
                     <select id="taskCompany" required>
                         <option value="">Select Company</option>
                         <option value="VEBLEN (Internal)">VEBLEN (Internal)</option>
@@ -349,8 +350,9 @@
 
                 <!-- Priority -->
                 <div class="form-group">
-                    <label for="taskPriority">Is this project a priority?*</label>
+                    <label for="taskPriority">Is this project a priority?* <span style="color: #f56565;">●</span></label>
                     <select id="taskPriority" required>
+                        <option value="">Select Priority</option>
                         <option value="No">🟢 No</option>
                         <option value="Yes">🔴 Yes</option>
                     </select>
@@ -358,25 +360,25 @@
 
                 <!-- Task Name -->
                 <div class="form-group">
-                    <label for="taskTitle">Project Title*</label>
+                    <label for="taskTitle">Project Title* <span style="color: #f56565;">●</span></label>
                     <input type="text" id="taskTitle" required placeholder="Enter project title">
                 </div>
 
                 <!-- Description -->
                 <div class="form-group">
-                    <label for="taskDescription">Description*</label>
+                    <label for="taskDescription">Description* <span style="color: #f56565;">●</span></label>
                     <textarea id="taskDescription" rows="4" required placeholder="Describe the task in detail"></textarea>
                 </div>
 
                 <!-- Due Date -->
                 <div class="form-group">
-                    <label for="taskDueDate">Due Date</label>
-                    <input type="date" id="taskDueDate">
+                    <label for="taskDueDate">Due Date* <span style="color: #f56565;">●</span></label>
+                    <input type="date" id="taskDueDate" required>
                 </div>
 
                 <!-- Assigned To -->
                 <div class="form-group">
-                    <label for="taskAssigned">Assigned To* (Hold Ctrl/Cmd for multiple)</label>
+                    <label for="taskAssigned">Assigned To* (Hold Ctrl/Cmd for multiple) <span style="color: #f56565;">●</span></label>
                     <select id="taskAssigned" multiple required>
                         <option value="Tony Herrera">Tony Herrera</option>
                         <option value="Alex">Alex</option>
@@ -392,17 +394,20 @@
                     </select>
                 </div>
 
-                <!-- Links -->
+                <!-- Image Upload - NOW REQUIRED -->
                 <div class="form-group">
-                    <label for="taskLinks">Links (one per line)</label>
-                    <textarea id="taskLinks" rows="3" placeholder="Add any relevant links (one per line)"></textarea>
+                    <label for="taskImage">Attach Image* <span style="color: #f56565;">●</span></label>
+                    <input type="file" id="taskImage" accept=".jpg,.jpeg,.png,.gif,.bmp,.webp" required>
+                    <small style="color: var(--text-secondary); font-size: 0.75rem; display: block; margin-top: 0.5rem;">
+                        📸 Accepted: JPEG, PNG, GIF, BMP, WebP (max 32MB)
+                    </small>
+                    <div id="taskImagePreview"></div>
                 </div>
 
-                <!-- Image Upload -->
+                <!-- Links - OPTIONAL -->
                 <div class="form-group">
-                    <label for="taskImage">Attach Image/Video</label>
-                    <input type="file" id="taskImage" accept="image/*,video/*">
-                    <div id="taskImagePreview"></div>
+                    <label for="taskLinks">Links (optional)</label>
+                    <textarea id="taskLinks" rows="3" placeholder="Add any relevant links (one per line)"></textarea>
                 </div>
                 
                 <button type="submit" class="btn btn-primary">✨ Create Task</button>
@@ -420,75 +425,78 @@
             </div>
         </section>
 
-        <!-- Daily Report Section -->
-<section class="daily-report-section">
-    <h2>📊 Daily Report</h2>
-    <form id="dailyReportForm">
-        <!-- Photo Upload -->
-        <div class="form-group">
-            <label for="reportPhoto">Photo for Report*</label>
-            <input type="file" id="reportPhoto" accept=".jpg, .jpeg, .png, .gif" required>
-            <div id="reportPhotoPreview"></div>
-        </div>
-        
-        <!-- Company Selection -->
-        <div class="form-group">
-            <label for="reportCompany">Company*</label>
-            <select id="reportCompany" required>
-                <option value="">Select Company</option>
-                <option value="VEBLEN (Internal)">VEBLEN (Internal)</option>
-                <option value="LCMB GROUP">LCMB GROUP</option>
-                <option value="NEWTECH TRAILERS">NEWTECH TRAILERS</option>
-                <option value="CROWN REALITY">CROWN REALITY</option>
-                <option value="FLECK GROUP">FLECK GROUP</option>
-            </select>
-        </div>
-        
-        <!-- Date -->
-        <div class="form-group">
-            <label for="reportDate">Date*</label>
-            <input type="date" id="reportDate" required>
-        </div>
-        
-        <!-- Project Name -->
-        <div class="form-group">
-            <label for="projectName">Project Name*</label>
-            <input type="text" id="projectName" placeholder="Enter the project name" required>
-        </div>
-        
-        <!-- Number of Revisions -->
-        <div class="form-group">
-            <label for="numRevisions">Number of Revisions*</label>
-            <input type="number" id="numRevisions" placeholder="Number of Revisions" min="0" required>
-        </div>
-        
-        <!-- Total Time Spent -->
-        <div class="form-group">
-            <label for="totalTimeSpent">Total Time Spent on Project*</label>
-            <input type="text" id="totalTimeSpent" placeholder="e.g., 3 hours" required>
-        </div>
-        
-        <!-- Notes -->
-        <div class="form-group">
-            <label for="reportNotes">Notes*</label>
-            <textarea id="reportNotes" rows="4" placeholder="Notes" required></textarea>
-        </div>
-        
-        <!-- Links -->
-        <div class="form-group">
-            <label for="reportLinks">Links</label>
-            <textarea id="reportLinks" rows="3" placeholder="Add any relevant links (one per line)"></textarea>
-        </div>
-        
-        <!-- Feedback or Requests -->
-        <div class="form-group">
-            <label for="feedbackRequests">Feedback or Requests</label>
-            <textarea id="feedbackRequests" rows="5" placeholder="Any feedback, requests, or suggestions? e.g.:&#10;&#10;• Can we use a simpler tool instead of X?&#10;• I'm having trouble with Y software&#10;• Can we add Z feature to our workflow?&#10;• The current process for A is confusing&#10;&#10;(Leave blank if no feedback)"></textarea>
-        </div>
-        
-        <button type="submit" class="btn btn-primary">📤 Submit Report</button>
-    </form>
-</section>
+        <!-- Daily Report Section - UPDATED WITH REQUIRED FIELDS -->
+        <section class="daily-report-section">
+            <h2>📊 Daily Report</h2>
+            <form id="dailyReportForm">
+                <!-- Photo Upload - REQUIRED -->
+                <div class="form-group">
+                    <label for="reportPhoto">Photo for Report* <span style="color: #f56565;">●</span></label>
+                    <input type="file" id="reportPhoto" accept=".jpg,.jpeg,.png,.gif,.bmp,.webp" required>
+                    <small style="color: var(--text-secondary); font-size: 0.75rem; display: block; margin-top: 0.5rem;">
+                        📸 Accepted: JPEG, PNG, GIF, BMP, WebP (max 32MB)
+                    </small>
+                    <div id="reportPhotoPreview"></div>
+                </div>
+                
+                <!-- Company Selection - REQUIRED -->
+                <div class="form-group">
+                    <label for="reportCompany">Company* <span style="color: #f56565;">●</span></label>
+                    <select id="reportCompany" required>
+                        <option value="">Select Company</option>
+                        <option value="VEBLEN (Internal)">VEBLEN (Internal)</option>
+                        <option value="LCMB GROUP">LCMB GROUP</option>
+                        <option value="NEWTECH TRAILERS">NEWTECH TRAILERS</option>
+                        <option value="CROWN REALITY">CROWN REALITY</option>
+                        <option value="FLECK GROUP">FLECK GROUP</option>
+                    </select>
+                </div>
+                
+                <!-- Date - REQUIRED -->
+                <div class="form-group">
+                    <label for="reportDate">Date* <span style="color: #f56565;">●</span></label>
+                    <input type="date" id="reportDate" required>
+                </div>
+                
+                <!-- Project Name - REQUIRED -->
+                <div class="form-group">
+                    <label for="projectName">Project Name* <span style="color: #f56565;">●</span></label>
+                    <input type="text" id="projectName" placeholder="Enter the project name" required>
+                </div>
+                
+                <!-- Number of Revisions - REQUIRED -->
+                <div class="form-group">
+                    <label for="numRevisions">Number of Revisions* <span style="color: #f56565;">●</span></label>
+                    <input type="number" id="numRevisions" placeholder="Number of Revisions" min="0" required>
+                </div>
+                
+                <!-- Total Time Spent - REQUIRED -->
+                <div class="form-group">
+                    <label for="totalTimeSpent">Total Time Spent on Project* <span style="color: #f56565;">●</span></label>
+                    <input type="text" id="totalTimeSpent" placeholder="e.g., 3 hours" required>
+                </div>
+                
+                <!-- Notes - REQUIRED -->
+                <div class="form-group">
+                    <label for="reportNotes">Notes* <span style="color: #f56565;">●</span></label>
+                    <textarea id="reportNotes" rows="4" placeholder="Notes" required></textarea>
+                </div>
+                
+                <!-- Links - OPTIONAL -->
+                <div class="form-group">
+                    <label for="reportLinks">Links (optional)</label>
+                    <textarea id="reportLinks" rows="3" placeholder="Add any relevant links (one per line)"></textarea>
+                </div>
+                
+                <!-- Feedback or Requests - OPTIONAL -->
+                <div class="form-group">
+                    <label for="feedbackRequests">Feedback or Requests (optional)</label>
+                    <textarea id="feedbackRequests" rows="5" placeholder="Any feedback, requests, or suggestions? e.g.:&#10;&#10;• Can we use a simpler tool instead of X?&#10;• I'm having trouble with Y software&#10;• Can we add Z feature to our workflow?&#10;• The current process for A is confusing&#10;&#10;(Leave blank if no feedback)"></textarea>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">📤 Submit Report</button>
+            </form>
+        </section>
     </div>
 
     <!-- Toast Notification Container -->
