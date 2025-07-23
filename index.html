@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VEBLEN Task & Time Tracker</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="https://i.ibb.co/x8Pp6QHZ/fe71a9da-24a6-46cf-8eda-df73bff35fc8.png">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1><img src="https://i.ibb.co/x8Pp6QHZ/fe71a9da-24a6-46cf-8eda-df73bff35fc8.png" alt="VEBLEN" style="width: 24px; height: 24px; vertical-align: middle; margin-right: 8px;">VEBLEN Task & Time Tracker</h1>
+            
+            <!-- Employee Selection -->
+            <div class="employee-selector">
+                <label for="employeeSelect">Select Employee:</label>
+                <select id="employeeSelect">
+                    <option value="">Choose Employee</option>
+                    <option value="Tony Herrera">Tony Herrera</option>
+                    <option value="Andy Klemm">Andy Klemm</option>
+                    <option value="Hanif (Konsep Kreatif)">Hanif (Konsep Kreatif)</option>
+                    <option value="Jevahn">Jevahn</option>
+                    <option value="Zac Macanally">Zac Macanally</option>
+                </select>
+            </div>
+        </header>
+
+        <!-- Time Clock Section -->
+        <section class="time-clock-section">
+            <h2>🕐 Time Clock</h2>
+            
+            <!-- Work Clock Display -->
+            <div id="workClockDisplay" class="clock-display" style="display: none;">
+                <div class="clock-info">
+                    <div class="current-session">
+                        <h3>Current Work Session</h3>
+                        <div class="timer" id="workTimer">00:00:00</div>
+                        <p class="clock-status" id="workStatus">Started at --:--</p>
+                    </div>
+                    
+                    <div class="shift-summary">
+                        <h4>Today's Progress</h4>
+                        <div class="shift-progress">
+                            <div class="shift-progress-bar">
+                                <div class="shift-bar" id="shiftProgressBar" style="width: 0%"></div>
+                            </div>
+                            <p class="shift-target" id="shiftStatus">0% of 8 hours completed</p>
+                        </div>
+                        <p class="total-time">Total Shift Time: <span id="totalShiftTime">00:00:00</span></p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Break Clock Display -->
+            <div id="breakClockDisplay" class="clock-display break-clock" style="display: none;">
+                <div class="clock-info">
+                    <div class="current-break">
+                        <h3>On Break</h3>
+                        <div class="timer" id="breakTimer">00:00:00</div>
+                    </div>
+                    
+                    <div class="break-summary">
+                        <p>Time Worked Today: <span id="totalWorkedOnBreak">00:00:00</span></p>
+                        <p>Remaining: <span id="shiftRemainingOnBreak">08:00:00</span></p>
+                    </div>
+                    <p class="break-status" id="breakStatus">Started break at --:--</p>
+                </div>
+            </div>
+            
+            <div class="time-clock-buttons">
+                <button id="startWorkBtn" class="btn btn-success">🟢 START WORK</button>
+                <button id="breakBtn" class="btn btn-warning">☕ BREAK</button>
+                <button id="backToWorkBtn" class="btn btn-info">🔵 BACK TO WORK</button>
+                <button id="endWorkBtn" class="btn btn-danger">🔴 END WORK</button>
+            </div>
+            <div id="timeClockStatus" class="time-clock-status"></div>
+        </section>
+
+        <!-- Active Task Display Section -->
+        <section class="active-task-section" id="activeTaskSection" style="display: none;">
+            <h2>🎯 Currently Working On</h2>
+            <div id="activeTaskInfo">
+                <!-- Active task info will be populated here by JavaScript -->
+            </div>
+        </section>
+
+        <!-- Task Intake Section -->
+        <section class="task-intake-section">
+            <h2>📝 Create New Task</h2>
+            <form id="taskIntakeForm">
+                <!-- Company Selection -->
+                <div class="form-group">
+                    <label for="taskCompany">Company*</label>
+                    <select id="taskCompany" required>
+                        <option value="">Select Company</option>
+                        <option value="VEBLEN (Internal)">VEBLEN (Internal)</option>
+                        <option value="LCMB GROUP">LCMB GROUP</option>
+                        <option value="NEWTECH TRAILERS">NEWTECH TRAILERS</option>
+                        <option value="CROWN REALITY">CROWN REALITY</option>
+                        <option value="FLECK GROUP">FLECK GROUP</option>
+                    </select>
+                </div>
+
+                <!-- Priority -->
+                <div class="form-group">
+                    <label for="taskPriority">Is this project a priority?*</label>
+                    <select id="taskPriority" required>
+                        <option value="">Select Priority</option>
+                        <option value="Yes">Yes - Priority Project</option>
+                        <option value="No">No - Regular Project</option>
+                    </select>
+                </div>
+
+                <!-- Project Title -->
+                <div class="form-group">
+                    <label for="taskTitle">Project Title*</label>
+                    <input type="text" id="taskTitle" placeholder="Enter project title" required>
+                </div>
+
+                <!-- Description -->
+                <div class="form-group">
+                    <label for="taskDescription">Description*</label>
+                    <textarea id="taskDescription" rows="4" placeholder="Describe the project details..." required></textarea>
+                </div>
+
+                <!-- Due Date -->
+                <div class="form-group">
+                    <label for="taskDueDate">Due Date*</label>
+                    <input type="date" id="taskDueDate" required>
+                </div>
+
+                <!-- Assigned To -->
+                <div class="form-group">
+                    <label for="taskAssigned">Assigned To*</label>
+                    <select id="taskAssigned" multiple required>
+                        <option value="Tony Herrera">Tony Herrera</option>
+                        <option value="Andy Klemm">Andy Klemm</option>
+                        <option value="Hanif (Konsep Kreatif)">Hanif (Konsep Kreatif)</option>
+                        <option value="Jevahn">Jevahn</option>
+                        <option value="Zac Macanally">Zac Macanally</option>
+                    </select>
+                    <small>Hold Ctrl/Cmd to select multiple people</small>
+                </div>
+
+                <!-- Links -->
+                <div class="form-group">
+                    <label for="taskLinks">Links (one per line)</label>
+                    <textarea id="taskLinks" rows="3" placeholder="Add any relevant links (one per line)"></textarea>
+                </div>
+
+                <!-- Image Upload -->
+                <div class="form-group">
+                    <label for="taskImage">Attach Image</label>
+                    <input type="file" id="taskImage" accept="image/*">
+                    <small>Supported formats: JPEG, PNG, GIF, WebP, BMP (max 32MB)</small>
+                    <div id="taskImagePreview"></div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">✨ Create Task</button>
+            </form>
+        </section>
+
+        <!-- Assigned Tasks Section -->
+        <section class="assigned-tasks-section">
+            <h2>📋 Assigned Tasks
+                <button id="openTaskEditorBtn" class="btn btn-primary btn-sm" style="margin-left: 1rem;" onclick="openTaskEditorModal()">✏️ Edit Task by ID</button>
+            </h2>
+            <button id="refreshTasksBtn" class="btn btn-secondary">🔄 Refresh Tasks</button>
+            <div id="assignedTasksList" class="assigned-tasks-list">
+                <p class="loading">Select an employee to view assigned tasks...</p>
+            </div>
+        </section>
+
+        <!-- Daily Report Section -->
+        <section class="daily-report-section">
+            <h2>📊 Daily Report</h2>
+            <form id="dailyReportForm">
+                <!-- Photo Upload -->
+                <div class="form-group">
+                    <label for="reportPhoto">Photo for Report*</label>
+                    <input type="file" id="reportPhoto" accept="image/*" required>
+                    <small>Supported formats: JPEG, PNG, GIF, WebP, BMP (max 32MB)</small>
+                    <div id="reportPhotoPreview"></div>
+                </div>
+                
+                <!-- Company Selection -->
+                <div class="form-group">
+                    <label for="reportCompany">Company*</label>
+                    <select id="reportCompany" required>
+                        <option value="">Select Company</option>
+                        <option value="VEBLEN (Internal)">VEBLEN (Internal)</option>
+                        <option value="LCMB GROUP">LCMB GROUP</option>
+                        <option value="NEWTECH TRAILERS">NEWTECH TRAILERS</option>
+                        <option value="CROWN REALITY">CROWN REALITY</option>
+                        <option value="FLECK GROUP">FLECK GROUP</option>
+                    </select>
+                </div>
+                
+                <!-- Date -->
+                <div class="form-group">
+                    <label for="reportDate">Date*</label>
+                    <input type="date" id="reportDate" required>
+                </div>
+                
+                <!-- Project Name -->
+                <div class="form-group">
+                    <label for="projectName">Project Name*</label>
+                    <input type="text" id="projectName" placeholder="Enter the project name" required>
+                </div>
+                
+                <!-- Number of Revisions -->
+                <div class="form-group">
+                    <label for="numRevisions">Number of Revisions*</label>
+                    <input type="number" id="numRevisions" placeholder="Number of Revisions" min="0" required>
+                </div>
+                
+                <!-- Total Time Spent -->
+                <div class="form-group">
+                    <label for="totalTimeSpent">Total Time Spent on Project (All Days)*</label>
+                    <input type="text" id="totalTimeSpent" placeholder="e.g., 18 hours across 3 days" required>
+                    <small style="color: var(--text-secondary); font-size: 0.875rem;">
+                        📝 Manual entry - Include all time: research, planning, meetings, implementation
+                    </small>
+                </div>
+
+                <!-- Today's Tracked Time (Auto-calculated) -->
+                <div class="form-group">
+                    <label for="todayTimeSpent">Today's Tracked Time (Auto-calculated)</label>
+                    <input 
+                        type="text" 
+                        id="todayTimeSpent" 
+                        value="0h 0m"
+                        readonly
+                        style="background: var(--surface-elevated); cursor: not-allowed;"
+                        placeholder="Will auto-populate based on project name"
+                    >
+                    <small style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 0.25rem; display: block;">
+                        💡 This field automatically calculates time based on your project name and task tracking
+                    </small>
+                </div>
+                
+                <!-- Notes -->
+                <div class="form-group">
+                    <label for="reportNotes">Notes*</label>
+                    <textarea id="reportNotes" rows="4" placeholder="Today's work details, progress made, challenges faced..." required></textarea>
+                </div>
+                
+                <!-- Links -->
+                <div class="form-group">
+                    <label for="reportLinks">Links</label>
+                    <textarea id="reportLinks" rows="3" placeholder="Add any relevant links (one per line)"></textarea>
+                </div>
+                
+                <!-- Feedback or Requests -->
+                <div class="form-group">
+                    <label for="feedbackRequests">Feedback or Requests</label>
+                    <textarea id="feedbackRequests" rows="5" placeholder="Any feedback, requests, or suggestions?"></textarea>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">📤 Submit Report</button>
+            </form>
+        </section>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Load JavaScript -->
+    <script src="script.js"></script>
+    
+    <!-- Button State Styling -->
+    <style>
+        .btn-disabled {
+            opacity: 0.5 !important;
+            cursor: not-allowed !important;
+            pointer-events: none !important;
+        }
+        
+        .btn-active {
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.3) !important;
+            border: 2px solid rgba(255, 255, 255, 0.5) !important;
+        }
+        
+        .time-clock-buttons .btn {
+            transition: all 0.3s ease !important;
+            position: relative !important;
+        }
+        
+        .time-clock-buttons .btn:disabled::after {
+            content: "🚫";
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            font-size: 12px;
+        }
+        
+        .time-clock-status {
+            margin-top: 1rem;
+            padding: 0.75rem;
+            border-radius: 8px;
+            background: var(--surface-elevated);
+            border-left: 4px solid var(--primary);
+        }
+        
+        .status-working { color: #48bb78; }
+        .status-break { color: #ed8936; }
+        .status-ended { color: #e53e3e; }
+        .status-warning { color: #ed8936; font-weight: bold; }
+    </style>
+    
+    <!-- Error Handling and Health Check -->
+    <script>
+        // Add error boundary
+        window.addEventListener('error', function(e) {
+            console.error('Global error:', e.error);
+            // Show user-friendly error message
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.textContent = 'Connection error. Please refresh the page.';
+            document.body.appendChild(errorDiv);
+            
+            setTimeout(() => {
+                if (errorDiv.parentNode) {
+                    errorDiv.parentNode.removeChild(errorDiv);
+                }
+            }, 5000);
+        });
+
+        // Health check on page load
+        window.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 VEBLEN Task Tracker loaded successfully!');
+            
+            // Verify all required elements are present
+            const requiredElements = [
+                'employeeSelect', 'taskIntakeForm', 'dailyReportForm', 'assignedTasksList',
+                'timeClockStatus', 'toastContainer', 'startWorkBtn', 'breakBtn', 
+                'backToWorkBtn', 'endWorkBtn'
+            ];
+            
+            const missingElements = [];
+            requiredElements.forEach(id => {
+                if (!document.getElementById(id)) {
+                    missingElements.push(id);
+                }
+            });
+            
+            if (missingElements.length > 0) {
+                console.error('⚠️ Missing required elements:', missingElements);
+            } else {
+                console.log('✅ All required elements found!');
+            }
+        });
+    </script>
+</body>
+</html>
