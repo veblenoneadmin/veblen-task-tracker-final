@@ -2492,7 +2492,701 @@ section h2 {
         margin-bottom: var(--spacing-xl);
     }
 }
+/* VEBLEN Task & Time Tracker - Enhanced with Brisbane Clock & Workflow Controls */
 
+/* Import base styles (your existing CSS would go here) */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
+
+/* ============================================
+   BRISBANE CLOCK SECTION - NEW
+   ============================================ */
+
+.brisbane-clock-section {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 2px solid rgba(102, 126, 234, 0.3);
+    border-radius: var(--radius-xl);
+    padding: var(--spacing-xl);
+    margin: var(--spacing-xl) 0;
+    box-shadow: 0 0 40px rgba(102, 126, 234, 0.2);
+    position: relative;
+    overflow: hidden;
+    animation: clockPulse 4s ease-in-out infinite;
+}
+
+@keyframes clockPulse {
+    0%, 100% { 
+        box-shadow: 0 0 40px rgba(102, 126, 234, 0.2);
+        transform: scale(1);
+    }
+    50% { 
+        box-shadow: 0 0 60px rgba(102, 126, 234, 0.4);
+        transform: scale(1.01);
+    }
+}
+
+.brisbane-clock-section::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(102, 126, 234, 0.1) 0%, transparent 70%);
+    animation: rotate 20s linear infinite;
+}
+
+@keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.brisbane-clock-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: var(--spacing-xl);
+    align-items: center;
+    position: relative;
+    z-index: 1;
+}
+
+/* Local Time Display */
+.local-time-display {
+    text-align: center;
+    padding: var(--spacing-lg);
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Current Brisbane Time Display */
+.brisbane-time-display {
+    text-align: center;
+    padding: var(--spacing-lg);
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.time-zone-label {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: var(--spacing-sm);
+}
+
+.current-time {
+    font-size: 2.5rem;
+    font-weight: 700;
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-family: 'Courier New', monospace;
+    font-variant-numeric: tabular-nums;
+    filter: drop-shadow(0 4px 8px rgba(102, 126, 234, 0.4));
+    margin-bottom: var(--spacing-sm);
+    animation: timeGlow 2s ease-in-out infinite;
+}
+
+.local-time {
+    background: var(--success-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 4px 8px rgba(72, 187, 120, 0.4));
+}
+
+@keyframes timeGlow {
+    0%, 100% { filter: drop-shadow(0 4px 8px rgba(102, 126, 234, 0.4)); }
+    50% { filter: drop-shadow(0 6px 12px rgba(102, 126, 234, 0.6)); }
+}
+
+.current-date {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+/* Shift Reset Display */
+.shift-reset-display {
+    text-align: center;
+    padding: var(--spacing-lg);
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.reset-label {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: var(--spacing-sm);
+}
+
+.reset-countdown {
+    font-size: 2rem;
+    font-weight: 700;
+    background: var(--warning-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-family: 'Courier New', monospace;
+    font-variant-numeric: tabular-nums;
+    filter: drop-shadow(0 4px 8px rgba(250, 112, 154, 0.4));
+    margin-bottom: var(--spacing-sm);
+}
+
+.reset-time {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+    margin-bottom: var(--spacing-sm);
+}
+
+.work-start-notice {
+    font-size: 0.75rem;
+    color: #f6ad55;
+    font-weight: 600;
+    background: rgba(246, 173, 85, 0.1);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(246, 173, 85, 0.3);
+    margin-top: var(--spacing-sm);
+}
+
+/* ============================================
+   WORKFLOW BUTTON STATES - NEW
+   ============================================ */
+
+.btn-disabled {
+    opacity: 0.4 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+    box-shadow: none !important;
+    background: var(--surface-elevated) !important;
+    color: var(--text-muted) !important;
+    border: 1px solid var(--border) !important;
+    filter: grayscale(0.8);
+    position: relative;
+}
+
+.btn-disabled::before {
+    display: none !important;
+}
+
+.btn-disabled::after {
+    content: '🚫';
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    transform: translateY(-50%);
+    font-size: 0.75rem;
+    opacity: 0.6;
+}
+
+.btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+    background: var(--surface-elevated);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    filter: grayscale(0.8);
+}
+
+.btn:disabled:hover {
+    transform: none;
+    box-shadow: none;
+    background: var(--surface-elevated);
+}
+
+/* Enhanced Button States for Workflow */
+.btn-primary:not(.btn-disabled):not(:disabled) {
+    background: var(--primary-gradient);
+    color: white;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.btn-success:not(.btn-disabled):not(:disabled) {
+    background: var(--success-gradient);
+    color: white;
+    box-shadow: 0 4px 15px rgba(79, 172, 254, 0.3);
+}
+
+.btn-warning:not(.btn-disabled):not(:disabled) {
+    background: var(--warning-gradient);
+    color: white;
+    box-shadow: 0 4px 15px rgba(250, 112, 154, 0.3);
+}
+
+.btn-danger:not(.btn-disabled):not(:disabled) {
+    background: var(--danger-gradient);
+    color: white;
+    box-shadow: 0 4px 15px rgba(244, 59, 71, 0.3);
+}
+
+.btn-info:not(.btn-disabled):not(:disabled) {
+    background: linear-gradient(135deg, #89f7fe 0%, #66a6ff 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(137, 247, 254, 0.3);
+}
+
+/* Workflow Status Indicators */
+.status-ready {
+    color: #48bb78;
+    font-weight: 600;
+}
+
+.status-working {
+    color: #48bb78;
+    font-weight: 600;
+}
+
+.status-break {
+    color: #f6ad55;
+    font-weight: 600;
+}
+
+.status-ended {
+    color: #fc8181;
+    font-weight: 600;
+}
+
+/* Enhanced Time Clock Status */
+.time-clock-status {
+    text-align: center;
+    padding: var(--spacing-lg);
+    background: var(--surface);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+    font-weight: 500;
+    position: relative;
+    overflow: hidden;
+}
+
+.time-clock-status::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--primary-gradient);
+    opacity: 0.3;
+}
+
+/* ============================================
+   RESPONSIVE DESIGN FOR BRISBANE CLOCK
+   ============================================ */
+
+@media (max-width: 768px) {
+    .brisbane-clock-container {
+        grid-template-columns: 1fr;
+        gap: var(--spacing-lg);
+    }
+    
+    .current-time {
+        font-size: 2rem;
+    }
+    
+    .reset-countdown {
+        font-size: 1.5rem;
+    }
+    
+    .brisbane-clock-section {
+        padding: var(--spacing-lg);
+        margin: var(--spacing-lg) 0;
+    }
+}
+
+@media (max-width: 480px) {
+    .current-time {
+        font-size: 1.5rem;
+    }
+    
+    .reset-countdown {
+        font-size: 1.25rem;
+    }
+    
+    .time-zone-label,
+    .reset-label {
+        font-size: 0.75rem;
+    }
+    
+    .current-date,
+    .reset-time {
+        font-size: 0.75rem;
+    }
+    
+    .work-start-notice {
+        font-size: 0.625rem;
+    }
+}
+
+/* ============================================
+   ENHANCED WORKFLOW VISUAL FEEDBACK
+   ============================================ */
+
+/* Workflow State Visual Indicators */
+.workflow-state-indicator {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-full);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    z-index: 1000;
+    box-shadow: var(--shadow-md);
+    transition: all 0.3s ease;
+}
+
+.workflow-state-not-started {
+    background: linear-gradient(135deg, rgba(113, 128, 150, 0.2) 0%, rgba(74, 85, 104, 0.2) 100%);
+    color: #a0aec0;
+    border-color: rgba(113, 128, 150, 0.3);
+}
+
+.workflow-state-working {
+    background: linear-gradient(135deg, rgba(72, 187, 120, 0.2) 0%, rgba(56, 161, 105, 0.2) 100%);
+    color: #48bb78;
+    border-color: rgba(72, 187, 120, 0.3);
+    animation: workingPulse 2s ease-in-out infinite;
+}
+
+@keyframes workingPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+.workflow-state-break {
+    background: linear-gradient(135deg, rgba(246, 173, 85, 0.2) 0%, rgba(237, 137, 54, 0.2) 100%);
+    color: #f6ad55;
+    border-color: rgba(246, 173, 85, 0.3);
+}
+
+.workflow-state-finished {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(90, 103, 216, 0.2) 100%);
+    color: #7c8aef;
+    border-color: rgba(102, 126, 234, 0.3);
+}
+
+/* Time Clock Buttons - Enhanced Visual States */
+.time-clock-buttons {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+    position: relative;
+}
+
+.time-clock-buttons::before {
+    content: '';
+    position: absolute;
+    top: -10px;
+    left: -10px;
+    right: -10px;
+    bottom: -10px;
+    background: linear-gradient(45deg, transparent, rgba(102, 126, 234, 0.1), transparent);
+    border-radius: var(--radius-lg);
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.time-clock-buttons:hover::before {
+    opacity: 1;
+}
+
+.time-clock-buttons .btn {
+    padding: var(--spacing-lg);
+    font-size: 0.875rem;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+/* Button Available State */
+.time-clock-buttons .btn:not(.btn-disabled):not(:disabled) {
+    transform: scale(1);
+    animation: buttonAvailable 3s ease-in-out infinite;
+}
+
+@keyframes buttonAvailable {
+    0%, 100% { box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3); }
+    50% { box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5); }
+}
+
+/* Button Disabled State Enhancement */
+.time-clock-buttons .btn.btn-disabled,
+.time-clock-buttons .btn:disabled {
+    transform: scale(0.95);
+    filter: grayscale(1) blur(0.5px);
+}
+
+/* Active Task Display Enhancement */
+.active-task-section {
+    transition: all 0.5s ease;
+}
+
+.active-task-section.hidden {
+    opacity: 0;
+    transform: translateY(-20px);
+    max-height: 0;
+    overflow: hidden;
+}
+
+.active-task-section:not(.hidden) {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 1000px;
+}
+
+/* ============================================
+   ENHANCED MODAL STYLES FOR TASK SELECTION
+   ============================================ */
+
+.task-selection-modal-header {
+    background: var(--dark-gradient);
+    border-bottom: 2px solid var(--primary-color);
+}
+
+.task-selection-modal-body {
+    background: var(--surface);
+}
+
+.task-selection-item {
+    transition: all 0.3s ease;
+    position: relative;
+    cursor: pointer;
+}
+
+.task-selection-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--primary-gradient);
+    opacity: 0;
+    border-radius: var(--radius-lg);
+    transition: opacity 0.3s ease;
+    z-index: -1;
+}
+
+.task-selection-item:hover::before {
+    opacity: 0.1;
+}
+
+.task-selection-item.selected::before {
+    opacity: 0.2;
+}
+
+.task-selection-item.selected {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 20px rgba(102, 126, 234, 0.4);
+    transform: scale(1.02);
+}
+
+/* ============================================
+   ACCESSIBILITY ENHANCEMENTS
+   ============================================ */
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+    .btn-disabled {
+        background: #333333 !important;
+        color: #999999 !important;
+        border: 2px solid #666666 !important;
+    }
+    
+    .current-time,
+    .reset-countdown {
+        filter: none;
+        color: white;
+        text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+    }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+    .brisbane-clock-section,
+    .current-time,
+    .btn:not(.btn-disabled):not(:disabled) {
+        animation: none !important;
+    }
+    
+    .task-selection-item,
+    .active-task-section,
+    .time-clock-buttons .btn {
+        transition: none !important;
+    }
+    
+    .brisbane-clock-section::before {
+        animation: none !important;
+    }
+}
+
+/* Focus States for Keyboard Navigation */
+.btn:focus-visible {
+    outline: 3px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+.task-selection-item:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+/* ============================================
+   UTILITY CLASSES FOR WORKFLOW STATES
+   ============================================ */
+
+.workflow-disabled {
+    pointer-events: none;
+    opacity: 0.5;
+    filter: grayscale(0.8);
+}
+
+.workflow-available {
+    pointer-events: all;
+    opacity: 1;
+    filter: none;
+}
+
+.shift-ended {
+    position: relative;
+}
+
+.shift-ended::after {
+    content: 'Shift Ended - Resume Tomorrow at 9:00 AM Brisbane Time';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: var(--spacing-lg);
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    text-align: center;
+    z-index: 1000;
+    box-shadow: var(--shadow-xl);
+    border: 2px solid var(--primary-color);
+}
+
+/* Loading State for Brisbane Clock */
+.brisbane-clock-loading {
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+}
+
+/* ============================================
+   ENHANCED TOOLTIPS FOR DISABLED BUTTONS
+   ============================================ */
+
+.btn-disabled[data-tooltip] {
+    position: relative;
+}
+
+.btn-disabled[data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 120%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--radius-md);
+    font-size: 0.75rem;
+    white-space: nowrap;
+    z-index: 1000;
+    box-shadow: var(--shadow-lg);
+    animation: fadeInTooltip 0.3s ease;
+}
+
+.btn-disabled[data-tooltip]:hover::before {
+    content: '';
+    position: absolute;
+    bottom: 110%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: rgba(0, 0, 0, 0.9);
+    z-index: 1000;
+}
+
+@keyframes fadeInTooltip {
+    from { opacity: 0; transform: translateX(-50%) translateY(5px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* ============================================
+   STATUS INDICATORS
+   ============================================ */
+
+.shift-status-badge {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: var(--spacing-md);
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-lg);
+    font-size: 0.875rem;
+    font-weight: 600;
+    z-index: 1000;
+    box-shadow: var(--shadow-lg);
+    transition: all 0.3s ease;
+}
+
+.shift-status-badge.working {
+    border-color: #48bb78;
+    background: linear-gradient(135deg, rgba(72, 187, 120, 0.1) 0%, rgba(56, 161, 105, 0.1) 100%);
+    color: #48bb78;
+}
+
+.shift-status-badge.break {
+    border-color: #f6ad55;
+    background: linear-gradient(135deg, rgba(246, 173, 85, 0.1) 0%, rgba(237, 137, 54, 0.1) 100%);
+    color: #f6ad55;
+}
+
+.shift-status-badge.finished {
+    border-color: #fc8181;
+    background: linear-gradient(135deg, rgba(252, 129, 129, 0.1) 0%, rgba(245, 101, 101, 0.1) 100%);
+    color: #fc8181;
+}
+
+.shift-status-badge.not-started {
+    border-color: #a0aec0;
+    background: linear-gradient(135deg, rgba(160, 174, 192, 0.1) 0%, rgba(113, 128, 150, 0.1) 100%);
+    color: #a0aec0;
+}
+
+/* Hide badge on mobile to save space */
+@media (max-width: 768px) {
+    .shift-status-badge {
+        display: none;
+    }
+}
 /* ============================================
    END OF STYLESHEET
    ============================================ */
