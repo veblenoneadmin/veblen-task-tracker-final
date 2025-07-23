@@ -1,19 +1,11 @@
-// ========================
-// VEBLEN TIME TRACKER - COMPLETE SCRIPT.JS 
-// Enhanced Version - All Functions Working + Discord (No Direct API)
-// ========================
-
-// Configuration
+// Configuration - ENHANCED VERSION
 const CONFIG = {
     taskIntakeUrl: 'https://primary-s0q-production.up.railway.app/webhook/taskintakewebhook',
     taskUpdateUrl: 'https://primary-s0q-production.up.railway.app/webhook/task-update',
     timeLoggerUrl: 'https://primary-s0q-production.up.railway.app/webhook/timelogging',
     reportLoggerUrl: 'https://primary-s0q-production.up.railway.app/webhook/reportlogging',
-    taskRetrievalUrl: 'https://primary-s0q-production.up.railway.app/webhook/get-tasks',
-    imgbbApiKey: 'cea3505ad10557ae320f0859761a3f2d',
-    
-    // Discord webhook URL for all notifications
-    discordWebhook: 'https://discord.com/api/webhooks/1389843173056184481/kxliD__W1GLWYIJJ6K9-wdagNyonsNSzIp3pPumD-m85WZyWKBF3_5v-yYietc9Ik7zC'
+    taskRetrievalUrl: 'https://primary-s0q-production.up.railway.app/webhook/get-tasks', // NEW: For fetching tasks
+    imgbbApiKey: '679bd601ac49c50cae877fb240620cfe'
 };
 
 // Progress attribute IDs for each company
@@ -35,28 +27,11 @@ let currentBreakSession = null;
 let dailyShiftData = null;
 
 // NEW: Task-specific tracking
-let activeTask = null;
-let taskTimeData = {};
-let availableTasks = [];
-let selectedTaskId = null;
-let availableTasksCache = [];
+let activeTask = null; // Currently selected task
+let taskTimeData = {}; // Track time per task
+let availableTasks = []; // Tasks available for selection
 
-// Auto-refresh variables
-let taskRefreshInterval = null;
-let lastTaskRefresh = 0;
-let isRefreshingTasks = false;
-const TASK_REFRESH_COOLDOWN = 20000; // 20 seconds
-
-// Time Zone Configuration
-const TIMEZONE_CONFIG = {
-    workStartTime: {
-        brisbane: { hour: 9, minute: 0, timezone: 'Australia/Brisbane' },
-        bali: { hour: 7, minute: 0, timezone: 'Asia/Makassar' }
-    }
-};
-
-// ============= INITIALIZATION =============
-
+// Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
     initializeApp();
 });
@@ -73,12 +48,12 @@ function initializeApp() {
     // Set up event listeners
     document.getElementById('employeeSelect').addEventListener('change', handleEmployeeChange);
     document.getElementById('taskIntakeForm').addEventListener('submit', handleTaskIntake);
-    document.getElementById('refreshTasksBtn').addEventListener('click', manualRefreshTasks);
+    document.getElementById('refreshTasksBtn').addEventListener('click', loadAssignedTasks);
     document.getElementById('dailyReportForm').addEventListener('submit', handleDailyReport);
     
-    // Time clock buttons - ENHANCED WITH STATE MANAGEMENT
+    // Time clock buttons - ENHANCED WITH TASK SELECTION
     document.getElementById('startWorkBtn').addEventListener('click', handleStartWork);
-    document.getElementById('breakBtn').addEventListener('click', handleBreak);
+    document.getElementById('breakBtn').addEventListener('click', () => handleTimeClock('☕ TAKE BREAK'));
     document.getElementById('backToWorkBtn').addEventListener('click', handleResumeWork);
     document.getElementById('endWorkBtn').addEventListener('click', handleEndWork);
 
@@ -88,21 +63,9 @@ function initializeApp() {
 
     // Set default date to today for report
     document.getElementById('reportDate').valueAsDate = new Date();
-    
-    // Initialize API method toggle
-    const useDirectAPIToggle = document.getElementById('useDirectAPI');
-    if (useDirectAPIToggle) {
-        useDirectAPIToggle.style.display = 'none'; // Hide since we removed Direct API
-    }
-    
-    // Initialize timezone display
-    setTimeout(() => {
-        createTimeZoneDisplay();
-    }, 1000);
 }
 
-// ============= EMPLOYEE MANAGEMENT =============
-
+// Handle employee selection
 function handleEmployeeChange(e) {
     currentEmployee = e.target.value;
     localStorage.setItem('selectedEmployee', currentEmployee);
@@ -114,1497 +77,177 @@ function handleEmployeeChange(e) {
     }
 }
 
+// Load employee-specific data - ENHANCED
 async function loadEmployeeData() {
     if (!currentEmployee) return;
     
+    // Load assigned tasks for task selection
     await loadAssignedTasks();
+    
+    // Load and restore work clock state
     await loadWorkClockState();
+    
+    // Load task time data
     loadTaskTimeData();
-    loadClockState(); // Load button states
 }
 
+// Clear employee data
 function clearEmployeeData() {
     document.getElementById('assignedTasksList').innerHTML = '<p class="loading">Select an employee to view assigned tasks...</p>';
     clearWorkClockState();
     availableTasks = [];
     taskTimeData = {};
-    currentClockState = CLOCK_STATES.NOT_STARTED; // Reset clock state
-    updateTimeClockButtons(); // Update button states
-    
-    const refreshBtn = document.getElementById('refreshTasksBtn');
-    if (refreshBtn) {
-        refreshBtn.disabled = false;
-        refreshBtn.textContent = '🔄 Refresh Tasks';
+}
+
+// ============= ENHANCED TIME CLOCK WITH TASK SELECTION =============
+
+// NEW: Handle start work with task selection
+async function handleStartWork() {
+    if (!currentEmployee) {
+        showToast('Please select an employee first', 'warning');
+        return;
     }
     
-    const activeTaskSection = document.getElementById('activeTaskSection');
-    if (activeTaskSection) {
-        activeTaskSection.style.display = 'none';
-    }
+    // Show task selection modal
+    await showTaskSelectionModal();
 }
 
-// ============= TIMEZONE FUNCTIONALITY =============
-
-function getUserTimezone() {
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    return timezone;
-}
-
-function getTimezoneAbbreviation() {
-    const date = new Date();
-    const timezone = getUserTimezone();
-    
-    const timezoneAbbreviations = {
-        'Australia/Brisbane': 'AEST',
-        'Australia/Sydney': 'AEDT',
-        'Australia/Melbourne': 'AEDT',
-        'Asia/Makassar': 'WITA',
-        'Asia/Manila': 'PHT',
-        'Asia/Jakarta': 'WIB',
-        'Asia/Singapore': 'SGT',
-        'America/New_York': 'EST',
-        'America/Los_Angeles': 'PST',
-        'Europe/London': 'GMT',
-        'Asia/Tokyo': 'JST'
-    };
-    
-    return timezoneAbbreviations[timezone] || 
-           date.toLocaleTimeString('en-US', { timeZoneName: 'short' }).split(' ').pop();
-}
-
-function isWithinWorkHours() {
-    const now = new Date();
-    const userTimezone = getUserTimezone();
-    
-    const brisbaneNow = new Date(now.toLocaleString('en-US', { timeZone: 'Australia/Brisbane' }));
-    const brisbaneHour = brisbaneNow.getHours();
-    const brisbaneMinutes = brisbaneNow.getMinutes();
-    
-    const isAfterWorkStart = brisbaneHour > 9 || (brisbaneHour === 9 && brisbaneMinutes >= 0);
-    
-    const baliTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Makassar' }));
-    const userTime = new Date(now.toLocaleString('en-US', { timeZone: userTimezone }));
-    const workStartLocal = getWorkStartTimeInUserTimezone();
-    
-    return {
-        allowed: isAfterWorkStart,
-        currentTimes: {
-            brisbane: brisbaneNow.toLocaleTimeString('en-US', { 
-                hour: '2-digit', 
-                minute: '2-digit',
-                hour12: true 
-            }),
-            bali: baliTime.toLocaleTimeString('en-US', { 
-                hour: '2-digit', 
-                minute: '2-digit',
-                hour12: true 
-            }),
-            user: userTime.toLocaleTimeString('en-US', { 
-                hour: '2-digit', 
-                minute: '2-digit',
-                hour12: true 
-            })
-        },
-        userTimezone: userTimezone,
-        userTimezoneAbbr: getTimezoneAbbreviation(),
-        workStartLocal: workStartLocal.formatted,
-        brisbaneHour: brisbaneHour,
-        brisbaneMinutes: brisbaneMinutes
-    };
-}
-
-function getWorkStartTimeInUserTimezone() {
-    const now = new Date();
-    const userTimezone = getUserTimezone();
-    
-    const brisbaneTime = new Date(now.toLocaleString('en-US', { timeZone: 'Australia/Brisbane' }));
-    brisbaneTime.setHours(9, 0, 0, 0);
-    
-    const userLocalTime = new Date(brisbaneTime.toLocaleString('en-US', { timeZone: userTimezone }));
-    
-    return {
-        hour: userLocalTime.getHours(),
-        minute: userLocalTime.getMinutes(),
-        formatted: userLocalTime.toLocaleTimeString('en-US', { 
-            hour: 'numeric', 
-            minute: '2-digit',
-            hour12: true 
-        })
-    };
-}
-
-function createTimeZoneDisplay() {
-    const existingDisplay = document.getElementById('timezoneDisplay');
-    if (existingDisplay) return;
-    
-    const display = document.createElement('div');
-    display.id = 'timezoneDisplay';
-    display.className = 'timezone-display';
-    
-    const header = document.querySelector('.header');
-    if (header) {
-        header.appendChild(display);
+// NEW: Show task selection modal
+async function showTaskSelectionModal() {
+    // Ensure we have tasks loaded
+    if (availableTasks.length === 0) {
+        showToast('Loading your tasks...', 'info');
+        await loadAssignedTasks();
     }
     
-    updateTimeZoneDisplay();
-    setInterval(updateTimeZoneDisplay, 60000);
+    if (availableTasks.length === 0) {
+        showToast('No tasks available. Create a task first!', 'warning');
+        return;
+    }
+    
+    // Create modal if it doesn't exist
+    if (!document.getElementById('taskSelectionModal')) {
+        createTaskSelectionModal();
+    }
+    
+    // Populate tasks
+    populateTaskSelection();
+    
+    // Show modal
+    document.getElementById('taskSelectionModal').style.display = 'block';
 }
 
-function updateTimeZoneDisplay() {
-    const display = document.getElementById('timezoneDisplay');
-    if (!display) return;
-    
-    const timeCheck = isWithinWorkHours();
-    
-    display.innerHTML = `
-        <div class="timezone-info">
-            <div class="timezone-grid">
-                <div class="timezone-item primary">
-                    <span class="timezone-label">📍 Your Time (${timeCheck.userTimezoneAbbr}):</span>
-                    <span class="timezone-time time-large">
-                        ${timeCheck.currentTimes.user}
-                    </span>
-                </div>
-                <div class="timezone-references">
-                    <div class="timezone-item">
-                        <span class="timezone-label">🇦🇺 Brisbane:</span>
-                        <span class="timezone-time ${timeCheck.brisbaneHour >= 9 ? 'time-active' : 'time-inactive'}">
-                            ${timeCheck.currentTimes.brisbane}
-                        </span>
-                    </div>
-                    <div class="timezone-item">
-                        <span class="timezone-label">🇮🇩 Bali/PH:</span>
-                        <span class="timezone-time">
-                            ${timeCheck.currentTimes.bali}
-                        </span>
-                    </div>
-                </div>
+// NEW: Create task selection modal
+function createTaskSelectionModal() {
+    const modalHTML = `
+    <div id="taskSelectionModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🎯 What are you working on?</h2>
+                <span class="close" onclick="closeTaskSelectionModal()">&times;</span>
             </div>
-            <div class="work-hours-status">
-                ${timeCheck.brisbaneHour >= 9 
-                    ? '<span class="status-warning">⚠️ Daily reset at 9 AM Brisbane - End work before then!</span>' 
-                    : `<span class="status-open">✅ Work anytime, but end before 9 AM Brisbane (${timeCheck.workStartLocal})</span>`}
+            
+            <div class="modal-body">
+                <p style="color: var(--text-secondary); margin-bottom: var(--spacing-lg);">
+                    Select a task to start tracking your time:
+                </p>
+                
+                <div id="taskSelectionList" class="task-selection-list">
+                    <!-- Tasks will be populated here -->
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeTaskSelectionModal()">
+                        Cancel
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="startWorkOnSelectedTask()" id="startSelectedTaskBtn" disabled>
+                        🟢 Start Working
+                    </button>
+                </div>
             </div>
         </div>
+    </div>
     `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
 }
 
-// ============= TASK MANAGEMENT =============
-
-async function loadAssignedTasks(forceRefresh = false) {
-    if (!currentEmployee) {
-        document.getElementById('assignedTasksList').innerHTML = '<p class="loading">Select an employee to view assigned tasks...</p>';
-        return;
-    }
+// NEW: Populate task selection
+function populateTaskSelection() {
+    const taskList = document.getElementById('taskSelectionList');
     
-    const now = Date.now();
-    const timeSinceLastRefresh = now - lastTaskRefresh;
-    
-    if (!forceRefresh && timeSinceLastRefresh < TASK_REFRESH_COOLDOWN) {
-        const remainingTime = Math.ceil((TASK_REFRESH_COOLDOWN - timeSinceLastRefresh) / 1000);
-        showToast(`⏳ Please wait ${remainingTime}s before refreshing tasks again`, 'warning');
-        return;
-    }
-    
-    if (isRefreshingTasks) {
-        showToast('🔄 Task refresh already in progress...', 'info');
-        return;
-    }
-    
-    isRefreshingTasks = true;
-    lastTaskRefresh = now;
-    
-    const refreshBtn = document.getElementById('refreshTasksBtn');
-    if (refreshBtn) {
-        refreshBtn.disabled = true;
-        refreshBtn.textContent = '🔄 Refreshing...';
-    }
-    
-    try {
-        const timestamp = new Date().toLocaleTimeString();
-        showToast(`Loading your tasks... (${timestamp})`, 'info');
-        
-        // Use n8n workflow for task retrieval
-        const response = await fetch(`/api/tasks/${encodeURIComponent(currentEmployee)}`, {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' }
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            console.log('📋 Task API Response:', data);
-            
-            if (data.success && data.data && data.data.tasks) {
-                availableTasks = data.data.tasks;
-                renderTasksList(data.data.tasks);
-                
-                const refreshTimestamp = new Date().toLocaleTimeString();
-                showToast(`✅ Loaded ${data.data.count} tasks (${refreshTimestamp})`, 'success');
-                
-                const activeTaskSection = document.getElementById('activeTaskSection');
-                if (activeTaskSection) {
-                    activeTaskSection.style.display = availableTasks.length > 0 ? 'block' : 'none';
-                }
-                return;
-            }
-        }
-        
-        throw new Error('Failed to load tasks from API');
-        
-    } catch (error) {
-        console.error('Error loading assigned tasks:', error);
-        showToast(`❌ Error loading tasks: ${error.message}`, 'error');
-        
-        availableTasks = [
-            {
-                id: 'SAMPLE_001',
-                name: '⚠️ Sample Task (Real tasks failed to load)',
-                company: 'VEBLEN (Internal)',
-                status: 'Current Project',
-                progress: 50,
-                assigned_to: currentEmployee,
-                source: 'fallback'
-            }
-        ];
-        renderTasksList(availableTasks);
-        
-    } finally {
-        isRefreshingTasks = false;
-        updateRefreshButtonState();
-    }
-}
-
-function renderTasksList(tasks) {
-    const tasksList = document.getElementById('assignedTasksList');
-    
-    if (tasks.length === 0) {
-        tasksList.innerHTML = '<p class="loading">No tasks assigned. Create a task to get started!</p>';
-        return;
-    }
-    
-    tasksList.innerHTML = tasks.map(task => `
-        <div class="task-card ${activeTask?.id === task.id ? 'active-task' : ''}">
-            <div class="task-card-header">
-                <h4>${task.name}</h4>
-                <span class="task-status ${getStatusClass(task.status)}">${task.status}</span>
+    if (availableTasks.length === 0) {
+        taskList.innerHTML = `
+            <div class="no-tasks-message">
+                <p>No tasks available</p>
+                <p style="color: var(--text-secondary); font-size: 0.875rem;">Create a task first to start tracking time</p>
             </div>
-            <p><strong>Company:</strong> ${task.company}</p>
-            <p><strong>Due Date:</strong> ${task.dueDate || 'Not set'}</p>
-            <p><strong>Description:</strong> ${task.description}</p>
-            
-            <div class="progress-section">
-                <div class="progress-header">
-                    <span class="progress-label">Progress</span>
-                    <span class="progress-value">${task.progress}%</span>
-                </div>
-                <div class="progress-bar-container">
-                    <div class="progress-bar" style="width: ${task.progress}%"></div>
-                </div>
-                <input type="range" 
-                       class="progress-slider" 
-                       min="0" 
-                       max="100" 
-                       value="${task.progress}"
-                       data-task-id="${task.id}"
-                       data-company="${task.company}"
-                       onchange="updateTaskProgress(this)">
+        `;
+        return;
+    }
+    
+    taskList.innerHTML = availableTasks.map(task => `
+        <div class="task-selection-item" onclick="selectTaskForWork('${task.id}')">
+            <div class="task-selection-header">
+                <div class="task-selection-title">${task.name}</div>
+                <div class="task-selection-company">${task.company}</div>
             </div>
-            
-            <div class="task-time-info">
-                <div class="time-stat">
-                    <span class="time-label">Today:</span>
-                    <span class="time-value">${getTaskTodayTime(task.id)}</span>
-                </div>
-                <div class="time-stat">
-                    <span class="time-label">Status:</span>
-                    <span class="time-value">${activeTask?.id === task.id ? '🟢 Active' : '⏸️ Inactive'}</span>
-                </div>
+            <div class="task-selection-meta">
+                <span class="task-selection-status ${getStatusClass(task.status)}">${task.status}</span>
+                <span class="task-selection-progress">${task.progress}%</span>
             </div>
-            
-            <div class="task-actions">
-                <button class="btn btn-secondary btn-sm" onclick="openTaskEditor('${task.id}')">
-                    ✏️ Edit Task
-                </button>
+            <div class="task-selection-time">
+                ⏱️ Today: ${getTaskTodayTime(task.id)}
             </div>
         </div>
     `).join('');
 }
 
-function manualRefreshTasks() {
-    loadAssignedTasks(false);
+// NEW: Select task for work
+function selectTaskForWork(taskId) {
+    // Remove previous selection
+    document.querySelectorAll('.task-selection-item').forEach(item => {
+        item.classList.remove('selected');
+    });
+    
+    // Add selection to clicked item
+    event.currentTarget.classList.add('selected');
+    
+    // Find and store selected task
+    activeTask = availableTasks.find(task => task.id === taskId);
+    
+    // Enable start button
+    document.getElementById('startSelectedTaskBtn').disabled = false;
+    
+    console.log('Selected task for work:', activeTask);
 }
 
-function updateRefreshButtonState() {
-    const refreshBtn = document.getElementById('refreshTasksBtn');
-    if (!refreshBtn) return;
-    
-    const now = Date.now();
-    const timeSinceLastRefresh = now - lastTaskRefresh;
-    const remainingCooldown = TASK_REFRESH_COOLDOWN - timeSinceLastRefresh;
-    
-    if (remainingCooldown > 0) {
-        const secondsLeft = Math.ceil(remainingCooldown / 1000);
-        refreshBtn.disabled = true;
-        refreshBtn.textContent = `🔄 Refresh (${secondsLeft}s)`;
-        
-        const countdownInterval = setInterval(() => {
-            const newNow = Date.now();
-            const newRemaining = TASK_REFRESH_COOLDOWN - (newNow - lastTaskRefresh);
-            const newSecondsLeft = Math.ceil(newRemaining / 1000);
-            
-            if (newSecondsLeft <= 0) {
-                refreshBtn.disabled = false;
-                refreshBtn.textContent = '🔄 Refresh Tasks';
-                clearInterval(countdownInterval);
-            } else {
-                refreshBtn.textContent = `🔄 Refresh (${newSecondsLeft}s)`;
-            }
-        }, 1000);
-    } else {
-        refreshBtn.disabled = false;
-        refreshBtn.textContent = '🔄 Refresh Tasks';
-    }
-}
-
-async function switchToTask(taskId) {
-    const task = availableTasks.find(t => t.id === taskId);
-    if (!task) return;
-    
-    if (activeTask && taskTimeData[activeTask.id]?.currentSession) {
-        finalizeCurrentTaskSession();
+// NEW: Start work on selected task
+async function startWorkOnSelectedTask() {
+    if (!activeTask) {
+        showToast('Please select a task first', 'warning');
+        return;
     }
     
-    activeTask = task;
+    // Close modal
+    closeTaskSelectionModal();
+    
+    // Start the actual time tracking
+    await handleTimeClock('🟢 START WORK');
+    
+    // Initialize task time tracking
     initializeTaskTimeTracking();
-    await loadAssignedTasks();
-    updateActiveTaskDisplay();
     
-    showToast(`Switched to: ${task.name}`, 'success');
+    showToast(`Started working on: ${activeTask.name}`, 'success');
 }
 
-async function updateTaskProgress(slider) {
-    const progress = parseInt(slider.value);
-    const taskId = slider.dataset.taskId;
-    const company = slider.dataset.company;
-    
-    const card = slider.closest('.task-card');
-    const progressBar = card.querySelector('.progress-bar');
-    const progressValue = card.querySelector('.progress-value');
-    
-    progressBar.style.width = `${progress}%`;
-    progressValue.textContent = `${progress}%`;
-    
-    let newStatus = null;
-    if (progress === 0) {
-        newStatus = "Project";
-    } else if (progress >= 10 && progress < 100) {
-        newStatus = "Current Project";
-    } else if (progress === 100) {
-        newStatus = "Project Finished";
-    }
-    
-    // Get current task data for Discord notification
-    const currentTask = availableTasks.find(t => t.id === taskId);
-    const oldProgress = currentTask?.progress;
-    
-    try {
-        // Use n8n workflow for progress updates
-        const response = await fetch(CONFIG.taskUpdateUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'update_progress',
-                task_id: taskId,
-                company: company,
-                progress: progress,
-                status: newStatus,
-                employee: currentEmployee,
-                timestamp: new Date().toISOString()
-            })
-        });
-
-        if (response.ok) {
-            showToast(`Progress updated to ${progress}%`, 'success');
-            
-            if (newStatus) {
-                const statusElement = card.querySelector('.task-status');
-                statusElement.textContent = newStatus;
-                statusElement.className = `task-status ${getStatusClass(newStatus)}`;
-            }
-            
-            // Send Discord notification
-            if (currentTask) {
-                const action = progress >= 100 ? 'task_completed' : 'task_updated';
-                await sendDiscordNotification(company, action, currentTask, {
-                    employee: currentEmployee,
-                    progress: progress,
-                    oldProgress: oldProgress,
-                    status: newStatus
-                });
-            }
-        } else {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-    } catch (error) {
-        console.error('Error updating progress:', error);
-        showToast('Error updating progress', 'error');
-        
-        slider.value = slider.defaultValue || 50;
-        progressBar.style.width = `${slider.value}%`;
-        progressValue.textContent = `${slider.value}%`;
-    }
-}
-
-// ============= FORM VALIDATION =============
-
-function validateTaskIntakeForm() {
-    const errors = [];
-    
-    if (!document.getElementById('taskCompany').value) {
-        errors.push('Company is required');
-    }
-    
-    if (!document.getElementById('taskTitle').value.trim()) {
-        errors.push('Project Title is required');
-    }
-    
-    if (!document.getElementById('taskDescription').value.trim()) {
-        errors.push('Description is required');
-    }
-    
-    const assignedSelect = document.getElementById('taskAssigned');
-    if (assignedSelect.selectedOptions.length === 0) {
-        errors.push('At least one person must be assigned');
-    }
-    
-    const prioritySelect = document.getElementById('taskPriority');
-    if (prioritySelect && !prioritySelect.value) {
-        errors.push('Priority is required');
-    }
-    
-    const dueDateInput = document.getElementById('taskDueDate');
-    if (dueDateInput && !dueDateInput.value) {
-        errors.push('Due Date is required');
-    }
-    
-    if (errors.length > 0) {
-        showToast(`Please fix the following errors:\n${errors.join('\n')}`, 'error');
-        return false;
-    }
-    
-    return true;
-}
-
-function validateDailyReportForm() {
-    const errors = [];
-    
-    if (!document.getElementById('reportPhoto').files[0]) {
-        errors.push('Photo is required');
-    }
-    
-    if (!document.getElementById('reportCompany').value) {
-        errors.push('Company is required');
-    }
-    
-    if (!document.getElementById('reportDate').value) {
-        errors.push('Date is required');
-    }
-    
-    if (!document.getElementById('projectName').value.trim()) {
-        errors.push('Project Name is required');
-    }
-    
-    if (!document.getElementById('numRevisions').value) {
-        errors.push('Number of Revisions is required');
-    }
-    
-    if (!document.getElementById('totalTimeSpent').value.trim()) {
-        errors.push('Total Time Spent on Project is required');
-    }
-    
-    if (!document.getElementById('reportNotes').value.trim()) {
-        errors.push('Notes is required');
-    }
-    
-    if (errors.length > 0) {
-        showToast(`Please fix the following errors:\n${errors.join('\n')}`, 'error');
-        return false;
-    }
-    
-    return true;
-}
-
-// ============= ENHANCED TASK INTAKE (WITH DISCORD) =============
-
-async function handleTaskIntake(e) {
-    e.preventDefault();
-    
-    if (!currentEmployee) {
-        showToast('Please select an employee first', 'warning');
-        return;
-    }
-
-    if (!validateTaskIntakeForm()) {
-        return;
-    }
-
-    try {
-        showToast('Creating task...', 'info');
-
-        const formData = {
-            'Name': currentEmployee,
-            'Company': document.getElementById('taskCompany').value,
-            'Is this project a priority?': document.getElementById('taskPriority').value,
-            'Project Title': document.getElementById('taskTitle').value.trim(),
-            'Description': document.getElementById('taskDescription').value.trim(),
-            'Due Date': document.getElementById('taskDueDate').value,
-            'Links': document.getElementById('taskLinks').value.trim()
-        };
-
-        const assignedSelect = document.getElementById('taskAssigned');
-        const assignedUsers = Array.from(assignedSelect.selectedOptions).map(option => option.value);
-        formData['Assigned'] = assignedUsers.join('||');
-
-        const imageFile = document.getElementById('taskImage').files[0];
-        
-        if (imageFile) {
-            console.log('📎 Uploading image to ImgBB:', imageFile.name, `(${(imageFile.size / 1024 / 1024).toFixed(2)} MB)`);
-            
-            const imageUrl = await uploadToImgBB(imageFile);
-            
-            if (!imageUrl) {
-                showToast('❌ Failed to upload image. Please try again.', 'error');
-                return;
-            }
-            
-            formData['Image_URL'] = imageUrl;
-            console.log('✅ Image uploaded successfully:', imageUrl);
-        }
-
-        console.log('📝 Task Intake Data:', formData);
-
-        const response = await fetch(CONFIG.taskIntakeUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(formData)
-        });
-
-        const responseText = await response.text();
-        console.log('📥 Response:', response.status, responseText);
-
-        if (response.ok) {
-            showToast('✅ Task created successfully!', 'success');
-            
-            // Send Discord notification
-            await sendDiscordNotification(formData.Company, 'task_created', formData, {
-                employee: currentEmployee
-            });
-            
-            resetTaskIntakeForm();
-            showTaskCreationSuccess(formData, !!imageFile);
-            
-            setTimeout(() => {
-                loadAssignedTasks();
-            }, 2000);
-            
-        } else {
-            throw new Error(`HTTP error! status: ${response.status} - ${responseText}`);
-        }
-
-    } catch (error) {
-        console.error('❌ Task creation error:', error);
-        showToast(`Failed to create task: ${error.message}`, 'error');
-    }
-}
-
-function showTaskCreationSuccess(taskData, hasImage) {
-    const message = `
-🎉 Task Created Successfully!
-
-📋 Title: ${taskData['Project Title']}
-🏢 Company: ${taskData['Company']}
-👥 Assigned: ${taskData['Assigned'].replace(/\|\|/g, ', ')}
-📅 Due: ${taskData['Due Date'] || 'No due date'}
-${taskData['Is this project a priority?'] === 'Yes' ? '⭐ Priority Task' : '🟢 Regular Task'}
-${hasImage ? '📎 Image uploaded and attached to StartInfinity' : '📄 Text-only task'}
-
-🔔 Check Discord for task IDs and image preview!
-    `;
-    
-    setTimeout(() => {
-        showToast(message, 'success');
-    }, 1000);
-}
-
-function resetTaskIntakeForm() {
-    document.getElementById('taskIntakeForm').reset();
-    document.getElementById('taskImagePreview').innerHTML = '';
-    
-    const employeeSelect = document.getElementById('employeeSelect');
-    if (employeeSelect.value) {
-        showToast('Form cleared. You can create another task.', 'info');
-    }
-}
-
-function handleTaskImagePreview(e) {
-    const file = e.target.files[0];
-    const preview = document.getElementById('taskImagePreview');
-    
-    if (!file) {
-        preview.innerHTML = '';
-        return;
-    }
-
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/mp4', 'video/webm', 'video/ogg'];
-    if (!allowedTypes.includes(file.type)) {
-        showToast('Please upload a valid image or video file', 'error');
-        e.target.value = '';
-        preview.innerHTML = '';
-        return;
-    }
-
-    if (file.size > 50 * 1024 * 1024) {
-        showToast('File size must be less than 50MB', 'error');
-        e.target.value = '';
-        preview.innerHTML = '';
-        return;
-    }
-    
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const isVideo = file.type.startsWith('video/');
-        const element = isVideo 
-            ? `<video controls style="max-width: 200px; max-height: 200px; margin-top: 10px; border-radius: var(--radius-md); border: 2px solid var(--border-color);"><source src="${e.target.result}" type="${file.type}">Your browser does not support video.</video>`
-            : `<img src="${e.target.result}" style="max-width: 200px; max-height: 200px; margin-top: 10px; border-radius: var(--radius-md); border: 2px solid var(--border-color);">`;
-            
-        preview.innerHTML = `
-            ${element}
-            <p style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.5rem;">
-                📎 ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB) - Ready to upload
-            </p>
-        `;
-    };
-    reader.readAsDataURL(file);
-}
-
-// ============= TIME CLOCK STATE MANAGEMENT =============
-// 🔐 TIME CLOCK WORKFLOW CONTROLS:
-// 📊 Clock States:
-// * NOT_STARTED - Initial state, only START WORK available
-// * WORKING - Can take BREAK or END WORK
-// * ON_BREAK - Can only BACK TO WORK
-// * FINISHED - All buttons disabled (day over)
-
-function updateTimeClockButtons() {
-    const startBtn = document.getElementById('startWorkBtn');
-    const breakBtn = document.getElementById('breakBtn');
-    const backToWorkBtn = document.getElementById('backToWorkBtn');
-    const endWorkBtn = document.getElementById('endWorkBtn');
-    
-    // Reset all buttons first - remove all state classes
-    [startBtn, breakBtn, backToWorkBtn, endWorkBtn].forEach(btn => {
-        if (btn) {
-            btn.disabled = false;
-            btn.classList.remove('btn-disabled', 'btn-active');
-            btn.style.cursor = 'pointer';
-            btn.style.opacity = '1';
-        }
-    });
-    
-    // 🚫 Button Restrictions based on current state:
-    switch (currentClockState) {
-        case CLOCK_STATES.NOT_STARTED:
-            // When NOT_STARTED:
-            // ✅ START WORK - Enabled
-            // ❌ BREAK - Disabled (can't break without starting)
-            // ❌ BACK TO WORK - Disabled (not on break)
-            // ❌ END WORK - Disabled (haven't started)
-            if (startBtn) startBtn.classList.add('btn-active');
-            
-            if (breakBtn) { 
-                breakBtn.disabled = true; 
-                breakBtn.classList.add('btn-disabled');
-                breakBtn.style.cursor = 'not-allowed';
-                breakBtn.style.opacity = '0.5';
-                breakBtn.title = "Can't break without starting work first";
-            }
-            if (backToWorkBtn) { 
-                backToWorkBtn.disabled = true; 
-                backToWorkBtn.classList.add('btn-disabled');
-                backToWorkBtn.style.cursor = 'not-allowed';
-                backToWorkBtn.style.opacity = '0.5';
-                backToWorkBtn.title = "Not currently on break";
-            }
-            if (endWorkBtn) { 
-                endWorkBtn.disabled = true; 
-                endWorkBtn.classList.add('btn-disabled');
-                endWorkBtn.style.cursor = 'not-allowed';
-                endWorkBtn.style.opacity = '0.5';
-                endWorkBtn.title = "Haven't started work yet";
-            }
-            break;
-            
-        case CLOCK_STATES.WORKING:
-            // When WORKING:
-            // ❌ START WORK - Disabled (already started)
-            // ✅ BREAK - Enabled
-            // ❌ BACK TO WORK - Disabled (not on break)
-            // ✅ END WORK - Enabled
-            if (breakBtn) breakBtn.classList.add('btn-active');
-            if (endWorkBtn) endWorkBtn.classList.add('btn-active');
-            
-            if (startBtn) { 
-                startBtn.disabled = true; 
-                startBtn.classList.add('btn-disabled');
-                startBtn.style.cursor = 'not-allowed';
-                startBtn.style.opacity = '0.5';
-                startBtn.title = "Work already started";
-            }
-            if (backToWorkBtn) { 
-                backToWorkBtn.disabled = true; 
-                backToWorkBtn.classList.add('btn-disabled');
-                backToWorkBtn.style.cursor = 'not-allowed';
-                backToWorkBtn.style.opacity = '0.5';
-                backToWorkBtn.title = "Not currently on break";
-            }
-            break;
-            
-        case CLOCK_STATES.ON_BREAK:
-            // When ON_BREAK:
-            // ❌ START WORK - Disabled (already started)
-            // ❌ BREAK - Disabled (already on break)
-            // ✅ BACK TO WORK - Enabled (only option)
-            // ❌ END WORK - Disabled (must return to work first)
-            if (backToWorkBtn) backToWorkBtn.classList.add('btn-active');
-            
-            if (startBtn) { 
-                startBtn.disabled = true; 
-                startBtn.classList.add('btn-disabled');
-                startBtn.style.cursor = 'not-allowed';
-                startBtn.style.opacity = '0.5';
-                startBtn.title = "Work already started";
-            }
-            if (breakBtn) { 
-                breakBtn.disabled = true; 
-                breakBtn.classList.add('btn-disabled');
-                breakBtn.style.cursor = 'not-allowed';
-                breakBtn.style.opacity = '0.5';
-                breakBtn.title = "Already on break";
-            }
-            if (endWorkBtn) { 
-                endWorkBtn.disabled = true; 
-                endWorkBtn.classList.add('btn-disabled');
-                endWorkBtn.style.cursor = 'not-allowed';
-                endWorkBtn.style.opacity = '0.5';
-                endWorkBtn.title = "Must return to work before ending day";
-            }
-            break;
-            
-        case CLOCK_STATES.FINISHED:
-            // When FINISHED:
-            // ❌ ALL BUTTONS - Disabled (day over)
-            [startBtn, breakBtn, backToWorkBtn, endWorkBtn].forEach(btn => {
-                if (btn) { 
-                    btn.disabled = true; 
-                    btn.classList.add('btn-disabled');
-                    btn.style.cursor = 'not-allowed';
-                    btn.style.opacity = '0.5';
-                    btn.title = "Work day finished - see you tomorrow!";
-                }
-            });
-            break;
-    }
-    
-    console.log(`🔄 Clock state updated to: ${currentClockState}`);
-    console.log(`📊 Button states - START: ${!startBtn?.disabled}, BREAK: ${!breakBtn?.disabled}, BACK: ${!backToWorkBtn?.disabled}, END: ${!endWorkBtn?.disabled}`);
-}
-
-// 💾 STATE PERSISTENCE:
-// Save clock state to localStorage with employee-specific keys
-function saveClockState() {
-    if (!currentEmployee) return;
-    
-    const clockStateKey = `clockState_${currentEmployee}`;
-    const stateData = {
-        state: currentClockState,
-        timestamp: new Date().toISOString(),
-        employee: currentEmployee,
-        sessionInfo: {
-            workStartTime: currentWorkSession?.startTime?.toISOString() || null,
-            breakStartTime: currentBreakSession?.startTime?.toISOString() || null,
-            dailyData: dailyShiftData
-        }
-    };
-    
-    localStorage.setItem(clockStateKey, JSON.stringify(stateData));
-    console.log(`💾 Saved state for ${currentEmployee}:`, currentClockState);
-}
-
-// Load clock state from localStorage with daily reset functionality
-function loadClockState() {
-    if (!currentEmployee) return;
-    
-    const clockStateKey = `clockState_${currentEmployee}`;
-    const saved = localStorage.getItem(clockStateKey);
-    
-    if (saved) {
-        try {
-            const stateData = JSON.parse(saved);
-            const today = new Date().toDateString();
-            const stateDate = new Date(stateData.timestamp).toDateString();
-            
-            // 🔄 STATE MANAGEMENT FLOW:
-            // Only restore state if it's from today (Daily reset)
-            if (stateDate === today) {
-                currentClockState = stateData.state;
-                console.log(`📂 Restored clock state for ${currentEmployee}: ${currentClockState}`);
-                
-                // Restore session data if available
-                if (stateData.sessionInfo?.dailyData) {
-                    dailyShiftData = stateData.sessionInfo.dailyData;
-                }
-                
-                // Show appropriate status message
-                showStatusMessage(`📱 Restored session from earlier today`, 'info');
-            } else {
-                // Reset to NOT_STARTED for new day
-                currentClockState = CLOCK_STATES.NOT_STARTED;
-                console.log('🌅 New day detected, reset clock state to NOT_STARTED');
-                showStatusMessage(`🌅 New day started! Ready to begin work.`, 'success');
-                
-                // Clear old state
-                localStorage.removeItem(clockStateKey);
-            }
-        } catch (error) {
-            console.error('❌ Error loading clock state:', error);
-            currentClockState = CLOCK_STATES.NOT_STARTED;
-            showStatusMessage(`⚠️ Session recovery failed, starting fresh`, 'warning');
-            
-            // Clear corrupted state
-            localStorage.removeItem(clockStateKey);
-        }
-    } else {
-        currentClockState = CLOCK_STATES.NOT_STARTED;
-        console.log(`🆕 No saved state found for ${currentEmployee}, starting fresh`);
-    }
-    
-    updateTimeClockButtons();
-}
-
-async function handleStartWork() {
-    if (!currentEmployee) {
-        showUserFriendlyError('Please select an employee first', 'warning');
-        return;
-    }
-    
-    // ✅ WORKFLOW VALIDATION: Can't START twice
-    if (currentClockState !== CLOCK_STATES.NOT_STARTED) {
-        showUserFriendlyError('❌ Work already started! Use other buttons to manage your session.', 'warning');
-        return;
-    }
-    
-    // Removed timezone restriction - employees can start work anytime
-    await showTaskSelectionModal();
-}
-
-async function handleResumeWork() {
-    if (!currentEmployee) {
-        showUserFriendlyError('Please select an employee first', 'warning');
-        return;
-    }
-    
-    // ✅ WORKFLOW VALIDATION: Can only BACK TO WORK when on break
-    if (currentClockState !== CLOCK_STATES.ON_BREAK) {
-        showUserFriendlyError('❌ You can only resume work when you are on a break!', 'warning');
-        return;
-    }
-    
-    if (activeTask) {
-        const continueTask = confirm(`Continue working on "${activeTask.name}"?\n\nClick OK to continue, Cancel to select a different task.`);
-        
-        if (continueTask) {
-            await handleTimeClock('🔵 BACK TO WORK');
-            resumeTaskTimeTracking();
-            showToast(`Resumed: ${activeTask.name}`, 'success');
-        } else {
-            await showTaskSelectionModal();
-        }
-    } else {
-        await showTaskSelectionModal();
-    }
-}
-
-async function handleBreak() {
-    if (!currentEmployee) {
-        showUserFriendlyError('Please select an employee first', 'warning');
-        return;
-    }
-    
-    // ✅ WORKFLOW VALIDATION: Can't BREAK without starting & Can't BREAK twice in a row
-    if (currentClockState !== CLOCK_STATES.WORKING) {
-        showUserFriendlyError('❌ You can only take a break when you are working!', 'warning');
-        return;
-    }
-    
-    await handleTimeClock('☕ TAKE BREAK');
-}
-
-async function handleEndWork() {
-    if (!currentEmployee) {
-        showUserFriendlyError('Please select an employee first', 'warning');
-        return;
-    }
-    
-    // ✅ WORKFLOW VALIDATION: Can't end without starting
-    if (currentClockState === CLOCK_STATES.NOT_STARTED) {
-        showUserFriendlyError('❌ You haven\'t started work yet!', 'warning');
-        return;
-    }
-    
-    // ✅ WORKFLOW VALIDATION: All buttons disabled after finishing
-    if (currentClockState === CLOCK_STATES.FINISHED) {
-        showUserFriendlyError('❌ Work day already finished!', 'warning');
-        return;
-    }
-    
-    // Check if close to daily reset time and warn user
-    const timeCheck = isWithinWorkHours();
-    const brisbaneHour = timeCheck.brisbaneHour;
-    
-    if (brisbaneHour >= 8 && brisbaneHour < 9) {
-        // Within 1 hour of reset
-        const timeUntilReset = calculateTimeUntilReset();
-        const confirmEnd = confirm(`⚠️ URGENT: Daily reset in ${timeUntilReset}!\n\nTimeLogs will be cleared at 9 AM Brisbane time.\nAre you sure you want to end your work day now?`);
-        if (!confirmEnd) return;
-    } else if (brisbaneHour >= 9) {
-        // Past reset time - data might be lost
-        const confirmEnd = confirm(`🚨 WARNING: It's past 9 AM Brisbane time!\n\nYour timesheet may have already been reset.\nEnd work anyway?`);
-        if (!confirmEnd) return;
-    } else {
-        // 🔒 Confirmation Dialog: End Work
-        const confirmEnd = confirm('🤔 Are you sure you want to end your work day?\n\nThis will finalize your timesheet for today.');
-        if (!confirmEnd) return;
-    }
-    
-    if (activeTask && taskTimeData[activeTask.id]?.currentSession) {
-        finalizeCurrentTaskSession();
-    }
-    
-    await handleTimeClock('🔴 DONE FOR TODAY');
-    showDayEndSummary();
-    
-    activeTask = null;
-    updateActiveTaskDisplay();
-}
-
-async function handleTimeClock(action) {
-    if (!currentEmployee) {
-        showToast('Please select an employee first', 'warning');
-        return;
-    }
-    
-    try {
-        const timeClockData = {
-            'WHO ARE YOU?': currentEmployee,
-            'WHAT ARE YOU DOING?': action
-        };
-        
-        if (activeTask) {
-            timeClockData['ACTIVE_TASK_ID'] = activeTask.id;
-            timeClockData['ACTIVE_TASK_NAME'] = activeTask.name;
-            timeClockData['ACTIVE_TASK_COMPANY'] = activeTask.company;
-        }
-        
-        console.log('🕐 Sending time clock data:', timeClockData);
-        
-        const response = await fetch(CONFIG.timeLoggerUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(timeClockData)
-        });
-
-        if (response.ok) {
-            const actionText = action.split(' ')[1] || action;
-            const taskInfo = activeTask ? ` on "${activeTask.name}"` : '';
-            showToast(`${actionText} recorded successfully!${taskInfo}`, 'success');
-            
-            const now = new Date();
-            handleClockAction(action, now);
-            updateTimeClockStatus(action, now);
-        } else {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-    } catch (error) {
-        console.error('Error recording time clock:', error);
-        showToast('Error recording time clock action', 'error');
-    }
-}
-
-function handleClockAction(action, timestamp) {
-    if (!dailyShiftData) {
-        initializeDailyShiftData();
-    }
-    
-    switch (action) {
-        case '🟢 START WORK':
-            if (!dailyShiftData.shiftStartTime) {
-                dailyShiftData.shiftStartTime = timestamp;
-            }
-            
-            currentWorkSession = {
-                startTime: timestamp,
-                lastUpdate: timestamp
-            };
-            currentBreakSession = null;
-            currentClockState = CLOCK_STATES.WORKING; // Update state
-            startWorkClock();
-            break;
-            
-        case '☕ TAKE BREAK':
-            if (currentWorkSession) {
-                const sessionTime = timestamp.getTime() - currentWorkSession.startTime.getTime();
-                dailyShiftData.totalWorkedMs += sessionTime;
-                
-                dailyShiftData.workSessions.push({
-                    startTime: currentWorkSession.startTime.toISOString(),
-                    endTime: timestamp.toISOString(),
-                    durationMs: sessionTime
-                });
-                
-                currentWorkSession = null;
-            }
-            
-            if (activeTask && taskTimeData[activeTask.id]?.currentSession) {
-                taskTimeData[activeTask.id].currentSession.breakStartTime = timestamp.toISOString();
-            }
-            
-            currentBreakSession = {
-                startTime: timestamp,
-                lastUpdate: timestamp
-            };
-            currentClockState = CLOCK_STATES.ON_BREAK; // Update state
-            startBreakClock();
-            break;
-            
-        case '🔵 BACK TO WORK':
-            if (activeTask && taskTimeData[activeTask.id]?.currentSession?.breakStartTime) {
-                const breakStart = new Date(taskTimeData[activeTask.id].currentSession.breakStartTime);
-                const breakDuration = timestamp.getTime() - breakStart.getTime();
-                taskTimeData[activeTask.id].currentSession.breakTime += breakDuration;
-                delete taskTimeData[activeTask.id].currentSession.breakStartTime;
-                saveTaskTimeData();
-            }
-            
-            currentWorkSession = {
-                startTime: timestamp,
-                lastUpdate: timestamp
-            };
-            currentBreakSession = null;
-            currentClockState = CLOCK_STATES.WORKING; // Update state
-            startWorkClock();
-            break;
-            
-        case '🔴 DONE FOR TODAY':
-            if (currentWorkSession) {
-                const sessionTime = timestamp.getTime() - currentWorkSession.startTime.getTime();
-                dailyShiftData.totalWorkedMs += sessionTime;
-                
-                dailyShiftData.workSessions.push({
-                    startTime: currentWorkSession.startTime.toISOString(),
-                    endTime: timestamp.toISOString(),
-                    durationMs: sessionTime
-                });
-            }
-            
-            currentClockState = CLOCK_STATES.FINISHED; // Update state
-            stopAllClocks();
-            break;
-    }
-    
-    // Update button states and save state after any clock action
-    updateTimeClockButtons();
-    saveClockState();
-}
-
-async function loadWorkClockState() {
-    if (!currentEmployee) return;
-    
-    const clockStateKey = `workClock_${currentEmployee}`;
-    const savedState = localStorage.getItem(clockStateKey);
-    
-    if (savedState) {
-        try {
-            const state = JSON.parse(savedState);
-            const now = Date.now();
-            const timeDiff = now - new Date(state.lastUpdate).getTime();
-            
-            const today = new Date().toDateString();
-            const stateDate = new Date(state.lastUpdate).toDateString();
-            
-            if (stateDate === today && timeDiff < 24 * 60 * 60 * 1000) {
-                dailyShiftData = state.dailyShiftData || {
-                    totalWorkedMs: 0,
-                    workSessions: [],
-                    shiftStartTime: null,
-                    targetShiftMs: 8 * 60 * 60 * 1000
-                };
-                
-                if (state.status === 'working') {
-                    currentWorkSession = {
-                        startTime: new Date(state.startTime),
-                        lastUpdate: new Date(state.lastUpdate)
-                    };
-                    startWorkClock();
-                    updateTimeClockStatus('🟢 START WORK', new Date(state.startTime));
-                } else if (state.status === 'break') {
-                    currentBreakSession = {
-                        startTime: new Date(state.startTime),
-                        lastUpdate: new Date(state.lastUpdate)
-                    };
-                    startBreakClock();
-                    updateTimeClockStatus('☕ TAKE BREAK', new Date(state.startTime));
-                }
-            } else {
-                localStorage.removeItem(clockStateKey);
-                initializeDailyShiftData();
-            }
-        } catch (error) {
-            console.error('Error loading clock state:', error);
-            localStorage.removeItem(clockStateKey);
-            initializeDailyShiftData();
-        }
-    } else {
-        initializeDailyShiftData();
-    }
-}
-
-function initializeDailyShiftData() {
-    dailyShiftData = {
-        totalWorkedMs: 0,
-        workSessions: [],
-        shiftStartTime: null,
-        targetShiftMs: 8 * 60 * 60 * 1000
-    };
-}
-
-function saveWorkClockState(status, startTime) {
-    if (!currentEmployee) return;
-    
-    const clockStateKey = `workClock_${currentEmployee}`;
-    const state = {
-        status: status,
-        startTime: startTime.toISOString(),
-        lastUpdate: new Date().toISOString(),
-        employee: currentEmployee,
-        dailyShiftData: dailyShiftData
-    };
-    
-    localStorage.setItem(clockStateKey, JSON.stringify(state));
-}
-
-function clearWorkClockState() {
-    if (workClockInterval) {
-        clearInterval(workClockInterval);
-        workClockInterval = null;
-    }
-    
-    if (breakClockInterval) {
-        clearInterval(breakClockInterval);
-        breakClockInterval = null;
-    }
-    
-    document.getElementById('workClockDisplay').style.display = 'none';
-    document.getElementById('breakClockDisplay').style.display = 'none';
-    
-    currentWorkSession = null;
-    currentBreakSession = null;
-    dailyShiftData = null;
-    
-    if (currentEmployee) {
-        const clockStateKey = `workClock_${currentEmployee}`;
-        localStorage.removeItem(clockStateKey);
-    }
-}
-
-function startWorkClock() {
-    if (workClockInterval) clearInterval(workClockInterval);
-    if (breakClockInterval) clearInterval(breakClockInterval);
-    
-    document.getElementById('breakClockDisplay').style.display = 'none';
-    document.getElementById('workClockDisplay').style.display = 'block';
-    
-    updateWorkTimer();
-    
-    workClockInterval = setInterval(() => {
-        updateWorkTimer();
-        updateActiveTaskTimer();
-    }, 1000);
-    
-    if (currentWorkSession) {
-        saveWorkClockState('working', currentWorkSession.startTime);
-    }
-}
-
-function startBreakClock() {
-    if (workClockInterval) clearInterval(workClockInterval);
-    if (breakClockInterval) clearInterval(breakClockInterval);
-    
-    document.getElementById('workClockDisplay').style.display = 'none';
-    document.getElementById('breakClockDisplay').style.display = 'block';
-    
-    updateBreakTimer();
-    
-    breakClockInterval = setInterval(updateBreakTimer, 1000);
-    
-    if (currentBreakSession) {
-        saveWorkClockState('break', currentBreakSession.startTime);
-    }
-}
-
-function updateWorkTimer() {
-    if (!currentWorkSession || !dailyShiftData) return;
-    
-    const now = Date.now();
-    
-    const currentSessionElapsed = now - currentWorkSession.startTime.getTime();
-    const currentSessionFormatted = formatElapsedTime(currentSessionElapsed);
-    
-    const totalShiftTime = dailyShiftData.totalWorkedMs + currentSessionElapsed;
-    const totalShiftFormatted = formatElapsedTime(totalShiftTime);
-    
-    document.getElementById('workTimer').textContent = currentSessionFormatted;
-    document.getElementById('totalShiftTime').textContent = totalShiftFormatted;
-    
-    updateShiftProgress(totalShiftTime);
-    
-    const startTimeStr = currentWorkSession.startTime.toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-    document.getElementById('workStatus').textContent = `Current session started at ${startTimeStr}`;
-}
-
-function updateBreakTimer() {
-    if (!currentBreakSession || !dailyShiftData) return;
-    
-    const now = Date.now();
-    const elapsed = now - currentBreakSession.startTime.getTime();
-    const formattedTime = formatElapsedTime(elapsed);
-    
-    document.getElementById('breakTimer').textContent = formattedTime;
-    
-    const totalWorkedFormatted = formatElapsedTime(dailyShiftData.totalWorkedMs);
-    const remainingMs = Math.max(0, dailyShiftData.targetShiftMs - dailyShiftData.totalWorkedMs);
-    const remainingFormatted = formatElapsedTime(remainingMs);
-    
-    document.getElementById('totalWorkedOnBreak').textContent = totalWorkedFormatted;
-    document.getElementById('shiftRemainingOnBreak').textContent = remainingFormatted;
-    
-    const startTimeStr = currentBreakSession.startTime.toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-    document.getElementById('breakStatus').textContent = `Started break at ${startTimeStr}`;
-}
-
-function updateShiftProgress(totalShiftTimeMs) {
-    if (!dailyShiftData) return;
-    
-    const progressBar = document.getElementById('shiftProgressBar');
-    const shiftStatus = document.getElementById('shiftStatus');
-    
-    const percentage = (totalShiftTimeMs / dailyShiftData.targetShiftMs) * 100;
-    const clampedPercentage = Math.min(100, percentage);
-    
-    progressBar.style.width = `${clampedPercentage}%`;
-    
-    const hours = totalShiftTimeMs / (60 * 60 * 1000);
-    
-    if (percentage >= 100) {
-        progressBar.className = 'shift-bar complete';
-        shiftStatus.className = 'shift-target complete';
-        
-        if (percentage > 110) {
-            progressBar.className = 'shift-bar overtime';
-            shiftStatus.className = 'shift-target overtime';
-            shiftStatus.textContent = `🎉 Overtime! ${hours.toFixed(1)} hours completed (+${(hours - 8).toFixed(1)}h extra)`;
-        } else {
-            shiftStatus.textContent = `🎉 Shift Complete! ${hours.toFixed(1)} hours completed`;
-        }
-    } else {
-        progressBar.className = 'shift-bar';
-        shiftStatus.className = 'shift-target';
-        const remainingHours = (8 - hours).toFixed(1);
-        shiftStatus.textContent = `${percentage.toFixed(0)}% of 8 hours completed (${remainingHours}h remaining)`;
-    }
-    
-    if (percentage >= 100 && percentage < 101) {
-        showToast('🎉 Congratulations! You\'ve completed your 8-hour shift!', 'success');
-    }
-}
-
-function updateTimeClockStatus(action, timestamp = new Date()) {
-    const statusDiv = document.getElementById('timeClockStatus');
-    const time = timestamp.toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-    
-    let statusMessage = '';
-    let statusClass = '';
-    
-    // 🎨 Visual Enhancements with color-coded status messages
-    switch (action) {
-        case '🟢 START WORK':
-            statusMessage = `✅ Work started at ${time}${activeTask ? ` on "${activeTask.name}"` : ''}`;
-            statusClass = 'status-working';
-            break;
-        case '☕ TAKE BREAK':
-            statusMessage = `☕ Break started at ${time}`;
-            statusClass = 'status-break';
-            break;
-        case '🔵 BACK TO WORK':
-            statusMessage = `🔄 Resumed work at ${time}${activeTask ? ` on "${activeTask.name}"` : ''}`;
-            statusClass = 'status-working';
-            break;
-        case '🔴 DONE FOR TODAY':
-            statusMessage = `🎯 Work completed at ${time}`;
-            statusClass = 'status-ended';
-            break;
-        default:
-            statusMessage = `📝 Last action: ${action} at ${time}`;
-            statusClass = 'status-default';
-    }
-    
-    statusDiv.innerHTML = `<span class="${statusClass}">${statusMessage}</span>`;
-}
-
-// Enhanced user feedback functions
-function showUserFriendlyError(message, type = 'warning') {
-    // Create a more prominent error display
-    const errorContainer = document.getElementById('errorContainer') || createErrorContainer();
-    
-    const errorDiv = document.createElement('div');
-    errorDiv.className = `user-error ${type}`;
-    errorDiv.style.cssText = `
-        background: ${type === 'warning' ? '#fef3cd' : '#f8d7da'};
-        color: ${type === 'warning' ? '#856404' : '#721c24'};
-        border: 2px solid ${type === 'warning' ? '#faebcd' : '#f5c6cb'};
-        border-radius: 8px;
-        padding: 12px 16px;
-        margin: 8px 0;
-        font-weight: 500;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        animation: slideIn 0.3s ease-out;
-    `;
-    
-    errorDiv.innerHTML = `
-        <span style="font-size: 1.2em;">${type === 'warning' ? '⚠️' : '❌'}</span>
-        <span>${message}</span>
-    `;
-    
-    errorContainer.appendChild(errorDiv);
-    
-    // Auto-remove after 4 seconds
-    setTimeout(() => {
-        if (errorDiv.parentNode) {
-            errorDiv.style.animation = 'slideOut 0.3s ease-in';
-            setTimeout(() => errorDiv.remove(), 300);
-        }
-    }, 4000);
-    
-    // Also show toast for backup
-    showToast(message, type);
-}
-
-function showStatusMessage(message, type = 'info') {
-    const statusDiv = document.getElementById('systemStatus') || createSystemStatusDiv();
-    
-    statusDiv.innerHTML = `
-        <div class="status-message ${type}" style="
-            background: ${type === 'success' ? '#d1f2eb' : type === 'info' ? '#d6eaf8' : '#fef9e7'};
-            color: ${type === 'success' ? '#0f5132' : type === 'info' ? '#08519c' : '#7d6608'};
-            border-left: 4px solid ${type === 'success' ? '#10b981' : type === 'info' ? '#3b82f6' : '#f59e0b'};
-            padding: 8px 12px;
-            margin: 4px 0;
-            border-radius: 4px;
-            font-size: 0.9em;
-        ">
-            ${message}
-        </div>
-    `;
-    
-    // Auto-clear after 3 seconds
-    setTimeout(() => {
-        if (statusDiv) statusDiv.innerHTML = '';
-    }, 3000);
-}
-
-function createErrorContainer() {
-    const container = document.createElement('div');
-    container.id = 'errorContainer';
-    container.style.cssText = `
-        position: fixed;
-        top: 80px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 9999;
-        min-width: 300px;
-        max-width: 500px;
-    `;
-    
-    // Add CSS animations
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateY(-20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes slideOut {
-            from { opacity: 1; transform: translateY(0); }
-            to { opacity: 0; transform: translateY(-20px); }
-        }
-    `;
-    document.head.appendChild(style);
-    
-    document.body.appendChild(container);
-    return container;
-}
-
-function createSystemStatusDiv() {
-    const statusDiv = document.createElement('div');
-    statusDiv.id = 'systemStatus';
-    statusDiv.style.cssText = `
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        z-index: 9998;
-        max-width: 300px;
-    `;
-    document.body.appendChild(statusDiv);
-    return statusDiv;
-}
-
-function stopAllClocks() {
-    clearWorkClockState();
-    
-    if (currentEmployee) {
-        const clockStateKey = `workClock_${currentEmployee}`;
-        saveWorkClockState('stopped', new Date());
-    }
-}
-
-// ============= TASK TIME TRACKING =============
-
+// NEW: Initialize task time tracking
 function initializeTaskTimeTracking() {
     if (!activeTask) return;
     
     const now = new Date();
     
+    // Initialize task time data if not exists
     if (!taskTimeData[activeTask.id]) {
         taskTimeData[activeTask.id] = {
             taskName: activeTask.name,
@@ -1615,15 +258,20 @@ function initializeTaskTimeTracking() {
         };
     }
     
+    // Start new session for this task
     taskTimeData[activeTask.id].currentSession = {
         startTime: now.toISOString(),
-        breakTime: 0
+        breakTime: 0 // Track break time during this session
     };
     
+    // Save to localStorage
     saveTaskTimeData();
+    
+    // Update UI to show active task
     updateActiveTaskDisplay();
 }
 
+// NEW: Update active task display
 function updateActiveTaskDisplay() {
     if (!activeTask) return;
     
@@ -1649,17 +297,46 @@ function updateActiveTaskDisplay() {
     }
 }
 
+// NEW: Handle resume work (might be same task or different task)
+async function handleResumeWork() {
+    if (!currentEmployee) {
+        showToast('Please select an employee first', 'warning');
+        return;
+    }
+    
+    // Ask if they want to continue the same task or switch
+    if (activeTask) {
+        const continueTask = confirm(`Continue working on "${activeTask.name}"?\n\nClick OK to continue, Cancel to select a different task.`);
+        
+        if (continueTask) {
+            // Continue with same task
+            await handleTimeClock('🔵 BACK TO WORK');
+            resumeTaskTimeTracking();
+            showToast(`Resumed: ${activeTask.name}`, 'success');
+        } else {
+            // Select different task
+            await showTaskSelectionModal();
+        }
+    } else {
+        // No active task, show selection
+        await showTaskSelectionModal();
+    }
+}
+
+// NEW: Resume task time tracking
 function resumeTaskTimeTracking() {
     if (!activeTask || !taskTimeData[activeTask.id]) return;
     
     const now = new Date();
     
+    // Start new session or resume existing one
     if (!taskTimeData[activeTask.id].currentSession) {
         taskTimeData[activeTask.id].currentSession = {
             startTime: now.toISOString(),
             breakTime: 0
         };
     } else {
+        // If resuming from break, just update the resume time
         taskTimeData[activeTask.id].currentSession.resumeTime = now.toISOString();
     }
     
@@ -1667,6 +344,30 @@ function resumeTaskTimeTracking() {
     updateActiveTaskDisplay();
 }
 
+// NEW: Handle end work - finalize task time
+async function handleEndWork() {
+    if (!currentEmployee) {
+        showToast('Please select an employee first', 'warning');
+        return;
+    }
+    
+    // Finalize current task time
+    if (activeTask && taskTimeData[activeTask.id]?.currentSession) {
+        finalizeCurrentTaskSession();
+    }
+    
+    // End work day
+    await handleTimeClock('🔴 DONE FOR TODAY');
+    
+    // Show summary including task-specific time
+    showDayEndSummary();
+    
+    // Clear active task
+    activeTask = null;
+    updateActiveTaskDisplay();
+}
+
+// NEW: Finalize current task session
 function finalizeCurrentTaskSession() {
     if (!activeTask || !taskTimeData[activeTask.id]?.currentSession) return;
     
@@ -1675,6 +376,7 @@ function finalizeCurrentTaskSession() {
     const startTime = new Date(session.startTime);
     const sessionDuration = now.getTime() - startTime.getTime();
     
+    // Add completed session
     taskTimeData[activeTask.id].sessions.push({
         startTime: session.startTime,
         endTime: now.toISOString(),
@@ -1683,9 +385,11 @@ function finalizeCurrentTaskSession() {
         workTime: sessionDuration - (session.breakTime || 0)
     });
     
+    // Update totals
     taskTimeData[activeTask.id].totalTimeToday += sessionDuration - (session.breakTime || 0);
     taskTimeData[activeTask.id].totalTimeAllTime += sessionDuration - (session.breakTime || 0);
     
+    // Clear current session
     delete taskTimeData[activeTask.id].currentSession;
     
     saveTaskTimeData();
@@ -1697,9 +401,10 @@ function finalizeCurrentTaskSession() {
     });
 }
 
+// NEW: Show day end summary with task breakdown
 function showDayEndSummary() {
     if (!taskTimeData || Object.keys(taskTimeData).length === 0) {
-        showShiftSummary();
+        showShiftSummary(); // Fallback to existing summary
         return;
     }
     
@@ -1731,6 +436,907 @@ function showDayEndSummary() {
     showToast(summary, 'success');
 }
 
+// NEW: Get task today time
+function getTaskTodayTime(taskId) {
+    if (!taskTimeData[taskId]) return '00:00:00';
+    
+    let totalTime = taskTimeData[taskId].totalTimeToday || 0;
+    
+    // Add current session time if active
+    if (taskTimeData[taskId].currentSession) {
+        const now = Date.now();
+        const sessionStart = new Date(taskTimeData[taskId].currentSession.startTime).getTime();
+        const sessionTime = now - sessionStart;
+        totalTime += sessionTime;
+    }
+    
+    return formatElapsedTime(totalTime);
+}
+
+// NEW: Load task time data from localStorage
+function loadTaskTimeData() {
+    if (!currentEmployee) return;
+    
+    const taskTimeKey = `taskTime_${currentEmployee}`;
+    const saved = localStorage.getItem(taskTimeKey);
+    
+    if (saved) {
+        try {
+            const data = JSON.parse(saved);
+            const today = new Date().toDateString();
+            
+            // Reset daily totals if it's a new day
+            Object.keys(data).forEach(taskId => {
+                if (data[taskId].lastActiveDate !== today) {
+                    data[taskId].totalTimeToday = 0;
+                    data[taskId].lastActiveDate = today;
+                }
+            });
+            
+            taskTimeData = data;
+        } catch (error) {
+            console.error('Error loading task time data:', error);
+            taskTimeData = {};
+        }
+    }
+}
+
+// NEW: Save task time data to localStorage
+function saveTaskTimeData() {
+    if (!currentEmployee) return;
+    
+    const taskTimeKey = `taskTime_${currentEmployee}`;
+    const today = new Date().toDateString();
+    
+    // Mark last active date
+    Object.keys(taskTimeData).forEach(taskId => {
+        taskTimeData[taskId].lastActiveDate = today;
+    });
+    
+    localStorage.setItem(taskTimeKey, JSON.stringify(taskTimeData));
+}
+
+// NEW: Close task selection modal
+function closeTaskSelectionModal() {
+    const modal = document.getElementById('taskSelectionModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// ============= ENHANCED TASK LOADING =============
+
+// Load assigned tasks - ENHANCED to populate task selection
+async function loadAssignedTasks() {
+    if (!currentEmployee) {
+        document.getElementById('assignedTasksList').innerHTML = '<p class="loading">Select an employee to view assigned tasks...</p>';
+        return;
+    }
+    
+    try {
+        showToast('Loading your tasks...', 'info');
+        
+        // Try to fetch real tasks (you'll need to implement this endpoint in n8n)
+        try {
+            const response = await fetch(CONFIG.taskRetrievalUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'get_assigned_tasks',
+                    employee: currentEmployee
+                })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.tasks) {
+                    availableTasks = data.tasks;
+                    renderTasksList(data.tasks);
+                    return;
+                }
+            }
+        } catch (error) {
+            console.log('Task retrieval endpoint not ready, using sample data');
+        }
+        
+        // Fallback to sample data for now
+        availableTasks = [
+            {
+                id: 'TASK_001',
+                name: 'Website Design Updates',
+                company: 'CROWN REALITY',
+                status: 'Current Project',
+                progress: 45,
+                dueDate: '2025-02-01',
+                description: 'Update homepage design and mobile responsiveness'
+            },
+            {
+                id: 'TASK_002',
+                name: 'Social Media Campaign',
+                company: 'LCMB GROUP',
+                status: 'Project',
+                progress: 20,
+                dueDate: '2025-02-15',
+                description: 'Create social media content for Q1 campaign'
+            },
+            {
+                id: 'TASK_003',
+                name: 'Logo Revision',
+                company: 'FLECK GROUP',
+                status: 'Revision',
+                progress: 80,
+                dueDate: '2025-01-25',
+                description: 'Revise logo based on client feedback'
+            }
+        ];
+        
+        renderTasksList(availableTasks);
+        
+    } catch (error) {
+        console.error('Error loading assigned tasks:', error);
+        showToast('Error loading assigned tasks', 'error');
+    }
+}
+
+// NEW: Render tasks list with time tracking info
+function renderTasksList(tasks) {
+    const tasksList = document.getElementById('assignedTasksList');
+    
+    if (tasks.length === 0) {
+        tasksList.innerHTML = '<p class="loading">No tasks assigned. Create a task to get started!</p>';
+        return;
+    }
+    
+    tasksList.innerHTML = tasks.map(task => `
+        <div class="task-card ${activeTask?.id === task.id ? 'active-task' : ''}">
+            <div class="task-card-header">
+                <h4>${task.name}</h4>
+                <span class="task-status ${getStatusClass(task.status)}">${task.status}</span>
+            </div>
+            <p><strong>Company:</strong> ${task.company}</p>
+            <p><strong>Due Date:</strong> ${task.dueDate || 'Not set'}</p>
+            <p><strong>Description:</strong> ${task.description}</p>
+            
+            <!-- Progress Bar Section -->
+            <div class="progress-section">
+                <div class="progress-header">
+                    <span class="progress-label">Progress</span>
+                    <span class="progress-value">${task.progress}%</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" style="width: ${task.progress}%"></div>
+                </div>
+                <input type="range" 
+                       class="progress-slider" 
+                       min="0" 
+                       max="100" 
+                       value="${task.progress}"
+                       data-task-id="${task.id}"
+                       data-company="${task.company}"
+                       onchange="updateTaskProgress(this)">
+            </div>
+            
+            <!-- NEW: Time tracking info -->
+            <div class="task-time-info">
+                <div class="time-stat">
+                    <span class="time-label">Today:</span>
+                    <span class="time-value">${getTaskTodayTime(task.id)}</span>
+                </div>
+                <div class="time-stat">
+                    <span class="time-label">Status:</span>
+                    <span class="time-value">${activeTask?.id === task.id ? '🟢 Active' : '⏸️ Inactive'}</span>
+                </div>
+            </div>
+            
+            <div class="task-actions">
+                <button class="btn btn-secondary btn-sm" onclick="openTaskEditor('${task.id}')">
+                    ✏️ Edit Task
+                </button>
+                ${activeTask?.id === task.id 
+                    ? '<button class="btn btn-warning btn-sm" onclick="switchToTask(\'' + task.id + '\')">🔄 Current Task</button>'
+                    : '<button class="btn btn-success btn-sm" onclick="switchToTask(\'' + task.id + '\')">▶️ Work on This</button>'
+                }
+            </div>
+        </div>
+    `).join('');
+}
+
+// NEW: Switch to different task
+async function switchToTask(taskId) {
+    const task = availableTasks.find(t => t.id === taskId);
+    if (!task) return;
+    
+    // If currently working, finalize current task
+    if (activeTask && taskTimeData[activeTask.id]?.currentSession) {
+        finalizeCurrentTaskSession();
+    }
+    
+    // Set new active task
+    activeTask = task;
+    
+    // Initialize time tracking for new task
+    initializeTaskTimeTracking();
+    
+    // Update UI
+    await loadAssignedTasks(); // Refresh task list
+    updateActiveTaskDisplay();
+    
+    showToast(`Switched to: ${task.name}`, 'success');
+}
+
+// ============= REST OF YOUR EXISTING CODE (unchanged) =============
+
+// Handle task intake form submission - ENHANCED WITH IMAGE HANDLING
+async function handleTaskIntake(e) {
+    e.preventDefault();
+    
+    if (!currentEmployee) {
+        showToast('Please select an employee first', 'warning');
+        return;
+    }
+
+    // Validate form before submission
+    if (!validateTaskIntakeForm()) {
+        return;
+    }
+
+    try {
+        showToast('Creating task...', 'info');
+
+        // Get all form values
+        const formData = {
+            'Name': currentEmployee, // Who submitted the task
+            'Company': document.getElementById('taskCompany').value,
+            'Is this project a priority?': document.getElementById('taskPriority').value,
+            'Project Title': document.getElementById('taskTitle').value.trim(),
+            'Description': document.getElementById('taskDescription').value.trim(),
+            'Due Date': document.getElementById('taskDueDate').value,
+            'Links': document.getElementById('taskLinks').value.trim()
+        };
+
+        // Handle multiple assigned users - join with || as your workflow expects
+        const assignedSelect = document.getElementById('taskAssigned');
+        const assignedUsers = Array.from(assignedSelect.selectedOptions).map(option => option.value);
+        formData['Assigned'] = assignedUsers.join('||');
+
+        // Handle image upload if present - ENHANCED VERSION
+        const imageFile = document.getElementById('taskImage').files[0];
+        
+        if (imageFile) {
+            console.log('📎 Uploading image to ImgBB:', imageFile.name, `(${(imageFile.size / 1024 / 1024).toFixed(2)} MB)`);
+            
+            // Upload image to ImgBB first
+            const imageUrl = await uploadToImgBB(imageFile);
+            
+            if (!imageUrl) {
+                showToast('❌ Failed to upload image. Please try again.', 'error');
+                return;
+            }
+            
+            // Add the ImgBB URL to form data - this is what n8n expects
+            formData['Image_URL'] = imageUrl;
+            console.log('✅ Image uploaded successfully:', imageUrl);
+        }
+
+        // Debug: Log the data being sent
+        console.log('📝 Task Intake Data:', formData);
+
+        // Send as JSON to n8n (always JSON now, no more FormData)
+        const response = await fetch(CONFIG.taskIntakeUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        });
+
+        const responseText = await response.text();
+        console.log('📥 Response:', response.status, responseText);
+
+        if (response.ok) {
+            showToast('✅ Task created successfully!', 'success');
+            resetTaskIntakeForm();
+            
+            // Show the created task info
+            showTaskCreationSuccess(formData, !!imageFile);
+            
+            // Refresh task list to include new task
+            setTimeout(() => {
+                loadAssignedTasks();
+            }, 2000);
+            
+        } else {
+            throw new Error(`HTTP error! status: ${response.status} - ${responseText}`);
+        }
+
+    } catch (error) {
+        console.error('❌ Task creation error:', error);
+        showToast(`Failed to create task: ${error.message}`, 'error');
+    }
+}
+
+// Show task creation success info - ENHANCED VERSION
+function showTaskCreationSuccess(taskData, hasImage) {
+    const message = `
+🎉 Task Created Successfully!
+
+📋 Title: ${taskData['Project Title']}
+🏢 Company: ${taskData['Company']}
+👥 Assigned: ${taskData['Assigned'].replace(/\|\|/g, ', ')}
+📅 Due: ${taskData['Due Date'] || 'No due date'}
+${taskData['Is this project a priority?'] === 'Yes' ? '⭐ Priority Task' : '🟢 Regular Task'}
+${hasImage ? '📎 Image uploaded and attached to StartInfinity' : '📄 Text-only task'}
+
+🔔 Check Discord for task IDs and image preview!
+    `;
+    
+    setTimeout(() => {
+        showToast(message, 'success');
+    }, 1000);
+}
+
+// Reset task intake form after successful submission
+function resetTaskIntakeForm() {
+    document.getElementById('taskIntakeForm').reset();
+    document.getElementById('taskImagePreview').innerHTML = '';
+    
+    // Keep the employee selected but reset everything else
+    const employeeSelect = document.getElementById('employeeSelect');
+    if (employeeSelect.value) {
+        // Just cleared form, employee stays selected
+        showToast('Form cleared. You can create another task.', 'info');
+    }
+}
+
+// Handle task image preview
+function handleTaskImagePreview(e) {
+    const file = e.target.files[0];
+    const preview = document.getElementById('taskImagePreview');
+    
+    if (!file) {
+        preview.innerHTML = '';
+        return;
+    }
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/mp4', 'video/webm', 'video/ogg'];
+    if (!allowedTypes.includes(file.type)) {
+        showToast('Please upload a valid image or video file', 'error');
+        e.target.value = '';
+        preview.innerHTML = '';
+        return;
+    }
+
+    // Validate file size (50MB max)
+    if (file.size > 50 * 1024 * 1024) {
+        showToast('File size must be less than 50MB', 'error');
+        e.target.value = '';
+        preview.innerHTML = '';
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const isVideo = file.type.startsWith('video/');
+        const element = isVideo 
+            ? `<video controls style="max-width: 200px; max-height: 200px; margin-top: 10px; border-radius: var(--radius-md); border: 2px solid var(--border-color);"><source src="${e.target.result}" type="${file.type}">Your browser does not support video.</video>`
+            : `<img src="${e.target.result}" style="max-width: 200px; max-height: 200px; margin-top: 10px; border-radius: var(--radius-md); border: 2px solid var(--border-color);">`;
+            
+        preview.innerHTML = `
+            ${element}
+            <p style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.5rem;">
+                📎 ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB) - Ready to upload
+            </p>
+        `;
+    };
+    reader.readAsDataURL(file);
+}
+
+// Validate task intake form before submission
+function validateTaskIntakeForm() {
+    const errors = [];
+    
+    // Check required fields
+    if (!document.getElementById('taskCompany').value) {
+        errors.push('Company is required');
+    }
+    
+    if (!document.getElementById('taskTitle').value.trim()) {
+        errors.push('Project Title is required');
+    }
+    
+    if (!document.getElementById('taskDescription').value.trim()) {
+        errors.push('Description is required');
+    }
+    
+    // Check if at least one person is assigned
+    const assignedSelect = document.getElementById('taskAssigned');
+    if (assignedSelect.selectedOptions.length === 0) {
+        errors.push('At least one person must be assigned');
+    }
+    
+    // Show errors if any
+    if (errors.length > 0) {
+        showToast(`Please fix the following errors:\n${errors.join('\n')}`, 'error');
+        return false;
+    }
+    
+    return true;
+}
+
+// Update task progress
+async function updateTaskProgress(slider) {
+    const progress = parseInt(slider.value);
+    const taskId = slider.dataset.taskId;
+    const company = slider.dataset.company;
+    
+    // Update visual feedback immediately
+    const card = slider.closest('.task-card');
+    const progressBar = card.querySelector('.progress-bar');
+    const progressValue = card.querySelector('.progress-value');
+    
+    progressBar.style.width = `${progress}%`;
+    progressValue.textContent = `${progress}%`;
+    
+    // Determine status based on progress
+    let newStatus = null;
+    if (progress === 0) {
+        newStatus = "Project";
+    } else if (progress >= 10 && progress < 100) {
+        newStatus = "Current Project";
+    } else if (progress === 100) {
+        newStatus = "Project Finished";
+    }
+    
+    try {
+        const response = await fetch(CONFIG.taskUpdateUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'update_progress',
+                task_id: taskId,
+                company: company,
+                progress: progress,
+                status: newStatus,
+                employee: currentEmployee,
+                timestamp: new Date().toISOString()
+            })
+        });
+
+        if (response.ok) {
+            showToast(`Progress updated to ${progress}%`, 'success');
+            
+            // Update status display
+            if (newStatus) {
+                const statusElement = card.querySelector('.task-status');
+                statusElement.textContent = newStatus;
+                statusElement.className = `task-status ${getStatusClass(newStatus)}`;
+            }
+        } else {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+    } catch (error) {
+        console.error('Error updating progress:', error);
+        showToast('Error updating progress', 'error');
+        
+        // Revert slider on failure
+        slider.value = slider.defaultValue || 50;
+        progressBar.style.width = `${slider.value}%`;
+        progressValue.textContent = `${slider.value}%`;
+    }
+}
+
+// ============= TIME CLOCK FUNCTIONALITY (Base functions) =============
+
+// Handle time clock
+async function handleTimeClock(action) {
+    if (!currentEmployee) {
+        showToast('Please select an employee first', 'warning');
+        return;
+    }
+    
+    try {
+        const response = await fetch(CONFIG.timeLoggerUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                'WHO ARE YOU?': currentEmployee,
+                'WHAT ARE YOU DOING?': action
+            })
+        });
+
+        if (response.ok) {
+            showToast(`${action} recorded successfully!`, 'success');
+            
+            // Update real-time clock based on action
+            const now = new Date();
+            handleClockAction(action, now);
+            updateTimeClockStatus(action, now);
+        } else {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+    } catch (error) {
+        console.error('Error recording time clock:', error);
+        showToast('Error recording time clock action', 'error');
+    }
+}
+
+// Handle clock action for real-time display - ENHANCED FOR TASK TRACKING
+function handleClockAction(action, timestamp) {
+    if (!dailyShiftData) {
+        initializeDailyShiftData();
+    }
+    
+    switch (action) {
+        case '🟢 START WORK':
+            // Set shift start time if this is the first work session of the day
+            if (!dailyShiftData.shiftStartTime) {
+                dailyShiftData.shiftStartTime = timestamp;
+            }
+            
+            currentWorkSession = {
+                startTime: timestamp,
+                lastUpdate: timestamp
+            };
+            currentBreakSession = null;
+            startWorkClock();
+            break;
+            
+        case '☕ TAKE BREAK':
+            // If currently working, add the work session time to total
+            if (currentWorkSession) {
+                const sessionTime = timestamp.getTime() - currentWorkSession.startTime.getTime();
+                dailyShiftData.totalWorkedMs += sessionTime;
+                
+                // Store this work session
+                dailyShiftData.workSessions.push({
+                    startTime: currentWorkSession.startTime.toISOString(),
+                    endTime: timestamp.toISOString(),
+                    durationMs: sessionTime
+                });
+                
+                currentWorkSession = null;
+            }
+            
+            // Track break time for current task
+            if (activeTask && taskTimeData[activeTask.id]?.currentSession) {
+                taskTimeData[activeTask.id].currentSession.breakStartTime = timestamp.toISOString();
+            }
+            
+            currentBreakSession = {
+                startTime: timestamp,
+                lastUpdate: timestamp
+            };
+            startBreakClock();
+            break;
+            
+        case '🔵 BACK TO WORK':
+            // Track break duration for current task
+            if (activeTask && taskTimeData[activeTask.id]?.currentSession?.breakStartTime) {
+                const breakStart = new Date(taskTimeData[activeTask.id].currentSession.breakStartTime);
+                const breakDuration = timestamp.getTime() - breakStart.getTime();
+                taskTimeData[activeTask.id].currentSession.breakTime += breakDuration;
+                delete taskTimeData[activeTask.id].currentSession.breakStartTime;
+                saveTaskTimeData();
+            }
+            
+            // Resume work - start new work session (time will accumulate)
+            currentWorkSession = {
+                startTime: timestamp,
+                lastUpdate: timestamp
+            };
+            currentBreakSession = null;
+            startWorkClock();
+            break;
+            
+        case '🔴 DONE FOR TODAY':
+            // If currently working, add final work session time
+            if (currentWorkSession) {
+                const sessionTime = timestamp.getTime() - currentWorkSession.startTime.getTime();
+                dailyShiftData.totalWorkedMs += sessionTime;
+                
+                // Store final work session
+                dailyShiftData.workSessions.push({
+                    startTime: currentWorkSession.startTime.toISOString(),
+                    endTime: timestamp.toISOString(),
+                    durationMs: sessionTime
+                });
+            }
+            
+            // Stop all timers and clear state
+            stopAllClocks();
+            break;
+    }
+}
+
+// ============= EXISTING FUNCTIONS (unchanged) =============
+
+// Load work clock state for current employee
+async function loadWorkClockState() {
+    if (!currentEmployee) return;
+    
+    // Check localStorage for persisted state
+    const clockStateKey = `workClock_${currentEmployee}`;
+    const savedState = localStorage.getItem(clockStateKey);
+    
+    if (savedState) {
+        try {
+            const state = JSON.parse(savedState);
+            const now = Date.now();
+            const timeDiff = now - new Date(state.lastUpdate).getTime();
+            
+            // Only restore if the state is from today and less than 24 hours old
+            const today = new Date().toDateString();
+            const stateDate = new Date(state.lastUpdate).toDateString();
+            
+            if (stateDate === today && timeDiff < 24 * 60 * 60 * 1000) {
+                // Restore daily shift data
+                dailyShiftData = state.dailyShiftData || {
+                    totalWorkedMs: 0,
+                    workSessions: [],
+                    shiftStartTime: null,
+                    targetShiftMs: 8 * 60 * 60 * 1000 // 8 hours in milliseconds
+                };
+                
+                if (state.status === 'working') {
+                    currentWorkSession = {
+                        startTime: new Date(state.startTime),
+                        lastUpdate: new Date(state.lastUpdate)
+                    };
+                    startWorkClock();
+                    updateTimeClockStatus('🟢 START WORK', new Date(state.startTime));
+                } else if (state.status === 'break') {
+                    currentBreakSession = {
+                        startTime: new Date(state.startTime),
+                        lastUpdate: new Date(state.lastUpdate)
+                    };
+                    startBreakClock();
+                    updateTimeClockStatus('☕ TAKE BREAK', new Date(state.startTime));
+                }
+            } else {
+                // Clear old state
+                localStorage.removeItem(clockStateKey);
+                initializeDailyShiftData();
+            }
+        } catch (error) {
+            console.error('Error loading clock state:', error);
+            localStorage.removeItem(clockStateKey);
+            initializeDailyShiftData();
+        }
+    } else {
+        initializeDailyShiftData();
+    }
+}
+
+// Initialize daily shift data
+function initializeDailyShiftData() {
+    dailyShiftData = {
+        totalWorkedMs: 0,
+        workSessions: [],
+        shiftStartTime: null,
+        targetShiftMs: 8 * 60 * 60 * 1000 // 8 hours in milliseconds
+    };
+}
+
+// Save work clock state
+function saveWorkClockState(status, startTime) {
+    if (!currentEmployee) return;
+    
+    const clockStateKey = `workClock_${currentEmployee}`;
+    const state = {
+        status: status, // 'working', 'break', 'stopped'
+        startTime: startTime.toISOString(),
+        lastUpdate: new Date().toISOString(),
+        employee: currentEmployee,
+        dailyShiftData: dailyShiftData
+    };
+    
+    localStorage.setItem(clockStateKey, JSON.stringify(state));
+}
+
+// Clear work clock state
+function clearWorkClockState() {
+    // Stop any running timers
+    if (workClockInterval) {
+        clearInterval(workClockInterval);
+        workClockInterval = null;
+    }
+    
+    if (breakClockInterval) {
+        clearInterval(breakClockInterval);
+        breakClockInterval = null;
+    }
+    
+    // Hide clock displays
+    document.getElementById('workClockDisplay').style.display = 'none';
+    document.getElementById('breakClockDisplay').style.display = 'none';
+    
+    // Clear sessions
+    currentWorkSession = null;
+    currentBreakSession = null;
+    dailyShiftData = null;
+    
+    // Clear persisted state
+    if (currentEmployee) {
+        const clockStateKey = `workClock_${currentEmployee}`;
+        localStorage.removeItem(clockStateKey);
+    }
+}
+
+// Start work clock timer - ENHANCED WITH TASK TIME UPDATES
+function startWorkClock() {
+    // Clear any existing intervals
+    if (workClockInterval) clearInterval(workClockInterval);
+    if (breakClockInterval) clearInterval(breakClockInterval);
+    
+    // Hide break display, show work display
+    document.getElementById('breakClockDisplay').style.display = 'none';
+    document.getElementById('workClockDisplay').style.display = 'block';
+    
+    // Update timer immediately
+    updateWorkTimer();
+    
+    // Start interval to update every second
+    workClockInterval = setInterval(() => {
+        updateWorkTimer();
+        updateActiveTaskTimer(); // NEW: Update active task timer
+    }, 1000);
+    
+    // Save state
+    if (currentWorkSession) {
+        saveWorkClockState('working', currentWorkSession.startTime);
+    }
+}
+
+// Start break clock timer
+function startBreakClock() {
+    // Clear any existing intervals
+    if (workClockInterval) clearInterval(workClockInterval);
+    if (breakClockInterval) clearInterval(breakClockInterval);
+    
+    // Hide work display, show break display
+    document.getElementById('workClockDisplay').style.display = 'none';
+    document.getElementById('breakClockDisplay').style.display = 'block';
+    
+    // Update timer immediately
+    updateBreakTimer();
+    
+    // Start interval to update every second
+    breakClockInterval = setInterval(updateBreakTimer, 1000);
+    
+    // Save state
+    if (currentBreakSession) {
+        saveWorkClockState('break', currentBreakSession.startTime);
+    }
+}
+
+// NEW: Update active task timer
+function updateActiveTaskTimer() {
+    const sessionTimeElement = document.getElementById('activeTaskSessionTime');
+    const todayTimeElement = document.getElementById('activeTaskTimeToday');
+    
+    if (sessionTimeElement && activeTask && taskTimeData[activeTask.id]?.currentSession) {
+        const now = Date.now();
+        const sessionStart = new Date(taskTimeData[activeTask.id].currentSession.startTime).getTime();
+        const sessionTime = now - sessionStart;
+        sessionTimeElement.textContent = formatElapsedTime(sessionTime);
+    }
+    
+    if (todayTimeElement && activeTask) {
+        todayTimeElement.textContent = getTaskTodayTime(activeTask.id);
+    }
+}
+
+// Update work timer display
+function updateWorkTimer() {
+    if (!currentWorkSession || !dailyShiftData) return;
+    
+    const now = Date.now();
+    
+    // Current session time
+    const currentSessionElapsed = now - currentWorkSession.startTime.getTime();
+    const currentSessionFormatted = formatElapsedTime(currentSessionElapsed);
+    
+    // Total shift time (previous sessions + current session)
+    const totalShiftTime = dailyShiftData.totalWorkedMs + currentSessionElapsed;
+    const totalShiftFormatted = formatElapsedTime(totalShiftTime);
+    
+    // Update displays
+    document.getElementById('workTimer').textContent = currentSessionFormatted;
+    document.getElementById('totalShiftTime').textContent = totalShiftFormatted;
+    
+    // Update shift progress
+    updateShiftProgress(totalShiftTime);
+    
+    // Update status with start time
+    const startTimeStr = currentWorkSession.startTime.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+    document.getElementById('workStatus').textContent = `Current session started at ${startTimeStr}`;
+}
+
+// Update break timer display
+function updateBreakTimer() {
+    if (!currentBreakSession || !dailyShiftData) return;
+    
+    const now = Date.now();
+    const elapsed = now - currentBreakSession.startTime.getTime();
+    const formattedTime = formatElapsedTime(elapsed);
+    
+    document.getElementById('breakTimer').textContent = formattedTime;
+    
+    // Show total worked time and remaining time during break
+    const totalWorkedFormatted = formatElapsedTime(dailyShiftData.totalWorkedMs);
+    const remainingMs = Math.max(0, dailyShiftData.targetShiftMs - dailyShiftData.totalWorkedMs);
+    const remainingFormatted = formatElapsedTime(remainingMs);
+    
+    document.getElementById('totalWorkedOnBreak').textContent = totalWorkedFormatted;
+    document.getElementById('shiftRemainingOnBreak').textContent = remainingFormatted;
+    
+    // Update status with start time
+    const startTimeStr = currentBreakSession.startTime.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+    document.getElementById('breakStatus').textContent = `Started break at ${startTimeStr}`;
+}
+
+// Update shift progress bar and status
+function updateShiftProgress(totalShiftTimeMs) {
+    if (!dailyShiftData) return;
+    
+    const progressBar = document.getElementById('shiftProgressBar');
+    const shiftStatus = document.getElementById('shiftStatus');
+    
+    // Calculate percentage
+    const percentage = (totalShiftTimeMs / dailyShiftData.targetShiftMs) * 100;
+    const clampedPercentage = Math.min(100, percentage);
+    
+    // Update progress bar width
+    progressBar.style.width = `${clampedPercentage}%`;
+    
+    // Update status message and styling
+    const hours = totalShiftTimeMs / (60 * 60 * 1000);
+    
+    if (percentage >= 100) {
+        // Completed 8+ hours
+        progressBar.className = 'shift-bar complete';
+        shiftStatus.className = 'shift-target complete';
+        
+        if (percentage > 110) {
+            // Over 110% (8.8+ hours) = overtime
+            progressBar.className = 'shift-bar overtime';
+            shiftStatus.className = 'shift-target overtime';
+            shiftStatus.textContent = `🎉 Overtime! ${hours.toFixed(1)} hours completed (+${(hours - 8).toFixed(1)}h extra)`;
+        } else {
+            shiftStatus.textContent = `🎉 Shift Complete! ${hours.toFixed(1)} hours completed`;
+        }
+    } else {
+        // Still working towards 8 hours
+        progressBar.className = 'shift-bar';
+        shiftStatus.className = 'shift-target';
+        const remainingHours = (8 - hours).toFixed(1);
+        shiftStatus.textContent = `${percentage.toFixed(0)}% of 8 hours completed (${remainingHours}h remaining)`;
+    }
+    
+    // Show celebration toast when hitting 8 hours exactly
+    if (percentage >= 100 && percentage < 101) {
+        showToast('🎉 Congratulations! You\'ve completed your 8-hour shift!', 'success');
+    }
+}
+
+// Format elapsed time to HH:MM:SS
+function formatElapsedTime(milliseconds) {
+    const totalSeconds = Math.floor(milliseconds / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+// Show shift summary when ending work - ENHANCED WITH TASK DATA
 function showShiftSummary() {
     if (!dailyShiftData) return;
     
@@ -1752,420 +1358,54 @@ function showShiftSummary() {
     console.log('📋 Detailed Shift Data:', dailyShiftData);
 }
 
-function getTaskTodayTime(taskId) {
-    if (!taskTimeData[taskId]) return '00:00:00';
+// Stop all clocks
+function stopAllClocks() {
+    clearWorkClockState();
     
-    let totalTime = taskTimeData[taskId].totalTimeToday || 0;
-    
-    if (taskTimeData[taskId].currentSession) {
-        const now = Date.now();
-        const sessionStart = new Date(taskTimeData[taskId].currentSession.startTime).getTime();
-        const sessionTime = now - sessionStart;
-        totalTime += sessionTime;
-    }
-    
-    return formatElapsedTime(totalTime);
-}
-
-function loadTaskTimeData() {
-    if (!currentEmployee) return;
-    
-    const taskTimeKey = `taskTime_${currentEmployee}`;
-    const saved = localStorage.getItem(taskTimeKey);
-    
-    if (saved) {
-        try {
-            const data = JSON.parse(saved);
-            const today = new Date().toDateString();
-            
-            Object.keys(data).forEach(taskId => {
-                if (data[taskId].lastActiveDate !== today) {
-                    data[taskId].totalTimeToday = 0;
-                    data[taskId].lastActiveDate = today;
-                }
-            });
-            
-            taskTimeData = data;
-        } catch (error) {
-            console.error('Error loading task time data:', error);
-            taskTimeData = {};
-        }
+    // Clear saved state
+    if (currentEmployee) {
+        const clockStateKey = `workClock_${currentEmployee}`;
+        saveWorkClockState('stopped', new Date());
     }
 }
 
-function saveTaskTimeData() {
-    if (!currentEmployee) return;
-    
-    const taskTimeKey = `taskTime_${currentEmployee}`;
-    const today = new Date().toDateString();
-    
-    Object.keys(taskTimeData).forEach(taskId => {
-        taskTimeData[taskId].lastActiveDate = today;
+function updateTimeClockStatus(action, timestamp = new Date()) {
+    const statusDiv = document.getElementById('timeClockStatus');
+    const time = timestamp.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit'
     });
     
-    localStorage.setItem(taskTimeKey, JSON.stringify(taskTimeData));
-}
-
-function updateActiveTaskTimer() {
-    const sessionTimeElement = document.getElementById('activeTaskSessionTime');
-    const todayTimeElement = document.getElementById('activeTaskTimeToday');
+    let statusMessage = '';
+    let statusClass = '';
     
-    if (sessionTimeElement && activeTask && taskTimeData[activeTask.id]?.currentSession) {
-        const now = Date.now();
-        const sessionStart = new Date(taskTimeData[activeTask.id].currentSession.startTime).getTime();
-        const sessionTime = now - sessionStart;
-        sessionTimeElement.textContent = formatElapsedTime(sessionTime);
+    switch (action) {
+        case '🟢 START WORK':
+            statusMessage = `Work started at ${time}${activeTask ? ` on "${activeTask.name}"` : ''}`;
+            statusClass = 'status-working';
+            break;
+        case '☕ TAKE BREAK':
+            statusMessage = `Break started at ${time}`;
+            statusClass = 'status-break';
+            break;
+        case '🔵 BACK TO WORK':
+            statusMessage = `Resumed work at ${time}${activeTask ? ` on "${activeTask.name}"` : ''}`;
+            statusClass = 'status-working';
+            break;
+        case '🔴 DONE FOR TODAY':
+            statusMessage = `Work ended at ${time}`;
+            statusClass = 'status-ended';
+            break;
+        default:
+            statusMessage = `Last action: ${action} at ${time}`;
     }
     
-    if (todayTimeElement && activeTask) {
-        todayTimeElement.textContent = getTaskTodayTime(activeTask.id);
-    }
-}
-
-// ============= TASK SELECTION MODAL =============
-
-async function showTaskSelectionModal() {
-    if (availableTasks.length === 0) {
-        showToast('Loading your tasks...', 'info');
-        await loadAssignedTasks();
-    }
-    
-    if (availableTasks.length === 0) {
-        showToast('No tasks available. Create a task first!', 'warning');
-        return;
-    }
-    
-    if (!document.getElementById('taskSelectionModal')) {
-        createTaskSelectionModal();
-    }
-    
-    populateTaskSelection();
-    document.getElementById('taskSelectionModal').style.display = 'block';
-}
-
-function createTaskSelectionModal() {
-    const modalHTML = `
-    <div id="taskSelectionModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>🎯 What are you working on?</h2>
-                <span class="close" onclick="closeTaskSelectionModal()">&times;</span>
-            </div>
-            
-            <div class="modal-body">
-                <p style="color: var(--text-secondary); margin-bottom: var(--spacing-lg);">
-                    Select a task to start tracking your time:
-                </p>
-                
-                <div id="taskSelectionList" class="task-selection-list">
-                </div>
-                
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="closeTaskSelectionModal()">
-                        Cancel
-                    </button>
-                    <button type="button" class="btn btn-primary" onclick="startWorkOnSelectedTask()" id="startSelectedTaskBtn" disabled>
-                        🟢 Start Working
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-    `;
-    
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
-}
-
-function populateTaskSelection() {
-    const taskList = document.getElementById('taskSelectionList');
-    
-    if (availableTasks.length === 0) {
-        taskList.innerHTML = `
-            <div class="no-tasks-message">
-                <p>No tasks available</p>
-                <p style="color: var(--text-secondary); font-size: 0.875rem;">Create a task first to start tracking time</p>
-            </div>
-        `;
-        return;
-    }
-    
-    taskList.innerHTML = availableTasks.map(task => `
-        <div class="task-selection-item" onclick="selectTaskForWork('${task.id}')">
-            <div class="task-selection-header">
-                <div class="task-selection-title">${task.name}</div>
-                <div class="task-selection-company">${task.company}</div>
-            </div>
-            <div class="task-selection-meta">
-                <span class="task-selection-status ${getStatusClass(task.status)}">${task.status}</span>
-                <span class="task-selection-progress">${task.progress}%</span>
-            </div>
-            <div class="task-selection-time">
-                ⏱️ Today: ${getTaskTodayTime(task.id)}
-            </div>
-        </div>
-    `).join('');
-}
-
-function selectTaskForWork(taskId) {
-    selectedTaskId = taskId;
-    activeTask = availableTasks.find(task => task.id === taskId);
-    
-    document.querySelectorAll('.task-selection-item').forEach(item => {
-        item.classList.remove('selected');
-    });
-    event.currentTarget.classList.add('selected');
-    
-    document.getElementById('startSelectedTaskBtn').disabled = false;
-    
-    console.log('Selected task:', activeTask);
-}
-
-function closeTaskSelectionModal() {
-    const modal = document.getElementById('taskSelectionModal');
-    if (modal) {
-        modal.style.display = 'none';
-    }
-}
-
-async function startWorkOnSelectedTask() {
-    if (!activeTask) {
-        showToast('Please select a task first', 'warning');
-        return;
-    }
-    
-    closeTaskSelectionModal();
-    
-    await handleTimeClock('🟢 START WORK');
-    initializeTaskTimeTracking();
-    updateActiveTaskDisplay();
-    
-    showToast(`Started working on: ${activeTask.name}`, 'success');
-}</span>
-                            <span class="task-time">⏱️ ${getTaskTodayTime(task.id)}</span>
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    });
-    
-    taskList.innerHTML = html;
-}
-
-function filterTasks() {
-    const searchTerm = document.getElementById('taskSearchInput').value.toLowerCase();
-    const taskItems = document.querySelectorAll('.enhanced-task-item');
-    
-    taskItems.forEach(item => {
-        const taskName = item.getAttribute('data-task-name');
-        const taskCompany = item.getAttribute('data-task-company');
-        
-        if (taskName.includes(searchTerm) || taskCompany.includes(searchTerm)) {
-            item.style.display = 'block';
-        } else {
-            item.style.display = 'none';
-        }
-    });
-    
-    document.querySelectorAll('.task-company-group').forEach(group => {
-        const visibleTasks = group.querySelectorAll('.enhanced-task-item[style="display: block;"]');
-        group.style.display = visibleTasks.length > 0 ? 'block' : 'none';
-    });
-}
-
-function selectTaskForWork(taskId) {
-    selectedTaskId = taskId;
-    activeTask = availableTasksCache.find(task => task.id === taskId);
-    
-    document.querySelectorAll('.enhanced-task-item').forEach(item => {
-        item.classList.remove('selected');
-    });
-    event.currentTarget.classList.add('selected');
-    
-    document.getElementById('startSelectedTaskBtn').disabled = false;
-    
-    console.log('Selected task:', activeTask);
-}
-
-function showCreateTaskForm() {
-    closeEnhancedTaskModal();
-    
-    const taskIntakeSection = document.querySelector('.task-intake-section');
-    if (taskIntakeSection) {
-        taskIntakeSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        
-        setTimeout(() => {
-            const assignedField = document.querySelector('select[name="Assigned"]') || 
-                                 document.querySelector('input[name="Assigned"]');
-            if (assignedField && currentEmployee) {
-                assignedField.value = currentEmployee;
-            }
-        }, 500);
-    }
-}
-
-function closeEnhancedTaskModal() {
-    const modal = document.getElementById('enhancedTaskModal');
-    if (modal) {
-        modal.style.display = 'none';
-    }
-    selectedTaskId = null;
-    activeTask = null;
-}
-
-async function startWorkOnSelectedTask() {
-    if (!activeTask) {
-        showToast('Please select a task first', 'warning');
-        return;
-    }
-    
-    closeEnhancedTaskModal();
-    
-    await handleTimeClock('🟢 START WORK');
-    initializeTaskTimeTracking();
-    updateActiveTaskDisplay();
-    
-    showToast(`Started working on: ${activeTask.name}`, 'success');
-}
-
-async function showTaskSelectionModal() {
-    if (availableTasks.length === 0) {
-        showToast('Loading your tasks...', 'info');
-        await loadAssignedTasks();
-    }
-    
-    if (availableTasks.length === 0) {
-        showToast('No tasks available. Create a task first!', 'warning');
-        return;
-    }
-    
-    if (!document.getElementById('taskSelectionModal')) {
-        createTaskSelectionModal();
-    }
-    
-    populateTaskSelection();
-    document.getElementById('taskSelectionModal').style.display = 'block';
-}
-
-function createTaskSelectionModal() {
-    const modalHTML = `
-    <div id="taskSelectionModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>🎯 What are you working on?</h2>
-                <span class="close" onclick="closeTaskSelectionModal()">&times;</span>
-            </div>
-            
-            <div class="modal-body">
-                <p style="color: var(--text-secondary); margin-bottom: var(--spacing-lg);">
-                    Select a task to start tracking your time:
-                </p>
-                
-                <div id="taskSelectionList" class="task-selection-list">
-                </div>
-                
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="closeTaskSelectionModal()">
-                        Cancel
-                    </button>
-                    <button type="button" class="btn btn-primary" onclick="startWorkOnSelectedTask()" id="startSelectedTaskBtn" disabled>
-                        🟢 Start Working
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-    `;
-    
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
-}
-
-function populateTaskSelection() {
-    const taskList = document.getElementById('taskSelectionList');
-    
-    if (availableTasks.length === 0) {
-        taskList.innerHTML = `
-            <div class="no-tasks-message">
-                <p>No tasks available</p>
-                <p style="color: var(--text-secondary); font-size: 0.875rem;">Create a task first to start tracking time</p>
-            </div>
-        `;
-        return;
-    }
-    
-    taskList.innerHTML = availableTasks.map(task => `
-        <div class="task-selection-item" onclick="selectTaskForWork('${task.id}')">
-            <div class="task-selection-header">
-                <div class="task-selection-title">${task.name}</div>
-                <div class="task-selection-company">${task.company}</div>
-            </div>
-            <div class="task-selection-meta">
-                <span class="task-selection-status ${getStatusClass(task.status)}">${task.status}</span>
-                <span class="task-selection-progress">${task.progress}%</span>
-            </div>
-            <div class="task-selection-time">
-                ⏱️ Today: ${getTaskTodayTime(task.id)}
-            </div>
-        </div>
-    `).join('');
-}
-
-function closeTaskSelectionModal() {
-    const modal = document.getElementById('taskSelectionModal');
-    if (modal) {
-        modal.style.display = 'none';
-    }
+    statusDiv.innerHTML = `<span class="${statusClass}">${statusMessage}</span>`;
 }
 
 // ============= DAILY REPORT FUNCTIONALITY =============
 
-// Auto-populate today's task time
-function calculateTodaysProjectTime(projectName) {
-    if (!taskTimeData || !projectName) return "0h 0m";
-    
-    let totalTimeToday = 0;
-    const today = new Date().toDateString();
-    
-    Object.values(taskTimeData).forEach(task => {
-        if (task.taskName.toLowerCase().includes(projectName.toLowerCase()) ||
-            projectName.toLowerCase().includes(task.taskName.toLowerCase())) {
-            if (task.lastActiveDate === today) {
-                totalTimeToday += task.totalTimeToday || 0;
-            }
-        }
-    });
-    
-    return formatElapsedTime(totalTimeToday);
-}
-
-// Auto-populate when project name changes
-document.addEventListener('DOMContentLoaded', function() {
-    const projectNameField = document.getElementById('projectName');
-    if (projectNameField) {
-        projectNameField.addEventListener('input', function(e) {
-            const projectName = e.target.value.trim();
-            const todaysTimeField = document.getElementById('todayTimeSpent');
-            
-            if (projectName.length > 3) {
-                const calculatedTime = calculateTodaysProjectTime(projectName);
-                todaysTimeField.value = calculatedTime;
-                
-                if (calculatedTime !== "0h 0m") {
-                    todaysTimeField.style.background = "linear-gradient(135deg, rgba(72, 187, 120, 0.1) 0%, rgba(56, 161, 105, 0.1) 100%)";
-                    todaysTimeField.style.border = "2px solid #48bb78";
-                } else {
-                    todaysTimeField.style.background = "var(--surface-elevated)";
-                    todaysTimeField.style.border = "2px solid var(--border)";
-                }
-            } else {
-                todaysTimeField.value = "0h 0m";
-                todaysTimeField.style.background = "var(--surface-elevated)";
-                todaysTimeField.style.border = "2px solid var(--border)";
-            }
-        });
-    }
-});
-
+// Handle daily report with photo upload - ENHANCED WITH TASK DATA
 async function handleDailyReport(e) {
     e.preventDefault();
     
@@ -2173,50 +1413,40 @@ async function handleDailyReport(e) {
         showToast('Please select an employee first', 'warning');
         return;
     }
-
-    if (!validateDailyReportForm()) {
-        return;
-    }
-
+    
+    // Get photo file
     const photoFile = document.getElementById('reportPhoto').files[0];
     if (!photoFile) {
-        showToast('Please upload a photo for the report', 'error');
+        showToast('Please upload a photo for the report', 'warning');
         return;
     }
-
+    
+    // Upload photo to ImgBB first
     showToast('📤 Uploading photo for report...', 'info');
-    let photoUrl;
-    try {
-        photoUrl = await uploadToImgBB(photoFile);
-        if (!photoUrl) {
-            showToast('❌ Failed to upload photo. Please try again.', 'error');
-            return;
-        }
-    } catch (error) {
-        console.error('Photo upload error:', error);
-        showToast('Failed to upload photo. Please try again.', 'error');
+    const photoUrl = await uploadToImgBB(photoFile);
+    
+    if (!photoUrl) {
+        showToast('❌ Failed to upload photo. Please try again.', 'error');
         return;
     }
     
-    const totalTimeSpent = document.getElementById('totalTimeSpent').value;
-    const todayTimeSpent = document.getElementById('todayTimeSpent').value;
-    
+    // Prepare form data with photo URL and task time data
     const formData = {
         'Name': currentEmployee,
         'Company': document.getElementById('reportCompany').value,
         'Date': document.getElementById('reportDate').value,
         'Project Name': document.getElementById('projectName').value,
-        'Number of Revisions': parseInt(document.getElementById('numRevisions').value) || 0,
-        'Total Time Spent on Project': totalTimeSpent,
-        'Today Time Spent': todayTimeSpent,
+        'Number of Revisions': parseInt(document.getElementById('numRevisions').value),
+        'Total Time Spent on Project': document.getElementById('totalTimeSpent').value,
         'Notes': document.getElementById('reportNotes').value,
-        'Links': document.getElementById('reportLinks').value || '',
-        'Feedback or Requests': document.getElementById('feedbackRequests').value || '',
-        'Photo for report': photoUrl
+        'Links': document.getElementById('reportLinks').value,
+        'Feedback or Requests': document.getElementById('feedbackRequests').value,
+        'Photo for report': photoUrl // ImgBB URL instead of binary data
     };
 
-    if (typeof taskTimeData !== 'undefined' && Object.keys(taskTimeData).length > 0) {
-        let taskTimeBreakdown = '\n\n--- TODAY\'S TASK TIME BREAKDOWN ---\n';
+    // NEW: Add task time breakdown to report
+    if (Object.keys(taskTimeData).length > 0) {
+        let taskTimeBreakdown = '\n\n--- TASK TIME BREAKDOWN ---\n';
         Object.values(taskTimeData).forEach(task => {
             if (task.totalTimeToday > 0) {
                 taskTimeBreakdown += `• ${task.taskName} (${task.company}): ${formatElapsedTime(task.totalTimeToday)}\n`;
@@ -2237,18 +1467,17 @@ async function handleDailyReport(e) {
         if (response.ok) {
             document.getElementById('dailyReportForm').reset();
             document.getElementById('reportPhotoPreview').innerHTML = '';
-            document.getElementById('todayTimeSpent').value = '0h 0m';
-            showToast('✅ Daily report submitted with dual time tracking!', 'success');
+            showToast('✅ Daily report submitted with task time data!', 'success');
         } else {
-            const errorText = await response.text();
-            throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
     } catch (error) {
         console.error('Error submitting daily report:', error);
-        showToast(`Error submitting daily report: ${error.message}`, 'error');
+        showToast('Error submitting daily report', 'error');
     }
 }
 
+// Handle report photo preview
 function handleReportPhotoPreview(e) {
     const file = e.target.files[0];
     const preview = document.getElementById('reportPhotoPreview');
@@ -2268,23 +1497,121 @@ function handleReportPhotoPreview(e) {
     reader.readAsDataURL(file);
 }
 
-// ============= TASK EDITOR MODAL =============
+// ============= UTILITY FUNCTIONS =============
 
-let currentModalTaskData = null;
+// Upload image to ImgBB - ENHANCED WITH BETTER ERROR HANDLING
+async function uploadToImgBB(file) {
+    // Show upload progress
+    showToast('📤 Uploading to ImgBB...', 'info');
+    
+    const formData = new FormData();
+    formData.append('image', file);
+    
+    try {
+        const response = await fetch(`https://api.imgbb.com/1/upload?key=${CONFIG.imgbbApiKey}`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('✅ ImgBB Upload Success:', {
+                url: data.data.url,
+                display_url: data.data.display_url,
+                size: data.data.size,
+                title: data.data.title,
+                delete_url: data.data.delete_url
+            });
+            
+            showToast('✅ Image uploaded to ImgBB successfully!', 'success');
+            
+            // Return the display_url which is what n8n will use to create StartInfinity attachment
+            return data.data.display_url;
+        } else {
+            console.error('❌ ImgBB upload failed:', data);
+            
+            let errorMessage = 'Upload failed';
+            if (data.error && data.error.message) {
+                errorMessage = data.error.message;
+            } else if (data.status_txt) {
+                errorMessage = data.status_txt;
+            }
+            
+            showToast(`ImgBB Error: ${errorMessage}`, 'error');
+            return null;
+        }
+    } catch (error) {
+        console.error('❌ Error uploading to ImgBB:', error);
+        showToast(`Upload error: ${error.message}`, 'error');
+        return null;
+    }
+}
 
+// Helper function to get status class for styling
+function getStatusClass(status) {
+    const statusClasses = {
+        'Project': 'status-project',
+        'Priority Project': 'status-priority',
+        'Current Project': 'status-current',
+        'Revision': 'status-revision',
+        'Waiting Approval': 'status-waiting',
+        'Project Finished': 'status-finished',
+        'Rejected': 'status-rejected'
+    };
+    return statusClasses[status] || 'status-default';
+}
+
+// Toast notification
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    
+    const container = document.getElementById('toastContainer');
+    container.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 5000);
+}
+
+// Close modal when clicking outside
+window.addEventListener('click', function(event) {
+    const taskSelectionModal = document.getElementById('taskSelectionModal');
+    const taskEditorModal = document.getElementById('taskEditorModal');
+    
+    if (event.target === taskSelectionModal) {
+        closeTaskSelectionModal();
+    }
+    if (event.target === taskEditorModal) {
+        closeTaskEditorModal();
+    }
+});
+
+// Open task editor (simplified version for task cards)
 function openTaskEditor(taskId) {
     openTaskEditorModal();
+    // You can auto-populate with task data if available
     showToast('Load task data by pasting IDs from Discord', 'info');
 }
 
+// ============= TASK EDITOR MODAL (existing code) =============
+
+let currentModalTaskData = null;
+
+// Open task editor modal
 function openTaskEditorModal() {
+    // Create modal if it doesn't exist
     if (!document.getElementById('taskEditorModal')) {
         createTaskEditorModal();
     }
     
+    // Show modal
     document.getElementById('taskEditorModal').style.display = 'block';
 }
 
+// Create task editor modal
 function createTaskEditorModal() {
     const modalHTML = `
     <div id="taskEditorModal" class="modal">
@@ -2295,6 +1622,7 @@ function createTaskEditorModal() {
             </div>
             
             <div class="modal-body">
+                <!-- ID Input Section -->
                 <div class="id-input-group">
                     <h3>Paste Task IDs from Discord Logs</h3>
                     
@@ -2325,14 +1653,18 @@ function createTaskEditorModal() {
                     </button>
                 </div>
 
+                <!-- Task Info Display -->
                 <div id="taskInfoDisplay" class="task-info-display">
                     <h4>Current Task Information</h4>
                     <div class="info-grid" id="taskInfoGrid">
+                        <!-- Task info will be populated here -->
                     </div>
                 </div>
 
+                <!-- Task Edit Form -->
                 <form id="taskEditModalForm" class="task-edit-form">
                     <div class="edit-grid">
+                        <!-- Company Selection -->
                         <div class="form-group">
                             <label for="editCompany">Company*</label>
                             <select id="editCompany" required>
@@ -2345,21 +1677,25 @@ function createTaskEditorModal() {
                             </select>
                         </div>
 
+                        <!-- Task Name -->
                         <div class="form-group">
                             <label for="editModalTaskName">Task Name*</label>
                             <input type="text" id="editModalTaskName" required>
                         </div>
 
+                        <!-- Description -->
                         <div class="form-group full-width">
                             <label for="editModalDescription">Description</label>
                             <textarea id="editModalDescription" rows="4"></textarea>
                         </div>
 
+                        <!-- Due Date -->
                         <div class="form-group">
                             <label for="editModalDueDate">Due Date</label>
                             <input type="date" id="editModalDueDate">
                         </div>
 
+                        <!-- Status -->
                         <div class="form-group">
                             <label for="editModalStatus">Status</label>
                             <select id="editModalStatus">
@@ -2374,6 +1710,7 @@ function createTaskEditorModal() {
                             </select>
                         </div>
 
+                        <!-- Progress -->
                         <div class="form-group full-width progress-editor">
                             <label for="editModalProgress">Progress</label>
                             <div class="progress-preview">
@@ -2398,6 +1735,7 @@ function createTaskEditorModal() {
                             </div>
                         </div>
 
+                        <!-- Update Options -->
                         <div class="form-group full-width">
                             <label>
                                 <input type="checkbox" id="updateBothBoards" checked>
@@ -2406,6 +1744,7 @@ function createTaskEditorModal() {
                         </div>
                     </div>
 
+                    <!-- Action Buttons -->
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" onclick="closeTaskEditorModal()">
                             Cancel
@@ -2423,10 +1762,14 @@ function createTaskEditorModal() {
     </div>
     `;
     
+    // Add modal to body
     document.body.insertAdjacentHTML('beforeend', modalHTML);
+    
+    // Add event listener to the form
     document.getElementById('taskEditModalForm').addEventListener('submit', handleModalTaskUpdate);
 }
 
+// Close task editor modal
 function closeTaskEditorModal() {
     const modal = document.getElementById('taskEditorModal');
     if (modal) {
@@ -2435,6 +1778,7 @@ function closeTaskEditorModal() {
     }
 }
 
+// Paste from clipboard
 async function pasteFromClipboard(inputId) {
     try {
         const text = await navigator.clipboard.readText();
@@ -2452,6 +1796,7 @@ async function pasteFromClipboard(inputId) {
     }
 }
 
+// Load task for editing
 async function loadTaskForEdit() {
     const masterBoardId = document.getElementById('masterBoardId').value.trim();
     const companyBoardId = document.getElementById('companyBoardId').value.trim();
@@ -2463,6 +1808,7 @@ async function loadTaskForEdit() {
     
     showToast('Loading task data...', 'info');
     
+    // For now, create mock task data - you can enhance this when you create task retrieval
     currentModalTaskData = {
         master_board_id: masterBoardId,
         company_board_id: companyBoardId,
@@ -2474,15 +1820,20 @@ async function loadTaskForEdit() {
         progress: 50
     };
     
+    // Populate the form
     populateModalEditForm(currentModalTaskData);
+    
+    // Show task info
     displayModalTaskInfo(currentModalTaskData);
     
+    // Show the edit form
     document.getElementById('taskEditModalForm').classList.add('active');
     document.getElementById('taskInfoDisplay').classList.add('active');
     
     showToast('Task loaded successfully!', 'success');
 }
 
+// Display task info in modal
 function displayModalTaskInfo(taskData) {
     const infoGrid = document.getElementById('taskInfoGrid');
     infoGrid.innerHTML = `
@@ -2505,6 +1856,7 @@ function displayModalTaskInfo(taskData) {
     `;
 }
 
+// Populate modal edit form
 function populateModalEditForm(taskData) {
     document.getElementById('editCompany').value = taskData.company || '';
     document.getElementById('editModalTaskName').value = taskData.task_name || '';
@@ -2513,12 +1865,15 @@ function populateModalEditForm(taskData) {
     document.getElementById('editModalStatus').value = taskData.status || '';
     document.getElementById('editModalProgress').value = taskData.progress || 0;
     
+    // Update progress preview
     updateModalProgressPreview(taskData.progress || 0);
     
+    // Set update option based on whether both IDs are present
     document.getElementById('updateBothBoards').checked = 
         !!(taskData.master_board_id && taskData.company_board_id);
 }
 
+// Update modal progress preview
 function updateModalProgressPreview(value) {
     const progressBar = document.getElementById('modalProgressBar');
     const progressValue = document.getElementById('modalProgressValue');
@@ -2527,6 +1882,7 @@ function updateModalProgressPreview(value) {
     progressBar.style.width = `${value}%`;
     progressValue.textContent = `${value}%`;
     
+    // Update auto status indicator
     let status = 'Project';
     let statusClass = 'status-project';
     
@@ -2542,6 +1898,7 @@ function updateModalProgressPreview(value) {
     autoStatus.className = `status-indicator ${statusClass}`;
 }
 
+// Quick complete modal task
 async function quickCompleteModalTask() {
     if (!currentModalTaskData) {
         showToast('Please load a task first', 'warning');
@@ -2552,12 +1909,15 @@ async function quickCompleteModalTask() {
         return;
     }
     
+    // Set progress to 100 and update
     document.getElementById('editModalProgress').value = 100;
     updateModalProgressPreview(100);
     
+    // Submit the form
     await handleModalTaskUpdate({ preventDefault: () => {} });
 }
 
+// Reset modal task editor
 function resetModalTaskEditor() {
     if (document.getElementById('taskEditModalForm')) {
         document.getElementById('taskEditModalForm').reset();
@@ -2572,6 +1932,7 @@ function resetModalTaskEditor() {
     updateModalProgressPreview(0);
 }
 
+// Handle modal task update
 async function handleModalTaskUpdate(event) {
     event.preventDefault();
     
@@ -2607,7 +1968,10 @@ async function handleModalTaskUpdate(event) {
         if (response.ok) {
             showToast('Task updated successfully!', 'success');
             
+            // Update current task data
             currentModalTaskData = { ...currentModalTaskData, ...updateData };
+            
+            // Update task info display
             displayModalTaskInfo(currentModalTaskData);
         } else {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -2617,188 +1981,3 @@ async function handleModalTaskUpdate(event) {
         showToast('Error updating task', 'error');
     }
 }
-
-// ============= UTILITY FUNCTIONS =============
-
-function calculateTimeUntilReset() {
-    const now = new Date();
-    const brisbaneNow = new Date(now.toLocaleString('en-US', { timeZone: 'Australia/Brisbane' }));
-    
-    let targetTime = new Date(brisbaneNow);
-    targetTime.setHours(9, 0, 0, 0);
-    
-    if (brisbaneNow >= targetTime) {
-        targetTime.setDate(targetTime.getDate() + 1);
-    }
-    
-    const diffMs = targetTime - brisbaneNow;
-    const diffMins = Math.floor(diffMs / 60000);
-    const hours = Math.floor(diffMins / 60);
-    const minutes = diffMins % 60;
-    
-    if (hours > 0) {
-        return `${hours}h ${minutes}m`;
-    } else {
-        return `${minutes}m`;
-    }
-}
-
-async function uploadToImgBB(file) {
-    showToast('📤 Uploading to ImgBB...', 'info');
-    
-    const formData = new FormData();
-    formData.append('image', file);
-    
-    try {
-        const response = await fetch(`https://api.imgbb.com/1/upload?key=${CONFIG.imgbbApiKey}`, {
-            method: 'POST',
-            body: formData
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            console.log('✅ ImgBB Upload Success:', {
-                url: data.data.url,
-                display_url: data.data.display_url,
-                size: data.data.size,
-                title: data.data.title,
-                delete_url: data.data.delete_url
-            });
-            
-            showToast('✅ Image uploaded to ImgBB successfully!', 'success');
-            return data.data.display_url;
-        } else {
-            console.error('❌ ImgBB upload failed:', data);
-            
-            let errorMessage = 'Upload failed';
-            if (data.error && data.error.message) {
-                errorMessage = data.error.message;
-            } else if (data.status_txt) {
-                errorMessage = data.status_txt;
-            }
-            
-            showToast(`ImgBB Error: ${errorMessage}`, 'error');
-            return null;
-        }
-    } catch (error) {
-        console.error('❌ Error uploading to ImgBB:', error);
-        showToast(`Upload error: ${error.message}`, 'error');
-        return null;
-    }
-}
-
-function getStatusClass(status) {
-    const statusClasses = {
-        'Project': 'status-project',
-        'Priority Project': 'status-priority',
-        'Current Project': 'status-current',
-        'Revision': 'status-revision',
-        'Waiting Approval': 'status-waiting',
-        'Project Finished': 'status-finished',
-        'Rejected': 'status-rejected'
-    };
-    return statusClasses[status] || 'status-default';
-}
-
-function formatElapsedTime(milliseconds) {
-    const totalSeconds = Math.floor(milliseconds / 1000);
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    
-    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-}
-
-function showToast(message, type = 'info') {
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    toast.textContent = message;
-    
-    const container = document.getElementById('toastContainer');
-    container.appendChild(toast);
-    
-    setTimeout(() => {
-        toast.remove();
-    }, 5000);
-}
-
-// ============= EVENT LISTENERS =============
-
-window.addEventListener('click', function(event) {
-    const taskSelectionModal = document.getElementById('taskSelectionModal');
-    const taskEditorModal = document.getElementById('taskEditorModal');
-    
-    if (event.target === taskSelectionModal) {
-        closeTaskSelectionModal();
-    }
-    if (event.target === taskEditorModal) {
-        closeTaskEditorModal();
-    }
-});
-
-document.addEventListener('keydown', function(event) {
-    if (event.key === 'Escape') {
-        closeTaskSelectionModal();
-        closeTaskEditorModal();
-    }
-});
-
-// ============= END OF SCRIPT =============
-
-// 🎨 CSS Classes for Visual Enhancements (add to your CSS file):
-/*
-.btn-disabled {
-    opacity: 0.5 !important;
-    cursor: not-allowed !important;
-    pointer-events: none;
-}
-
-.btn-active {
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
-    border-color: #3b82f6;
-    animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-    0%, 100% { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5); }
-    50% { box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.3); }
-}
-
-.status-working {
-    color: #059669;
-    font-weight: 600;
-}
-
-.status-break {
-    color: #dc2626;
-    font-weight: 600;
-}
-
-.status-ended {
-    color: #7c3aed;
-    font-weight: 600;
-}
-
-.status-default {
-    color: #6b7280;
-    font-weight: 500;
-}
-
-.user-error {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-*/
-
-console.log('🚀 VEBLEN Task Tracker initialized successfully!');
-console.log('🔐 TIME CLOCK WORKFLOW CONTROLS ACTIVE:');
-console.log('📊 States: NOT_STARTED → WORKING → ON_BREAK → FINISHED');
-console.log('🚫 Button restrictions enforced');
-console.log('💾 State persistence enabled');
-console.log('🔒 Error prevention active');
-console.log('🎨 Visual enhancements loaded');
-console.log('✅ WORKFLOW VALIDATION: All checks enabled');
-console.log('🔔 Discord notifications active');
-console.log('📋 Task intake workflow active');
-console.log('✏️ Edit Task function ready for Discord IDs');
