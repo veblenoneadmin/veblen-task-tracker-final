@@ -4,66 +4,309 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VEBLEN Task & Time Tracker</title>
+    <link rel="icon" type="image/png" href="https://i.ibb.co/50CN8P5/fe71a9da-24a6-46cf-8eda-df73bff35fc8.png">
+    <link rel="apple-touch-icon" href="https://i.ibb.co/50CN8P5/fe71a9da-24a6-46cf-8eda-df73bff35fc8.png">
     <link rel="stylesheet" href="style.css">
-    <link rel="icon" href="https://i.ibb.co/x8Pp6QHZ/fe71a9da-24a6-46cf-8eda-df73bff35fc8.png">
+    <style>
+        /* Real-time Work Clock Styles */
+        .work-clock-display, .break-clock-display {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%);
+            border: 2px solid rgba(102, 126, 234, 0.4);
+            border-radius: var(--radius-xl);
+            padding: var(--spacing-xl);
+            margin-bottom: var(--spacing-xl);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(102, 126, 234, 0.3);
+            animation: pulseGlow 3s ease-in-out infinite;
+        }
+
+        .break-clock-display {
+            background: linear-gradient(135deg, rgba(250, 112, 154, 0.2) 0%, rgba(254, 225, 64, 0.2) 100%);
+            border-color: rgba(250, 112, 154, 0.4);
+            box-shadow: 0 0 30px rgba(250, 112, 154, 0.3);
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% { 
+                box-shadow: 0 0 30px rgba(102, 126, 234, 0.3);
+                transform: scale(1);
+            }
+            50% { 
+                box-shadow: 0 0 40px rgba(102, 126, 234, 0.5);
+                transform: scale(1.02);
+            }
+        }
+
+        .break-clock-display {
+            animation: pulseGlowOrange 3s ease-in-out infinite;
+        }
+
+        @keyframes pulseGlowOrange {
+            0%, 100% { 
+                box-shadow: 0 0 30px rgba(250, 112, 154, 0.3);
+                transform: scale(1);
+            }
+            50% { 
+                box-shadow: 0 0 40px rgba(250, 112, 154, 0.5);
+                transform: scale(1.02);
+            }
+        }
+
+        .clock-info h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: var(--spacing-md);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .work-timer, .break-timer {
+            font-size: 4rem;
+            font-weight: 700;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-variant-numeric: tabular-nums;
+            filter: drop-shadow(0 4px 8px rgba(102, 126, 234, 0.4));
+            margin-bottom: var(--spacing-md);
+            font-family: 'Courier New', monospace;
+        }
+
+        .break-timer {
+            background: var(--warning-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            filter: drop-shadow(0 4px 8px rgba(250, 112, 154, 0.4));
+        }
+
+        .work-status, .break-status {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        /* Shift Progress Styles */
+        .shift-progress {
+            margin: var(--spacing-lg) 0;
+            padding: var(--spacing-lg);
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: var(--radius-lg);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .shift-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-md);
+        }
+
+        .shift-label {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .shift-time {
+            font-size: 1.25rem;
+            font-weight: 700;
+            background: var(--success-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-family: 'Courier New', monospace;
+        }
+
+        .shift-bar-container {
+            height: 12px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: var(--radius-full);
+            overflow: hidden;
+            margin-bottom: var(--spacing-sm);
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .shift-bar {
+            height: 100%;
+            background: var(--success-gradient);
+            transition: width 0.5s ease;
+            position: relative;
+            min-width: 2px;
+            box-shadow: 0 0 10px rgba(72, 187, 120, 0.5);
+        }
+
+        .shift-bar.overtime {
+            background: var(--warning-gradient);
+            box-shadow: 0 0 10px rgba(250, 112, 154, 0.5);
+        }
+
+        .shift-bar.complete {
+            background: var(--primary-gradient);
+            box-shadow: 0 0 15px rgba(102, 126, 234, 0.7);
+            animation: celebrate 2s ease-in-out infinite;
+        }
+
+        @keyframes celebrate {
+            0%, 100% { box-shadow: 0 0 15px rgba(102, 126, 234, 0.7); }
+            50% { box-shadow: 0 0 25px rgba(102, 126, 234, 0.9); }
+        }
+
+        .shift-target {
+            text-align: center;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .shift-target.complete {
+            color: var(--primary-color);
+            font-weight: 700;
+            font-size: 1rem;
+        }
+
+        .shift-target.overtime {
+            color: #f6ad55;
+            font-weight: 700;
+        }
+
+        /* Break Info Styles */
+        .break-info {
+            margin: var(--spacing-lg) 0;
+            padding: var(--spacing-lg);
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: var(--radius-lg);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .break-info p {
+            margin: var(--spacing-sm) 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .total-worked span, .shift-remaining span {
+            font-weight: 700;
+            font-family: 'Courier New', monospace;
+            font-size: 1.1rem;
+        }
+
+        .total-worked span {
+            background: var(--success-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .shift-remaining span {
+            background: var(--warning-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Responsive design for clock */
+        @media (max-width: 768px) {
+            .work-timer, .break-timer {
+                font-size: 2.5rem;
+            }
+            
+            .clock-info h3 {
+                font-size: 1rem;
+            }
+        }
+
+        /* Status indicator styles */
+        .status-working {
+            color: #48bb78;
+            font-weight: 600;
+        }
+
+        .status-break {
+            color: #f6ad55;
+            font-weight: 600;
+        }
+
+        .status-ended {
+            color: #fc8181;
+            font-weight: 600;
+        }
+
+        .time-clock-status {
+            text-align: center;
+            padding: var(--spacing-lg);
+            background: var(--surface);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border);
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+            font-weight: 500;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
         <!-- Header -->
         <header class="header">
-            <h1><img src="https://i.ibb.co/x8Pp6QHZ/fe71a9da-24a6-46cf-8eda-df73bff35fc8.png" alt="VEBLEN" style="width: 24px; height: 24px; vertical-align: middle; margin-right: 8px;">VEBLEN Task & Time Tracker</h1>
-            
-            <!-- Employee Selection -->
+        <h1><img src="https://i.ibb.co/50CN8P5/fe71a9da-24a6-46cf-8eda-df73bff35fc8.png" alt="VEBLEN" class="logo"> Task & Time Tracker</h1>
             <div class="employee-selector">
-                <label for="employeeSelect">Select Employee:</label>
+                <label for="employeeSelect">Employee:</label>
                 <select id="employeeSelect">
-                    <option value="">Choose Employee</option>
+                    <option value="">Select Employee</option>
                     <option value="Tony Herrera">Tony Herrera</option>
-                    <option value="Andy Klemm">Andy Klemm</option>
-                    <option value="Hanif (Konsep Kreatif)">Hanif (Konsep Kreatif)</option>
+                    <option value="Alex">Alex</option>
+                    <option value="Ridho">Ridho</option>
                     <option value="Jevahn">Jevahn</option>
+                    <option value="Risna">Risna</option>
+                    <option value="Pran Setiawan">Pran Setiawan</option>
+                    <option value="Wayan Arfian (Konsep Kreatif)">Wayan Arfian (Konsep Kreatif)</option>
+                    <option value="Hanif (Konsep Kreatif)">Hanif (Konsep Kreatif)</option>
+                    <option value="Eden">Eden</option>
+                    <option value="Social Media Manager">Social Media Manager</option>
                     <option value="Zac Macanally">Zac Macanally</option>
                 </select>
             </div>
         </header>
 
-        <!-- Time Clock Section -->
+        <!-- Time Clock Section - NOW AT TOP -->
         <section class="time-clock-section">
             <h2>🕐 Time Clock</h2>
             
-            <!-- Work Clock Display -->
-            <div id="workClockDisplay" class="clock-display" style="display: none;">
+            <!-- Real-time Work Clock Display -->
+            <div id="workClockDisplay" class="work-clock-display" style="display: none;">
                 <div class="clock-info">
-                    <div class="current-session">
-                        <h3>Current Work Session</h3>
-                        <div class="timer" id="workTimer">00:00:00</div>
-                        <p class="clock-status" id="workStatus">Started at --:--</p>
-                    </div>
-                    
-                    <div class="shift-summary">
-                        <h4>Today's Progress</h4>
-                        <div class="shift-progress">
-                            <div class="shift-progress-bar">
-                                <div class="shift-bar" id="shiftProgressBar" style="width: 0%"></div>
-                            </div>
-                            <p class="shift-target" id="shiftStatus">0% of 8 hours completed</p>
+                    <h3>Currently Working</h3>
+                    <div class="work-timer" id="workTimer">00:00:00</div>
+                    <div class="shift-progress">
+                        <div class="shift-info">
+                            <span class="shift-label">Total Shift Time</span>
+                            <span class="shift-time" id="totalShiftTime">00:00:00</span>
                         </div>
-                        <p class="total-time">Total Shift Time: <span id="totalShiftTime">00:00:00</span></p>
+                        <div class="shift-bar-container">
+                            <div class="shift-bar" id="shiftProgressBar"></div>
+                        </div>
+                        <div class="shift-target">
+                            <span id="shiftStatus">0% of 8 hours completed</span>
+                        </div>
                     </div>
+                    <p class="work-status" id="workStatus">Started work at --:--</p>
                 </div>
             </div>
-            
+
             <!-- Break Clock Display -->
-            <div id="breakClockDisplay" class="clock-display break-clock" style="display: none;">
+            <div id="breakClockDisplay" class="break-clock-display" style="display: none;">
                 <div class="clock-info">
-                    <div class="current-break">
-                        <h3>On Break</h3>
-                        <div class="timer" id="breakTimer">00:00:00</div>
-                    </div>
-                    
-                    <div class="break-summary">
-                        <p>Time Worked Today: <span id="totalWorkedOnBreak">00:00:00</span></p>
-                        <p>Remaining: <span id="shiftRemainingOnBreak">08:00:00</span></p>
+                    <h3>On Break</h3>
+                    <div class="break-timer" id="breakTimer">00:00:00</div>
+                    <div class="break-info">
+                        <p class="total-worked">Total worked today: <span id="totalWorkedOnBreak">00:00:00</span></p>
+                        <p class="shift-remaining">Remaining: <span id="shiftRemainingOnBreak">08:00:00</span></p>
                     </div>
                     <p class="break-status" id="breakStatus">Started break at --:--</p>
                 </div>
@@ -76,9 +319,10 @@
                 <button id="endWorkBtn" class="btn btn-danger">🔴 END WORK</button>
             </div>
             <div id="timeClockStatus" class="time-clock-status"></div>
-        </section>
+        </section
 
-        <!-- Active Task Display Section -->
+<!-- Add this section AFTER the Time Clock section and BEFORE Task Intake section -->
+        <!-- NEW: Active Task Display Section -->
         <section class="active-task-section" id="activeTaskSection" style="display: none;">
             <h2>🎯 Currently Working On</h2>
             <div id="activeTaskInfo">
@@ -107,41 +351,45 @@
                 <div class="form-group">
                     <label for="taskPriority">Is this project a priority?*</label>
                     <select id="taskPriority" required>
-                        <option value="">Select Priority</option>
-                        <option value="Yes">Yes - Priority Project</option>
-                        <option value="No">No - Regular Project</option>
+                        <option value="No">🟢 No</option>
+                        <option value="Yes">🔴 Yes</option>
                     </select>
                 </div>
 
-                <!-- Project Title -->
+                <!-- Task Name -->
                 <div class="form-group">
                     <label for="taskTitle">Project Title*</label>
-                    <input type="text" id="taskTitle" placeholder="Enter project title" required>
+                    <input type="text" id="taskTitle" required placeholder="Enter project title">
                 </div>
 
                 <!-- Description -->
                 <div class="form-group">
                     <label for="taskDescription">Description*</label>
-                    <textarea id="taskDescription" rows="4" placeholder="Describe the project details..." required></textarea>
+                    <textarea id="taskDescription" rows="4" required placeholder="Describe the task in detail"></textarea>
                 </div>
 
                 <!-- Due Date -->
                 <div class="form-group">
-                    <label for="taskDueDate">Due Date*</label>
-                    <input type="date" id="taskDueDate" required>
+                    <label for="taskDueDate">Due Date</label>
+                    <input type="date" id="taskDueDate">
                 </div>
 
                 <!-- Assigned To -->
                 <div class="form-group">
-                    <label for="taskAssigned">Assigned To*</label>
+                    <label for="taskAssigned">Assigned To* (Hold Ctrl/Cmd for multiple)</label>
                     <select id="taskAssigned" multiple required>
                         <option value="Tony Herrera">Tony Herrera</option>
-                        <option value="Andy Klemm">Andy Klemm</option>
-                        <option value="Hanif (Konsep Kreatif)">Hanif (Konsep Kreatif)</option>
+                        <option value="Alex">Alex</option>
+                        <option value="Eden">Eden</option>
+                        <option value="Social Media Manager">Social Media Manager</option>
+                        <option value="Ridho">Ridho</option>
+                        <option value="Risna">Risna</option>
+                        <option value="Pran Setiawan">Pran Setiawan</option>
+                        <option value="Wayan Arfian (Konsep Kreatif)">Wayan Arfian</option>
+                        <option value="Hanif (Konsep Kreatif)">Hanif</option>
                         <option value="Jevahn">Jevahn</option>
                         <option value="Zac Macanally">Zac Macanally</option>
                     </select>
-                    <small>Hold Ctrl/Cmd to select multiple people</small>
                 </div>
 
                 <!-- Links -->
@@ -152,9 +400,8 @@
 
                 <!-- Image Upload -->
                 <div class="form-group">
-                    <label for="taskImage">Attach Image</label>
-                    <input type="file" id="taskImage" accept="image/*">
-                    <small>Supported formats: JPEG, PNG, GIF, WebP, BMP (max 32MB)</small>
+                    <label for="taskImage">Attach Image/Video</label>
+                    <input type="file" id="taskImage" accept="image/*,video/*">
                     <div id="taskImagePreview"></div>
                 </div>
                 
@@ -174,94 +421,74 @@
         </section>
 
         <!-- Daily Report Section -->
-        <section class="daily-report-section">
-            <h2>📊 Daily Report</h2>
-            <form id="dailyReportForm">
-                <!-- Photo Upload -->
-                <div class="form-group">
-                    <label for="reportPhoto">Photo for Report*</label>
-                    <input type="file" id="reportPhoto" accept="image/*" required>
-                    <small>Supported formats: JPEG, PNG, GIF, WebP, BMP (max 32MB)</small>
-                    <div id="reportPhotoPreview"></div>
-                </div>
-                
-                <!-- Company Selection -->
-                <div class="form-group">
-                    <label for="reportCompany">Company*</label>
-                    <select id="reportCompany" required>
-                        <option value="">Select Company</option>
-                        <option value="VEBLEN (Internal)">VEBLEN (Internal)</option>
-                        <option value="LCMB GROUP">LCMB GROUP</option>
-                        <option value="NEWTECH TRAILERS">NEWTECH TRAILERS</option>
-                        <option value="CROWN REALITY">CROWN REALITY</option>
-                        <option value="FLECK GROUP">FLECK GROUP</option>
-                    </select>
-                </div>
-                
-                <!-- Date -->
-                <div class="form-group">
-                    <label for="reportDate">Date*</label>
-                    <input type="date" id="reportDate" required>
-                </div>
-                
-                <!-- Project Name -->
-                <div class="form-group">
-                    <label for="projectName">Project Name*</label>
-                    <input type="text" id="projectName" placeholder="Enter the project name" required>
-                </div>
-                
-                <!-- Number of Revisions -->
-                <div class="form-group">
-                    <label for="numRevisions">Number of Revisions*</label>
-                    <input type="number" id="numRevisions" placeholder="Number of Revisions" min="0" required>
-                </div>
-                
-                <!-- Total Time Spent -->
-                <div class="form-group">
-                    <label for="totalTimeSpent">Total Time Spent on Project (All Days)*</label>
-                    <input type="text" id="totalTimeSpent" placeholder="e.g., 18 hours across 3 days" required>
-                    <small style="color: var(--text-secondary); font-size: 0.875rem;">
-                        📝 Manual entry - Include all time: research, planning, meetings, implementation
-                    </small>
-                </div>
-
-                <!-- Today's Tracked Time (Auto-calculated) -->
-                <div class="form-group">
-                    <label for="todayTimeSpent">Today's Tracked Time (Auto-calculated)</label>
-                    <input 
-                        type="text" 
-                        id="todayTimeSpent" 
-                        value="0h 0m"
-                        readonly
-                        style="background: var(--surface-elevated); cursor: not-allowed;"
-                        placeholder="Will auto-populate based on project name"
-                    >
-                    <small style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 0.25rem; display: block;">
-                        💡 This field automatically calculates time based on your project name and task tracking
-                    </small>
-                </div>
-                
-                <!-- Notes -->
-                <div class="form-group">
-                    <label for="reportNotes">Notes*</label>
-                    <textarea id="reportNotes" rows="4" placeholder="Today's work details, progress made, challenges faced..." required></textarea>
-                </div>
-                
-                <!-- Links -->
-                <div class="form-group">
-                    <label for="reportLinks">Links</label>
-                    <textarea id="reportLinks" rows="3" placeholder="Add any relevant links (one per line)"></textarea>
-                </div>
-                
-                <!-- Feedback or Requests -->
-                <div class="form-group">
-                    <label for="feedbackRequests">Feedback or Requests</label>
-                    <textarea id="feedbackRequests" rows="5" placeholder="Any feedback, requests, or suggestions?"></textarea>
-                </div>
-                
-                <button type="submit" class="btn btn-primary">📤 Submit Report</button>
-            </form>
-        </section>
+<section class="daily-report-section">
+    <h2>📊 Daily Report</h2>
+    <form id="dailyReportForm">
+        <!-- Photo Upload -->
+        <div class="form-group">
+            <label for="reportPhoto">Photo for Report*</label>
+            <input type="file" id="reportPhoto" accept=".jpg, .jpeg, .png, .gif" required>
+            <div id="reportPhotoPreview"></div>
+        </div>
+        
+        <!-- Company Selection -->
+        <div class="form-group">
+            <label for="reportCompany">Company*</label>
+            <select id="reportCompany" required>
+                <option value="">Select Company</option>
+                <option value="VEBLEN (Internal)">VEBLEN (Internal)</option>
+                <option value="LCMB GROUP">LCMB GROUP</option>
+                <option value="NEWTECH TRAILERS">NEWTECH TRAILERS</option>
+                <option value="CROWN REALITY">CROWN REALITY</option>
+                <option value="FLECK GROUP">FLECK GROUP</option>
+            </select>
+        </div>
+        
+        <!-- Date -->
+        <div class="form-group">
+            <label for="reportDate">Date*</label>
+            <input type="date" id="reportDate" required>
+        </div>
+        
+        <!-- Project Name -->
+        <div class="form-group">
+            <label for="projectName">Project Name*</label>
+            <input type="text" id="projectName" placeholder="Enter the project name" required>
+        </div>
+        
+        <!-- Number of Revisions -->
+        <div class="form-group">
+            <label for="numRevisions">Number of Revisions*</label>
+            <input type="number" id="numRevisions" placeholder="Number of Revisions" min="0" required>
+        </div>
+        
+        <!-- Total Time Spent -->
+        <div class="form-group">
+            <label for="totalTimeSpent">Total Time Spent on Project*</label>
+            <input type="text" id="totalTimeSpent" placeholder="e.g., 3 hours" required>
+        </div>
+        
+        <!-- Notes -->
+        <div class="form-group">
+            <label for="reportNotes">Notes*</label>
+            <textarea id="reportNotes" rows="4" placeholder="Notes" required></textarea>
+        </div>
+        
+        <!-- Links -->
+        <div class="form-group">
+            <label for="reportLinks">Links</label>
+            <textarea id="reportLinks" rows="3" placeholder="Add any relevant links (one per line)"></textarea>
+        </div>
+        
+        <!-- Feedback or Requests -->
+        <div class="form-group">
+            <label for="feedbackRequests">Feedback or Requests</label>
+            <textarea id="feedbackRequests" rows="5" placeholder="Any feedback, requests, or suggestions? e.g.:&#10;&#10;• Can we use a simpler tool instead of X?&#10;• I'm having trouble with Y software&#10;• Can we add Z feature to our workflow?&#10;• The current process for A is confusing&#10;&#10;(Leave blank if no feedback)"></textarea>
+        </div>
+        
+        <button type="submit" class="btn btn-primary">📤 Submit Report</button>
+    </form>
+</section>
     </div>
 
     <!-- Toast Notification Container -->
@@ -269,46 +496,6 @@
 
     <!-- Load JavaScript -->
     <script src="script.js"></script>
-    
-    <!-- Button State Styling -->
-    <style>
-        .btn-disabled {
-            opacity: 0.5 !important;
-            cursor: not-allowed !important;
-            pointer-events: none !important;
-        }
-        
-        .btn-active {
-            box-shadow: 0 0 10px rgba(255, 255, 255, 0.3) !important;
-            border: 2px solid rgba(255, 255, 255, 0.5) !important;
-        }
-        
-        .time-clock-buttons .btn {
-            transition: all 0.3s ease !important;
-            position: relative !important;
-        }
-        
-        .time-clock-buttons .btn:disabled::after {
-            content: "🚫";
-            position: absolute;
-            top: -5px;
-            right: -5px;
-            font-size: 12px;
-        }
-        
-        .time-clock-status {
-            margin-top: 1rem;
-            padding: 0.75rem;
-            border-radius: 8px;
-            background: var(--surface-elevated);
-            border-left: 4px solid var(--primary);
-        }
-        
-        .status-working { color: #48bb78; }
-        .status-break { color: #ed8936; }
-        .status-ended { color: #e53e3e; }
-        .status-warning { color: #ed8936; font-weight: bold; }
-    </style>
     
     <!-- Error Handling and Health Check -->
     <script>
@@ -319,39 +506,16 @@
             const errorDiv = document.createElement('div');
             errorDiv.className = 'error-message';
             errorDiv.textContent = 'Connection error. Please refresh the page.';
+            errorDiv.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #ff4444; color: white; padding: 10px 20px; border-radius: 5px; z-index: 9999;';
             document.body.appendChild(errorDiv);
-            
-            setTimeout(() => {
-                if (errorDiv.parentNode) {
-                    errorDiv.parentNode.removeChild(errorDiv);
-                }
-            }, 5000);
+            setTimeout(() => errorDiv.remove(), 5000);
         });
 
-        // Health check on page load
-        window.addEventListener('DOMContentLoaded', function() {
-            console.log('🚀 VEBLEN Task Tracker loaded successfully!');
-            
-            // Verify all required elements are present
-            const requiredElements = [
-                'employeeSelect', 'taskIntakeForm', 'dailyReportForm', 'assignedTasksList',
-                'timeClockStatus', 'toastContainer', 'startWorkBtn', 'breakBtn', 
-                'backToWorkBtn', 'endWorkBtn'
-            ];
-            
-            const missingElements = [];
-            requiredElements.forEach(id => {
-                if (!document.getElementById(id)) {
-                    missingElements.push(id);
-                }
-            });
-            
-            if (missingElements.length > 0) {
-                console.error('⚠️ Missing required elements:', missingElements);
-            } else {
-                console.log('✅ All required elements found!');
-            }
-        });
+        // Check API health on load
+        fetch('/api/health')
+            .then(res => res.json())
+            .then(data => console.log('API Health:', data))
+            .catch(err => console.error('API not responding:', err));
     </script>
 </body>
 </html>
