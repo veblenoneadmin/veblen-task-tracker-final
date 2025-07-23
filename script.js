@@ -103,12 +103,12 @@ function createBrisbaneClockDisplay() {
         <div id="brisbaneClockSection" class="brisbane-clock-section">
             <div class="brisbane-clock-container">
                 <div class="local-time-display">
-                    <div class="time-zone-label" id="localTimezoneLabel">🕐 Your Time (GMT+0): </div>
+                    <div class="time-zone-label" id="localTimezoneLabel">🕐 Your Time (GMT+0)</div>
                     <div class="current-time local-time" id="localTime">--:--:--</div>
                     <div class="current-date" id="localDate">-- -- ----</div>
                 </div>
                 <div class="brisbane-time-display">
-                    <div class="time-zone-label">🇦🇺 Brisbane: </div>
+                    <div class="time-zone-label">🇦🇺 Brisbane Time</div>
                     <div class="current-time" id="brisbaneTime">--:--:--</div>
                     <div class="current-date" id="brisbaneDate">-- -- ----</div>
                 </div>
@@ -116,7 +116,7 @@ function createBrisbaneClockDisplay() {
                     <div class="reset-label">Next Shift Reset</div>
                     <div class="reset-countdown" id="resetCountdown">--:--:--</div>
                     <div class="reset-time" id="nextResetTime">Tomorrow at 9:00 AM</div>
-                    <div class="work-start-notice">🔴 Work starts at 9:00 AM your time</div>
+                    <div class="work-start-notice" id="workStartNotice">🔴 Work starts at 9:00 AM your time</div>
                 </div>
             </div>
         </div>
@@ -169,15 +169,20 @@ function updateLocalTime(localNow) {
     });
     
     const localDateStr = localNow.toLocaleDateString('en-US', {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric'
+        weekday: 'long',
+        month: 'long', 
+        day: 'numeric',
+        year: 'numeric'
     });
     
     // Update display
-    document.getElementById('localTime').textContent = localTimeStr;
-    document.getElementById('localDate').textContent = localDateStr;
-    document.getElementById('localTimezoneLabel').textContent = `🕐 Your Time (${timeZoneShort}): `;
+    const localTimeElement = document.getElementById('localTime');
+    const localDateElement = document.getElementById('localDate');
+    const localTimezoneElement = document.getElementById('localTimezoneLabel');
+    
+    if (localTimeElement) localTimeElement.textContent = localTimeStr;
+    if (localDateElement) localDateElement.textContent = localDateStr;
+    if (localTimezoneElement) localTimezoneElement.textContent = `🕐 Your Time (${timeZoneShort})`;
 }
 
 function getTimezoneShort(date) {
@@ -294,13 +299,20 @@ function initializeWorkflowState() {
     // Load saved workflow state
     const savedState = loadWorkflowState();
     
-    if (savedState) {
+    if (savedState && savedState.state) {
         currentWorkflowState = savedState.state;
         console.log('🔄 Restored workflow state:', currentWorkflowState);
+    } else {
+        // Default to NOT_STARTED if no saved state
+        currentWorkflowState = WORKFLOW_STATES.NOT_STARTED;
+        console.log('🔄 No saved state, defaulting to:', currentWorkflowState);
     }
     
     // Update button states based on current workflow
     updateWorkflowButtonStates();
+    
+    // Force save the current state
+    saveWorkflowState();
 }
 
 function saveWorkflowState() {
@@ -353,11 +365,17 @@ function updateWorkflowButtonStates() {
     const backToWorkBtn = document.getElementById('backToWorkBtn');
     const endWorkBtn = document.getElementById('endWorkBtn');
     
-    // Reset all buttons
+    // Debug logging
+    console.log('🔄 Current workflow state:', currentWorkflowState);
+    console.log('🔄 Current employee:', currentEmployee);
+    
+    // Reset all buttons first
     [startBtn, breakBtn, backToWorkBtn, endWorkBtn].forEach(btn => {
         if (btn) {
             btn.disabled = false;
             btn.classList.remove('btn-disabled');
+            btn.style.pointerEvents = 'auto';
+            btn.style.opacity = '1';
         }
     });
     
@@ -365,31 +383,92 @@ function updateWorkflowButtonStates() {
     switch (currentWorkflowState) {
         case WORKFLOW_STATES.NOT_STARTED:
             // Only START WORK is available
-            if (breakBtn) { breakBtn.disabled = true; breakBtn.classList.add('btn-disabled'); }
-            if (backToWorkBtn) { backToWorkBtn.disabled = true; backToWorkBtn.classList.add('btn-disabled'); }
-            if (endWorkBtn) { endWorkBtn.disabled = true; endWorkBtn.classList.add('btn-disabled'); }
+            if (breakBtn) { 
+                breakBtn.disabled = true; 
+                breakBtn.classList.add('btn-disabled');
+                breakBtn.style.pointerEvents = 'none';
+                breakBtn.style.opacity = '0.4';
+            }
+            if (backToWorkBtn) { 
+                backToWorkBtn.disabled = true; 
+                backToWorkBtn.classList.add('btn-disabled');
+                backToWorkBtn.style.pointerEvents = 'none';
+                backToWorkBtn.style.opacity = '0.4';
+            }
+            if (endWorkBtn) { 
+                endWorkBtn.disabled = true; 
+                endWorkBtn.classList.add('btn-disabled');
+                endWorkBtn.style.pointerEvents = 'none';
+                endWorkBtn.style.opacity = '0.4';
+            }
             
-            if (startBtn) startBtn.classList.remove('btn-disabled');
+            // Ensure START WORK is enabled
+            if (startBtn) {
+                startBtn.disabled = false;
+                startBtn.classList.remove('btn-disabled');
+                startBtn.style.pointerEvents = 'auto';
+                startBtn.style.opacity = '1';
+            }
             
             updateTimeClockStatus('Ready to start your shift', new Date());
             break;
             
         case WORKFLOW_STATES.WORKING:
             // Only BREAK and END WORK are available
-            if (startBtn) { startBtn.disabled = true; startBtn.classList.add('btn-disabled'); }
-            if (backToWorkBtn) { backToWorkBtn.disabled = true; backToWorkBtn.classList.add('btn-disabled'); }
+            if (startBtn) { 
+                startBtn.disabled = true; 
+                startBtn.classList.add('btn-disabled');
+                startBtn.style.pointerEvents = 'none';
+                startBtn.style.opacity = '0.4';
+            }
+            if (backToWorkBtn) { 
+                backToWorkBtn.disabled = true; 
+                backToWorkBtn.classList.add('btn-disabled');
+                backToWorkBtn.style.pointerEvents = 'none';
+                backToWorkBtn.style.opacity = '0.4';
+            }
             
-            if (breakBtn) breakBtn.classList.remove('btn-disabled');
-            if (endWorkBtn) endWorkBtn.classList.remove('btn-disabled');
+            if (breakBtn) {
+                breakBtn.disabled = false;
+                breakBtn.classList.remove('btn-disabled');
+                breakBtn.style.pointerEvents = 'auto';
+                breakBtn.style.opacity = '1';
+            }
+            if (endWorkBtn) {
+                endWorkBtn.disabled = false;
+                endWorkBtn.classList.remove('btn-disabled');
+                endWorkBtn.style.pointerEvents = 'auto';
+                endWorkBtn.style.opacity = '1';
+            }
             break;
             
         case WORKFLOW_STATES.ON_BREAK:
             // Only BACK TO WORK is available
-            if (startBtn) { startBtn.disabled = true; startBtn.classList.add('btn-disabled'); }
-            if (breakBtn) { breakBtn.disabled = true; breakBtn.classList.add('btn-disabled'); }
-            if (endWorkBtn) { endWorkBtn.disabled = true; endWorkBtn.classList.add('btn-disabled'); }
+            if (startBtn) { 
+                startBtn.disabled = true; 
+                startBtn.classList.add('btn-disabled');
+                startBtn.style.pointerEvents = 'none';
+                startBtn.style.opacity = '0.4';
+            }
+            if (breakBtn) { 
+                breakBtn.disabled = true; 
+                breakBtn.classList.add('btn-disabled');
+                breakBtn.style.pointerEvents = 'none';
+                breakBtn.style.opacity = '0.4';
+            }
+            if (endWorkBtn) { 
+                endWorkBtn.disabled = true; 
+                endWorkBtn.classList.add('btn-disabled');
+                endWorkBtn.style.pointerEvents = 'none';
+                endWorkBtn.style.opacity = '0.4';
+            }
             
-            if (backToWorkBtn) backToWorkBtn.classList.remove('btn-disabled');
+            if (backToWorkBtn) {
+                backToWorkBtn.disabled = false;
+                backToWorkBtn.classList.remove('btn-disabled');
+                backToWorkBtn.style.pointerEvents = 'auto';
+                backToWorkBtn.style.opacity = '1';
+            }
             break;
             
         case WORKFLOW_STATES.FINISHED:
@@ -398,14 +477,24 @@ function updateWorkflowButtonStates() {
                 if (btn) {
                     btn.disabled = true;
                     btn.classList.add('btn-disabled');
+                    btn.style.pointerEvents = 'none';
+                    btn.style.opacity = '0.4';
                 }
             });
             
             updateTimeClockStatus('Shift completed. See you tomorrow!', new Date());
             break;
+            
+        default:
+            // Fallback to NOT_STARTED if state is undefined
+            console.log('🔄 Unknown workflow state, defaulting to NOT_STARTED');
+            currentWorkflowState = WORKFLOW_STATES.NOT_STARTED;
+            updateWorkflowButtonStates();
+            return;
     }
     
-    console.log('🔄 Updated button states for workflow:', currentWorkflowState);
+    console.log('🔄 Button states updated for workflow:', currentWorkflowState);
+    console.log('🔄 START button enabled:', startBtn ? !startBtn.disabled : 'button not found');
 }
 
 // Reset daily task time data
