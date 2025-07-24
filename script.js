@@ -37,9 +37,22 @@ let currentWorkflowState = WORKFLOW_STATES.NOT_STARTED;
 let shiftResetTime = null;
 let availableTasks = [];
 
+// TESTING BYPASS FUNCTIONALITY - ADMIN ONLY
+const BYPASS_PASSWORD = 'veblenone123';
+
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
     initializeApp();
+    
+    // Add password input handler
+    const passwordInput = document.getElementById('passwordInput');
+    if (passwordInput) {
+        passwordInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                validatePassword();
+            }
+        });
+    }
 });
 
 function initializeApp() {
@@ -91,6 +104,101 @@ function initializeApp() {
             employee: currentEmployee
         });
     }, 1000);
+}
+
+// ============= TESTING BYPASS FUNCTIONS =============
+
+function openPasswordModal() {
+    const modal = document.getElementById('passwordModal');
+    const input = document.getElementById('passwordInput');
+    const error = document.getElementById('passwordError');
+    const success = document.getElementById('passwordSuccess');
+    
+    // Reset modal state
+    input.value = '';
+    error.style.display = 'none';
+    success.style.display = 'none';
+    
+    modal.style.display = 'block';
+    
+    // Focus on input after modal is shown
+    setTimeout(() => input.focus(), 100);
+}
+
+function closePasswordModal() {
+    const modal = document.getElementById('passwordModal');
+    modal.style.display = 'none';
+}
+
+function validatePassword() {
+    const input = document.getElementById('passwordInput');
+    const error = document.getElementById('passwordError');
+    const success = document.getElementById('passwordSuccess');
+    const confirmBtn = document.querySelector('.password-btn-confirm');
+    
+    const enteredPassword = input.value.trim();
+    
+    if (enteredPassword === BYPASS_PASSWORD) {
+        // Show success message
+        error.style.display = 'none';
+        success.style.display = 'block';
+        confirmBtn.disabled = true;
+        
+        // Perform testing reset after short delay
+        setTimeout(() => {
+            performTestingBypass();
+            closePasswordModal();
+            showToast('🧪 TESTING MODE: Shift reset for testing only', 'success');
+        }, 1500);
+        
+    } else {
+        // Show error message
+        success.style.display = 'none';
+        error.style.display = 'block';
+        
+        // Clear input and shake effect
+        input.value = '';
+        input.style.animation = 'shake 0.5s ease-in-out';
+        setTimeout(() => {
+            input.style.animation = '';
+            input.focus();
+        }, 500);
+    }
+}
+
+function performTestingBypass() {
+    console.log('🧪 ADMIN TESTING: Performing bypass reset for testing purposes only...');
+    
+    if (!currentEmployee) {
+        showToast('Please select an employee first', 'warning');
+        return;
+    }
+    
+    // THIS IS ONLY FOR TESTING - Normal workflow restrictions remain for regular users
+    
+    // Reset workflow state for testing
+    currentWorkflowState = WORKFLOW_STATES.NOT_STARTED;
+    
+    // Clear stored testing states
+    const workflowStateKey = `workflowState_${currentEmployee}`;
+    const clockStateKey = `workClock_${currentEmployee}`;
+    
+    localStorage.removeItem(workflowStateKey);
+    localStorage.removeItem(clockStateKey);
+    
+    // Clear any active timers for testing
+    clearWorkClockState();
+    
+    // Reset button states for testing
+    updateWorkflowButtonStates();
+    
+    // Update status with testing indicator
+    updateTimeClockStatus('🧪 TESTING MODE: Ready to start your shift', new Date());
+    
+    // Save the reset state
+    saveWorkflowState();
+    
+    console.log('✅ TESTING BYPASS: System reset for admin testing - normal users remain in their workflow states');
 }
 
 // ============= BRISBANE CLOCK SYSTEM =============
@@ -1368,6 +1476,10 @@ function updateTimeClockStatus(action, timestamp = new Date()) {
             statusMessage = 'Ready to start your shift';
             statusClass = 'status-ready';
             break;
+        case '🧪 TESTING MODE: Ready to start your shift':
+            statusMessage = '🧪 TESTING MODE: Ready to start your shift';
+            statusClass = 'status-ready';
+            break;
         case 'Shift completed. See you tomorrow!':
             statusMessage = 'Shift completed. See you tomorrow!';
             statusClass = 'status-ended';
@@ -1604,6 +1716,19 @@ function renderMyImportedTasks(tasks) {
     `;
 }
 
+function getStatusClass(status) {
+    const statusClasses = {
+        'Project': 'status-project',
+        'Priority Project': 'status-priority',
+        'Current Project': 'status-current',
+        'Revision': 'status-revision',
+        'Waiting Approval': 'status-waiting',
+        'Project Finished': 'status-finished',
+        'Rejected': 'status-rejected'
+    };
+    return statusClasses[status] || 'status-project';
+}
+
 async function editImportedTask(taskId) {
     const task = availableTasks.find(t => t.id === taskId);
     if (!task) {
@@ -1683,9 +1808,14 @@ function handleReportPhotoPreview(e) {
 // Modal close on outside click
 window.addEventListener('click', function(event) {
     const taskEditorModal = document.getElementById('taskEditorModal');
+    const passwordModal = document.getElementById('passwordModal');
     
     if (event.target === taskEditorModal) {
         closeTaskEditorModal();
+    }
+    
+    if (event.target === passwordModal) {
+        closePasswordModal();
     }
 });
 
