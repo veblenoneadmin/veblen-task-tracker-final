@@ -1893,31 +1893,372 @@ window.addEventListener('click', function(event) {
     }
 });
 
-// Debug function
-window.debugStartButton = function() {
-    console.log('🔧 DEBUGGING START BUTTON...');
-    
-    const startBtn = document.getElementById('startWorkBtn');
-    
-    if (startBtn) {
-        startBtn.disabled = false;
-        startBtn.classList.remove('btn-disabled');
-        startBtn.style.pointerEvents = 'auto';
-        startBtn.style.opacity = '1';
-        
-        currentEmployee = currentEmployee || 'Tony Herrera';
-        currentWorkflowState = WORKFLOW_STATES.NOT_STARTED;
-        
-        if (!document.getElementById('employeeSelect').value) {
-            document.getElementById('employeeSelect').value = 'Tony Herrera';
-        }
-        
-        console.log('✅ START button force-enabled!');
-        return 'START button should now work!';
-    } else {
-        console.error('❌ START button not found!');
-        return 'START button element not found!';
+// ============= SIMPLE TIME CLOCK ADMIN OVERRIDE =============
+
+let adminTimerAccess = false;
+
+// Simple admin access function for timer only
+window.timerAdmin = function() {
+    if (adminTimerAccess) {
+        console.log('🔓 Timer admin already active');
+        showTimerAdminPanel();
+        return 'Timer admin panel opened!';
     }
+    
+    showTimerAdminLogin();
+    return 'Enter timer admin credentials';
+};
+
+// Show simple login for timer admin
+function showTimerAdminLogin() {
+    const credentials = prompt('Enter timer admin credentials (format: username:password)');
+    
+    if (credentials === 'admin:veblenone') {
+        adminTimerAccess = true;
+        console.log('✅ Timer admin access granted');
+        showToast('🔓 Timer Admin Access Granted', 'success');
+        showTimerAdminPanel();
+        addTimerAdminButton();
+    } else if (credentials !== null) {
+        console.log('❌ Invalid timer admin credentials');
+        showToast('❌ Invalid credentials', 'error');
+    }
+}
+
+// Add admin button to time clock section
+function addTimerAdminButton() {
+    // Remove existing button if any
+    const existingBtn = document.getElementById('timerAdminBtn');
+    if (existingBtn) existingBtn.remove();
+    
+    // Find time clock section
+    const timeClockSection = document.querySelector('.time-clock-section h2');
+    if (!timeClockSection) return;
+    
+    // Add admin button
+    const adminBtn = document.createElement('button');
+    adminBtn.id = 'timerAdminBtn';
+    adminBtn.innerHTML = '🔧 Admin';
+    adminBtn.className = 'btn btn-sm';
+    adminBtn.style.cssText = `
+        margin-left: 1rem;
+        background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        font-size: 11px;
+        border-radius: 6px;
+        cursor: pointer;
+        box-shadow: 0 2px 4px rgba(220, 38, 38, 0.3);
+    `;
+    adminBtn.onclick = showTimerAdminPanel;
+    
+    timeClockSection.appendChild(adminBtn);
+}
+
+// Show timer admin panel
+function showTimerAdminPanel() {
+    // Remove existing panel
+    const existingPanel = document.getElementById('timerAdminPanel');
+    if (existingPanel) existingPanel.remove();
+    
+    // Create simple panel
+    const panel = document.createElement('div');
+    panel.id = 'timerAdminPanel';
+    panel.innerHTML = `
+        <div style="
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(220, 38, 38, 0.95);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            z-index: 9999;
+            font-family: 'Poppins', sans-serif;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+        ">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 style="margin: 0; font-size: 16px;">🔧 Timer Admin</h3>
+                <button onclick="closeTimerAdminPanel()" style="
+                    background: rgba(255, 255, 255, 0.2);
+                    border: none;
+                    color: white;
+                    padding: 4px 8px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                ">✕</button>
+            </div>
+            
+            <div style="margin-bottom: 16px; font-size: 14px;">
+                <div><strong>Employee:</strong> ${currentEmployee || 'None'}</div>
+                <div><strong>State:</strong> ${currentWorkflowState}</div>
+            </div>
+            
+            <div style="display: flex; gap: 12px;">
+                <button onclick="resetTimerForTesting()" style="
+                    background: rgba(0, 0, 0, 0.3);
+                    border: 1px solid rgba(255, 255, 255, 0.3);
+                    color: white;
+                    padding: 10px 16px;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 13px;
+                ">🔄 Reset Shift</button>
+                <button onclick="allowNewShift()" style="
+                    background: rgba(0, 0, 0, 0.3);
+                    border: 1px solid rgba(255, 255, 255, 0.3);
+                    color: white;
+                    padding: 10px 16px;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 13px;
+                ">🆕 Allow New Shift</button>
+            </div>
+            
+            <div style="margin-top: 12px; font-size: 11px; text-align: center; opacity: 0.8;">
+                Click outside to close
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(panel);
+    
+    // Close on outside click
+    panel.onclick = function(e) {
+        if (e.target === panel) {
+            closeTimerAdminPanel();
+        }
+    };
+}
+
+// Close timer admin panel
+function closeTimerAdminPanel() {
+    const panel = document.getElementById('timerAdminPanel');
+    if (panel) panel.remove();
+}
+
+// Reset timer for testing
+function resetTimerForTesting() {
+    if (!adminTimerAccess) {
+        showToast('❌ Admin access required', 'error');
+        return;
+    }
+    
+    console.log('🔄 TIMER ADMIN: Resetting shift for testing...');
+    
+    // Clear all timer states
+    currentWorkflowState = WORKFLOW_STATES.NOT_STARTED;
+    clearWorkClockState();
+    
+    // Clear localStorage for current employee
+    if (currentEmployee) {
+        const workflowStateKey = `workflowState_${currentEmployee}`;
+        const clockStateKey = `workClock_${currentEmployee}`;
+        localStorage.removeItem(workflowStateKey);
+        localStorage.removeItem(clockStateKey);
+    }
+    
+    // Reset UI
+    updateWorkflowButtonStates();
+    updateTimeClockStatus('Ready to start your shift', new Date());
+    
+    showToast('🔄 Timer reset! You can start a new shift.', 'success');
+    closeTimerAdminPanel();
+    
+    return 'Timer reset complete!';
+}
+
+// Allow new shift (bypass restrictions)
+function allowNewShift() {
+    if (!adminTimerAccess) {
+        showToast('❌ Admin access required', 'error');
+        return;
+    }
+    
+    console.log('🆕 TIMER ADMIN: Allowing new shift...');
+    
+    // Reset to allow new shift
+    currentWorkflowState = WORKFLOW_STATES.NOT_STARTED;
+    saveWorkflowState();
+    updateWorkflowButtonStates();
+    
+    showToast('🆕 New shift allowed! Start work button enabled.', 'success');
+    closeTimerAdminPanel();
+    
+    return 'New shift allowed!';
+}
+
+// Modified workflow button states - no global override, just normal flow
+function updateWorkflowButtonStates() {
+    const startBtn = document.getElementById('startWorkBtn');
+    const breakBtn = document.getElementById('breakBtn'); 
+    const backToWorkBtn = document.getElementById('backToWorkBtn');
+    const endWorkBtn = document.getElementById('endWorkBtn');
+    
+    console.log('🔄 Current workflow state:', currentWorkflowState);
+    console.log('🔄 Current employee:', currentEmployee);
+    
+    // Reset all buttons first
+    [startBtn, breakBtn, backToWorkBtn, endWorkBtn].forEach(btn => {
+        if (btn) {
+            btn.disabled = false;
+            btn.classList.remove('btn-disabled');
+            btn.style.pointerEvents = 'auto';
+            btn.style.opacity = '1';
+            btn.style.border = '';
+            btn.style.boxShadow = '';
+            btn.style.transform = '';
+        }
+    });
+    
+    // Apply normal workflow restrictions
+    switch (currentWorkflowState) {
+        case WORKFLOW_STATES.NOT_STARTED:
+            if (breakBtn) { 
+                breakBtn.disabled = true; 
+                breakBtn.classList.add('btn-disabled');
+                breakBtn.style.pointerEvents = 'none';
+                breakBtn.style.opacity = '0.4';
+            }
+            if (backToWorkBtn) { 
+                backToWorkBtn.disabled = true; 
+                backToWorkBtn.classList.add('btn-disabled');
+                backToWorkBtn.style.pointerEvents = 'none';
+                backToWorkBtn.style.opacity = '0.4';
+            }
+            if (endWorkBtn) { 
+                endWorkBtn.disabled = true; 
+                endWorkBtn.classList.add('btn-disabled');
+                endWorkBtn.style.pointerEvents = 'none';
+                endWorkBtn.style.opacity = '0.4';
+            }
+            
+            if (startBtn) {
+                startBtn.disabled = false;
+                startBtn.classList.remove('btn-disabled');
+                startBtn.style.pointerEvents = 'auto';
+                startBtn.style.opacity = '1';
+            }
+            
+            updateTimeClockStatus('Ready to start your shift', new Date());
+            break;
+            
+        case WORKFLOW_STATES.WORKING:
+            if (startBtn) { 
+                startBtn.disabled = true; 
+                startBtn.classList.add('btn-disabled');
+                startBtn.style.pointerEvents = 'none';
+                startBtn.style.opacity = '0.4';
+            }
+            if (backToWorkBtn) { 
+                backToWorkBtn.disabled = true; 
+                backToWorkBtn.classList.add('btn-disabled');
+                backToWorkBtn.style.pointerEvents = 'none';
+                backToWorkBtn.style.opacity = '0.4';
+            }
+            
+            if (breakBtn) {
+                breakBtn.disabled = false;
+                breakBtn.classList.remove('btn-disabled');
+                breakBtn.style.pointerEvents = 'auto';
+                breakBtn.style.opacity = '1';
+            }
+            if (endWorkBtn) {
+                endWorkBtn.disabled = false;
+                endWorkBtn.classList.remove('btn-disabled');
+                endWorkBtn.style.pointerEvents = 'auto';
+                endWorkBtn.style.opacity = '1';
+            }
+            break;
+            
+        case WORKFLOW_STATES.ON_BREAK:
+            if (startBtn) { 
+                startBtn.disabled = true; 
+                startBtn.classList.add('btn-disabled');
+                startBtn.style.pointerEvents = 'none';
+                startBtn.style.opacity = '0.4';
+            }
+            if (breakBtn) { 
+                breakBtn.disabled = true; 
+                breakBtn.classList.add('btn-disabled');
+                breakBtn.style.pointerEvents = 'none';
+                breakBtn.style.opacity = '0.4';
+            }
+            if (endWorkBtn) { 
+                endWorkBtn.disabled = true; 
+                endWorkBtn.classList.add('btn-disabled');
+                endWorkBtn.style.pointerEvents = 'none';
+                endWorkBtn.style.opacity = '0.4';
+            }
+            
+            if (backToWorkBtn) {
+                backToWorkBtn.disabled = false;
+                backToWorkBtn.classList.remove('btn-disabled');
+                backToWorkBtn.style.pointerEvents = 'auto';
+                backToWorkBtn.style.opacity = '1';
+            }
+            break;
+            
+        case WORKFLOW_STATES.FINISHED:
+            [startBtn, breakBtn, backToWorkBtn, endWorkBtn].forEach(btn => {
+                if (btn) {
+                    btn.disabled = true;
+                    btn.classList.add('btn-disabled');
+                    btn.style.pointerEvents = 'none';
+                    btn.style.opacity = '0.4';
+                }
+            });
+            
+            updateTimeClockStatus('Shift completed. See you tomorrow!', new Date());
+            break;
+            
+        default:
+            console.log('🔄 Unknown workflow state, defaulting to NOT_STARTED');
+            currentWorkflowState = WORKFLOW_STATES.NOT_STARTED;
+            updateWorkflowButtonStates();
+            return;
+    }
+    
+    // Add admin button if authenticated
+    if (adminTimerAccess) {
+        addTimerAdminButton();
+    }
+    
+    console.log('🔄 Button states updated for workflow:', currentWorkflowState);
+    console.log('🔄 START button enabled:', startBtn ? !startBtn.disabled : 'button not found');
+}
+
+// Normal time clock handlers (no global override)
+async function handleStartWork() {
+    console.log('🟢 START WORK button clicked!');
+    
+    if (!currentEmployee) {
+        showToast('Please select an employee first', 'warning');
+        return;
+    }
+    
+    if (currentWorkflowState !== WORKFLOW_STATES.NOT_STARTED) {
+        console.log('❌ Wrong workflow state for starting work:', currentWorkflowState);
+        showToast('You can only start work at the beginning of your shift', 'error');
+        return;
+    }
+    
+    console.log('✅ Starting work shift...');
+    await handleTimeClock('🟢 START WORK');
+    currentWorkflowState = WORKFLOW_STATES.WORKING;
+    saveWorkflowState();
+    updateWorkflowButtonStates();
+    showToast('Work shift started! ⏱️', 'success');
+}
+
+// Legacy debug function now redirects to timer admin
+window.debugStartButton = function() {
+    console.log('🔧 LEGACY DEBUG - Use timerAdmin() for timer controls');
+    return timerAdmin();
 };
 
 console.log('🚀 Enhanced VEBLEN Task Tracker with Backend Integration loaded!');
