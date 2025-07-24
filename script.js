@@ -2116,46 +2116,7 @@ function handleReportPhotoPreview(e) {
     }
 }
 
-// ============= OVERRIDE BUTTON FOR TESTING =============
-
-function initializeOverrideButton() {
-    const overrideHTML = `
-        <div id="overrideSection" class="override-section" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000;">
-            <button id="overrideBtn" class="btn btn-warning btn-sm" onclick="toggleOverrideMode()" title="Enable Override Mode">
-                🔧 Override
-            </button>
-            <div id="overrideControls" class="override-controls" style="display: none; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: var(--spacing-md); margin-top: var(--spacing-sm); min-width: 200px;">
-                <h4>Override Mode</h4>
-                <button class="btn btn-sm btn-secondary" onclick="resetWorkflowState()">Reset Workflow</button>
-                <button class="btn btn-sm btn-secondary" onclick="clearAllData()">Clear All Data</button>
-                <button class="btn btn-sm btn-secondary" onclick="setWorkflowState('not_started')">Set: Not Started</button>
-                <button class="btn btn-sm btn-secondary" onclick="setWorkflowState('working')">Set: Working</button>
-                <button class="btn btn-sm btn-secondary" onclick="setWorkflowState('on_break')">Set: On Break</button>
-                <button class="btn btn-sm btn-secondary" onclick="setWorkflowState('finished')">Set: Finished</button>
-            </div>
-        </div>
-    `;
-    
-    document.body.insertAdjacentHTML('beforeend', overrideHTML);
-}
-
-function toggleOverrideMode() {
-    const controls = document.getElementById('overrideControls');
-    const btn = document.getElementById('overrideBtn');
-    
-    if (controls.style.display === 'none') {
-        controls.style.display = 'block';
-        btn.textContent = '🔧 Close';
-        btn.className = 'btn btn-danger btn-sm';
-    } else {
-        controls.style.display = 'none';
-        btn.textContent = '🔧 Override';
-        btn.className = 'btn btn-warning btn-sm';
-    }
-}
-
-function resetWorkflowState() {
-    if (!confirm('Reset workflow state? This will clear all clock data.')) return;
+ data.')) return;
     
     currentWorkflowState = WORKFLOW_STATES.NOT_STARTED;
     clearWorkClockState();
