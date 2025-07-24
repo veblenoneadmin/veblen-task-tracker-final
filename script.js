@@ -48,6 +48,9 @@ function initializeApp() {
     // Initialize Brisbane clock first
     initializeBrisbaneClock();
     
+    // Initialize override button
+    initializeOverrideButton();
+    
     // Load saved employee
     const savedEmployee = localStorage.getItem('selectedEmployee');
     if (savedEmployee) {
@@ -1897,74 +1900,97 @@ window.addEventListener('click', function(event) {
 
 let adminTimerAccess = false;
 
-// Simple admin access function for timer only
-window.timerAdmin = function() {
-    if (adminTimerAccess) {
-        console.log('🔓 Timer admin already active');
-        showTimerAdminPanel();
-        return 'Timer admin panel opened!';
-    }
-    
-    showTimerAdminLogin();
-    return 'Enter timer admin credentials';
-};
-
-// Show simple login for timer admin
-function showTimerAdminLogin() {
-    const credentials = prompt('Enter timer admin credentials (format: username:password)');
-    
-    if (credentials === 'admin:veblenone') {
-        adminTimerAccess = true;
-        console.log('✅ Timer admin access granted');
-        showToast('🔓 Timer Admin Access Granted', 'success');
-        showTimerAdminPanel();
-        addTimerAdminButton();
-    } else if (credentials !== null) {
-        console.log('❌ Invalid timer admin credentials');
-        showToast('❌ Invalid credentials', 'error');
-    }
+// Initialize override button on page load
+function initializeOverrideButton() {
+    addOverrideShiftResetButton();
 }
 
-// Add admin button to time clock section
-function addTimerAdminButton() {
+// Add the visible "Override Shift Reset" button to time clock section
+function addOverrideShiftResetButton() {
     // Remove existing button if any
-    const existingBtn = document.getElementById('timerAdminBtn');
+    const existingBtn = document.getElementById('overrideShiftResetBtn');
     if (existingBtn) existingBtn.remove();
     
     // Find time clock section
     const timeClockSection = document.querySelector('.time-clock-section h2');
     if (!timeClockSection) return;
     
-    // Add admin button
-    const adminBtn = document.createElement('button');
-    adminBtn.id = 'timerAdminBtn';
-    adminBtn.innerHTML = '🔧 Admin';
-    adminBtn.className = 'btn btn-sm';
-    adminBtn.style.cssText = `
-        margin-left: 1rem;
+    // Add override button to top-right
+    const overrideBtn = document.createElement('button');
+    overrideBtn.id = 'overrideShiftResetBtn';
+    overrideBtn.innerHTML = '🔧 Override Shift Reset';
+    overrideBtn.className = 'btn btn-sm';
+    overrideBtn.style.cssText = `
+        float: right;
         background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
         color: white;
         border: none;
-        padding: 6px 12px;
-        font-size: 11px;
+        padding: 8px 16px;
+        font-size: 12px;
         border-radius: 6px;
         cursor: pointer;
         box-shadow: 0 2px 4px rgba(220, 38, 38, 0.3);
+        transition: all 0.3s ease;
     `;
-    adminBtn.onclick = showTimerAdminPanel;
     
-    timeClockSection.appendChild(adminBtn);
+    // Add hover effect
+    overrideBtn.addEventListener('mouseenter', function() {
+        this.style.background = 'linear-gradient(135deg, #b91c1c 0%, #991b1b 100%)';
+        this.style.transform = 'translateY(-1px)';
+        this.style.boxShadow = '0 4px 8px rgba(220, 38, 38, 0.4)';
+    });
+    
+    overrideBtn.addEventListener('mouseleave', function() {
+        this.style.background = 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)';
+        this.style.transform = 'translateY(0)';
+        this.style.boxShadow = '0 2px 4px rgba(220, 38, 38, 0.3)';
+    });
+    
+    // Click handler - prompts for credentials
+    overrideBtn.onclick = promptForOverrideCredentials;
+    
+    timeClockSection.appendChild(overrideBtn);
 }
 
-// Show timer admin panel
-function showTimerAdminPanel() {
-    // Remove existing panel
-    const existingPanel = document.getElementById('timerAdminPanel');
+// Prompt for override credentials when button is clicked
+function promptForOverrideCredentials() {
+    const credentials = prompt('🔐 Enter admin credentials to override shift restrictions:\n\nFormat: username:password');
+    
+    if (credentials === null) {
+        // User cancelled
+        return;
+    }
+    
+    if (credentials === 'admin:veblenone') {
+        adminTimerAccess = true;
+        console.log('✅ Override access granted');
+        showToast('🔐 Override Access Granted!', 'success');
+        showOverrideActions();
+    } else {
+        console.log('❌ Invalid override credentials');
+        showToast('❌ Invalid credentials', 'error');
+        
+        // Flash the button red briefly to indicate error
+        const btn = document.getElementById('overrideShiftResetBtn');
+        if (btn) {
+            const originalBg = btn.style.background;
+            btn.style.background = '#ef4444';
+            setTimeout(() => {
+                btn.style.background = originalBg;
+            }, 500);
+        }
+    }
+}
+
+// Show override actions after successful authentication
+function showOverrideActions() {
+    // Remove existing panel if any
+    const existingPanel = document.getElementById('overrideActionsPanel');
     if (existingPanel) existingPanel.remove();
     
-    // Create simple panel
+    // Create actions panel
     const panel = document.createElement('div');
-    panel.id = 'timerAdminPanel';
+    panel.id = 'overrideActionsPanel';
     panel.innerHTML = `
         <div style="
             position: fixed;
@@ -1973,54 +1999,71 @@ function showTimerAdminPanel() {
             transform: translate(-50%, -50%);
             background: rgba(220, 38, 38, 0.95);
             color: white;
-            padding: 20px;
+            padding: 24px;
             border-radius: 12px;
             border: 2px solid rgba(255, 255, 255, 0.2);
             z-index: 9999;
             font-family: 'Poppins', sans-serif;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(10px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(15px);
+            min-width: 320px;
         ">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                <h3 style="margin: 0; font-size: 16px;">🔧 Timer Admin</h3>
-                <button onclick="closeTimerAdminPanel()" style="
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.2); padding-bottom: 12px;">
+                <h3 style="margin: 0; font-size: 18px;">🔧 Shift Override Controls</h3>
+                <button onclick="closeOverrideActions()" style="
                     background: rgba(255, 255, 255, 0.2);
                     border: none;
                     color: white;
-                    padding: 4px 8px;
-                    border-radius: 4px;
+                    padding: 6px 10px;
+                    border-radius: 6px;
                     cursor: pointer;
+                    font-size: 14px;
                 ">✕</button>
             </div>
             
-            <div style="margin-bottom: 16px; font-size: 14px;">
-                <div><strong>Employee:</strong> ${currentEmployee || 'None'}</div>
-                <div><strong>State:</strong> ${currentWorkflowState}</div>
+            <div style="margin-bottom: 20px; font-size: 14px;">
+                <div style="margin-bottom: 8px;"><strong>Employee:</strong> ${currentEmployee || 'None Selected'}</div>
+                <div style="margin-bottom: 8px;"><strong>Current State:</strong> <span style="color: #fbbf24;">${currentWorkflowState}</span></div>
+                <div><strong>Access Level:</strong> <span style="color: #34d399;">Administrator</span></div>
             </div>
             
-            <div style="display: flex; gap: 12px;">
-                <button onclick="resetTimerForTesting()" style="
-                    background: rgba(0, 0, 0, 0.3);
-                    border: 1px solid rgba(255, 255, 255, 0.3);
-                    color: white;
-                    padding: 10px 16px;
-                    border-radius: 6px;
-                    cursor: pointer;
-                    font-size: 13px;
-                ">🔄 Reset Shift</button>
-                <button onclick="allowNewShift()" style="
-                    background: rgba(0, 0, 0, 0.3);
-                    border: 1px solid rgba(255, 255, 255, 0.3);
-                    color: white;
-                    padding: 10px 16px;
-                    border-radius: 6px;
-                    cursor: pointer;
-                    font-size: 13px;
-                ">🆕 Allow New Shift</button>
+            <div style="margin-bottom: 20px;">
+                <div style="font-size: 13px; color: rgba(255, 255, 255, 0.8); margin-bottom: 12px;">Override Actions:</div>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <button onclick="performShiftReset()" style="
+                        background: rgba(0, 0, 0, 0.3);
+                        border: 1px solid rgba(255, 255, 255, 0.3);
+                        color: white;
+                        padding: 12px 16px;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        font-size: 14px;
+                        transition: all 0.3s ease;
+                        width: 100%;
+                    " onmouseover="this.style.background='rgba(0,0,0,0.5)'" onmouseout="this.style.background='rgba(0,0,0,0.3)'">
+                        🔄 Complete Shift Reset
+                    </button>
+                    <button onclick="enableStartWork()" style="
+                        background: rgba(0, 0, 0, 0.3);
+                        border: 1px solid rgba(255, 255, 255, 0.3);
+                        color: white;
+                        padding: 12px 16px;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        font-size: 14px;
+                        transition: all 0.3s ease;
+                        width: 100%;
+                    " onmouseover="this.style.background='rgba(0,0,0,0.5)'" onmouseout="this.style.background='rgba(0,0,0,0.3)'">
+                        🆕 Enable Start Work Button
+                    </button>
+                </div>
             </div>
             
-            <div style="margin-top: 12px; font-size: 11px; text-align: center; opacity: 0.8;">
-                Click outside to close
+            <div style="border-top: 1px solid rgba(255, 255, 255, 0.2); padding-top: 12px;">
+                <div style="font-size: 11px; color: rgba(255, 255, 255, 0.7); text-align: center;">
+                    ⚠️ Override mode allows bypassing normal shift restrictions<br>
+                    Perfect for testing and development scenarios
+                </div>
             </div>
         </div>
     `;
@@ -2030,25 +2073,25 @@ function showTimerAdminPanel() {
     // Close on outside click
     panel.onclick = function(e) {
         if (e.target === panel) {
-            closeTimerAdminPanel();
+            closeOverrideActions();
         }
     };
 }
 
-// Close timer admin panel
-function closeTimerAdminPanel() {
-    const panel = document.getElementById('timerAdminPanel');
+// Close override actions panel
+function closeOverrideActions() {
+    const panel = document.getElementById('overrideActionsPanel');
     if (panel) panel.remove();
 }
 
-// Reset timer for testing
-function resetTimerForTesting() {
+// Perform complete shift reset
+function performShiftReset() {
     if (!adminTimerAccess) {
         showToast('❌ Admin access required', 'error');
         return;
     }
     
-    console.log('🔄 TIMER ADMIN: Resetting shift for testing...');
+    console.log('🔄 OVERRIDE: Performing complete shift reset...');
     
     // Clear all timer states
     currentWorkflowState = WORKFLOW_STATES.NOT_STARTED;
@@ -2066,31 +2109,208 @@ function resetTimerForTesting() {
     updateWorkflowButtonStates();
     updateTimeClockStatus('Ready to start your shift', new Date());
     
-    showToast('🔄 Timer reset! You can start a new shift.', 'success');
-    closeTimerAdminPanel();
+    showToast('🔄 Complete shift reset successful! Ready to start fresh.', 'success');
+    closeOverrideActions();
     
-    return 'Timer reset complete!';
+    // Reset admin access after use
+    adminTimerAccess = false;
+    
+    return 'Complete shift reset successful!';
 }
 
-// Allow new shift (bypass restrictions)
-function allowNewShift() {
+// Enable start work button (lighter override)
+function enableStartWork() {
     if (!adminTimerAccess) {
         showToast('❌ Admin access required', 'error');
         return;
     }
     
-    console.log('🆕 TIMER ADMIN: Allowing new shift...');
+    console.log('🆕 OVERRIDE: Enabling start work button...');
     
-    // Reset to allow new shift
+    // Just set to not started state to enable start work
     currentWorkflowState = WORKFLOW_STATES.NOT_STARTED;
     saveWorkflowState();
     updateWorkflowButtonStates();
+    updateTimeClockStatus('Ready to start your shift', new Date());
     
-    showToast('🆕 New shift allowed! Start work button enabled.', 'success');
-    closeTimerAdminPanel();
+    showToast('🆕 Start work button enabled! You can begin a new shift.', 'success');
+    closeOverrideActions();
     
-    return 'New shift allowed!';
+    // Reset admin access after use
+    adminTimerAccess = false;
+    
+    return 'Start work button enabled!';
 }
+
+// Modified workflow button states - normal flow, no global override
+function updateWorkflowButtonStates() {
+    const startBtn = document.getElementById('startWorkBtn');
+    const breakBtn = document.getElementById('breakBtn'); 
+    const backToWorkBtn = document.getElementById('backToWorkBtn');
+    const endWorkBtn = document.getElementById('endWorkBtn');
+    
+    console.log('🔄 Current workflow state:', currentWorkflowState);
+    console.log('🔄 Current employee:', currentEmployee);
+    
+    // Reset all buttons first
+    [startBtn, breakBtn, backToWorkBtn, endWorkBtn].forEach(btn => {
+        if (btn) {
+            btn.disabled = false;
+            btn.classList.remove('btn-disabled');
+            btn.style.pointerEvents = 'auto';
+            btn.style.opacity = '1';
+            btn.style.border = '';
+            btn.style.boxShadow = '';
+            btn.style.transform = '';
+        }
+    });
+    
+    // Apply normal workflow restrictions
+    switch (currentWorkflowState) {
+        case WORKFLOW_STATES.NOT_STARTED:
+            if (breakBtn) { 
+                breakBtn.disabled = true; 
+                breakBtn.classList.add('btn-disabled');
+                breakBtn.style.pointerEvents = 'none';
+                breakBtn.style.opacity = '0.4';
+            }
+            if (backToWorkBtn) { 
+                backToWorkBtn.disabled = true; 
+                backToWorkBtn.classList.add('btn-disabled');
+                backToWorkBtn.style.pointerEvents = 'none';
+                backToWorkBtn.style.opacity = '0.4';
+            }
+            if (endWorkBtn) { 
+                endWorkBtn.disabled = true; 
+                endWorkBtn.classList.add('btn-disabled');
+                endWorkBtn.style.pointerEvents = 'none';
+                endWorkBtn.style.opacity = '0.4';
+            }
+            
+            if (startBtn) {
+                startBtn.disabled = false;
+                startBtn.classList.remove('btn-disabled');
+                startBtn.style.pointerEvents = 'auto';
+                startBtn.style.opacity = '1';
+            }
+            
+            updateTimeClockStatus('Ready to start your shift', new Date());
+            break;
+            
+        case WORKFLOW_STATES.WORKING:
+            if (startBtn) { 
+                startBtn.disabled = true; 
+                startBtn.classList.add('btn-disabled');
+                startBtn.style.pointerEvents = 'none';
+                startBtn.style.opacity = '0.4';
+            }
+            if (backToWorkBtn) { 
+                backToWorkBtn.disabled = true; 
+                backToWorkBtn.classList.add('btn-disabled');
+                backToWorkBtn.style.pointerEvents = 'none';
+                backToWorkBtn.style.opacity = '0.4';
+            }
+            
+            if (breakBtn) {
+                breakBtn.disabled = false;
+                breakBtn.classList.remove('btn-disabled');
+                breakBtn.style.pointerEvents = 'auto';
+                breakBtn.style.opacity = '1';
+            }
+            if (endWorkBtn) {
+                endWorkBtn.disabled = false;
+                endWorkBtn.classList.remove('btn-disabled');
+                endWorkBtn.style.pointerEvents = 'auto';
+                endWorkBtn.style.opacity = '1';
+            }
+            break;
+            
+        case WORKFLOW_STATES.ON_BREAK:
+            if (startBtn) { 
+                startBtn.disabled = true; 
+                startBtn.classList.add('btn-disabled');
+                startBtn.style.pointerEvents = 'none';
+                startBtn.style.opacity = '0.4';
+            }
+            if (breakBtn) { 
+                breakBtn.disabled = true; 
+                breakBtn.classList.add('btn-disabled');
+                breakBtn.style.pointerEvents = 'none';
+                breakBtn.style.opacity = '0.4';
+            }
+            if (endWorkBtn) { 
+                endWorkBtn.disabled = true; 
+                endWorkBtn.classList.add('btn-disabled');
+                endWorkBtn.style.pointerEvents = 'none';
+                endWorkBtn.style.opacity = '0.4';
+            }
+            
+            if (backToWorkBtn) {
+                backToWorkBtn.disabled = false;
+                backToWorkBtn.classList.remove('btn-disabled');
+                backToWorkBtn.style.pointerEvents = 'auto';
+                backToWorkBtn.style.opacity = '1';
+            }
+            break;
+            
+        case WORKFLOW_STATES.FINISHED:
+            [startBtn, breakBtn, backToWorkBtn, endWorkBtn].forEach(btn => {
+                if (btn) {
+                    btn.disabled = true;
+                    btn.classList.add('btn-disabled');
+                    btn.style.pointerEvents = 'none';
+                    btn.style.opacity = '0.4';
+                }
+            });
+            
+            updateTimeClockStatus('Shift completed. See you tomorrow!', new Date());
+            break;
+            
+        default:
+            console.log('🔄 Unknown workflow state, defaulting to NOT_STARTED');
+            currentWorkflowState = WORKFLOW_STATES.NOT_STARTED;
+            updateWorkflowButtonStates();
+            return;
+    }
+    
+    console.log('🔄 Button states updated for workflow:', currentWorkflowState);
+    console.log('🔄 START button enabled:', startBtn ? !startBtn.disabled : 'button not found');
+}
+
+// Normal time clock handlers (no global override)
+async function handleStartWork() {
+    console.log('🟢 START WORK button clicked!');
+    
+    if (!currentEmployee) {
+        showToast('Please select an employee first', 'warning');
+        return;
+    }
+    
+    if (currentWorkflowState !== WORKFLOW_STATES.NOT_STARTED) {
+        console.log('❌ Wrong workflow state for starting work:', currentWorkflowState);
+        showToast('You can only start work at the beginning of your shift', 'error');
+        return;
+    }
+    
+    console.log('✅ Starting work shift...');
+    await handleTimeClock('🟢 START WORK');
+    currentWorkflowState = WORKFLOW_STATES.WORKING;
+    saveWorkflowState();
+    updateWorkflowButtonStates();
+    showToast('Work shift started! ⏱️', 'success');
+}
+
+// Legacy functions for backward compatibility
+window.timerAdmin = function() {
+    console.log('🔧 Use the "Override Shift Reset" button in the Time Clock section');
+    promptForOverrideCredentials();
+    return 'Use the visible Override Shift Reset button!';
+};
+
+window.debugStartButton = function() {
+    console.log('🔧 LEGACY DEBUG - Use "Override Shift Reset" button');
+    return promptForOverrideCredentials();
+};
 
 // Modified workflow button states - no global override, just normal flow
 function updateWorkflowButtonStates() {
