@@ -801,19 +801,12 @@
 
         <!-- Assigned Tasks Section -->
         <section class="assigned-tasks-section">
-            <h2>📋 Assigned Tasks
-                <button id="openTaskEditorBtn" class="btn btn-primary btn-sm" style="margin-left: 1rem;" onclick="openTaskEditorModal()">✏️ Edit Task by ID</button>
+            <h2>📋 My Imported Tasks
+                <button id="openTaskEditorBtn" class="btn btn-primary btn-sm" style="margin-left: 1rem;" onclick="openTaskEditorModal()">📥 Import Task from Infinity</button>
             </h2>
-            <button id="refreshTasksBtn" class="btn btn-secondary">🔄 Refresh Tasks</button>
+            <button id="refreshTasksBtn" class="btn btn-secondary">🔄 Refresh Dashboard</button>
             <div id="assignedTasksList" class="assigned-tasks-list">
-                <p class="loading">Select an employee to view assigned tasks...</p>
-                <div style="background: rgba(102, 126, 234, 0.1); border: 2px solid rgba(102, 126, 234, 0.3); border-radius: var(--radius-md); padding: var(--spacing-lg); margin-top: var(--spacing-md);">
-                    <h4 style="color: var(--text-primary); margin-bottom: var(--spacing-sm);">💡 How to Edit Tasks:</h4>
-                    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">1. Click "✏️ Edit Task by ID" button above</p>
-                    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">2. Enter your Master Board Item ID and Company Board Item ID</p>
-                    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">3. Click "Load Task" to edit progress, status, and notes</p>
-                    <p style="color: var(--text-secondary);">4. Save your changes to update the task in Infinity</p>
-                </div>
+                <p class="loading">Select an employee to view your imported tasks...</p>
             </div>
         </section>
 
