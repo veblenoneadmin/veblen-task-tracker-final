@@ -6,13 +6,14 @@ const fetch = require('node-fetch');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Your working webhook URLs
+// Your working webhook URLs - UPDATED with the correct get-tasks URL
 const WEBHOOKS = {
     // Working webhooks from your n8n workflow
     taskIntake: 'https://primary-s0q-production.up.railway.app/webhook/taskintakewebhook',
     taskUpdate: 'https://primary-s0q-production.up.railway.app/webhook/task-update',
     timeLogger: 'https://primary-s0q-production.up.railway.app/webhook/timelogging',
-    reportLogger: 'https://primary-s0q-production.up.railway.app/webhook/reportlogging'
+    reportLogger: 'https://primary-s0q-production.up.railway.app/webhook/reportlogging',
+    taskRetrieval: 'https://primary-s0q-production.up.railway.app/webhook/get-tasks' // FIXED: This is your actual webhook
 };
 
 // Middleware
@@ -68,12 +69,10 @@ app.get('/', (req, res) => {
 });
 
 // ============= TASK INTAKE API =============
-// This proxies to your working task intake webhook
 app.post('/api/task-intake', async (req, res) => {
     try {
         console.log('Task intake request received:', req.body);
         
-        // The frontend sends the data in the format your n8n webhook expects
         const result = await callN8nWebhook(WEBHOOKS.taskIntake, req.body);
         
         res.json({
@@ -92,12 +91,10 @@ app.post('/api/task-intake', async (req, res) => {
 });
 
 // ============= TASK UPDATE API =============
-// This proxies to your working task update webhook
 app.post('/api/task-update', async (req, res) => {
     try {
         console.log('Task update request received:', req.body);
         
-        // The frontend sends the data in the format your n8n webhook expects
         const result = await callN8nWebhook(WEBHOOKS.taskUpdate, req.body);
         
         res.json({
@@ -116,12 +113,10 @@ app.post('/api/task-update', async (req, res) => {
 });
 
 // ============= TIME LOGGER API =============
-// This proxies to your working time logger webhook
 app.post('/api/time-logger', async (req, res) => {
     try {
         console.log('Time logger request received:', req.body);
         
-        // The frontend sends the data in the format your n8n webhook expects
         const result = await callN8nWebhook(WEBHOOKS.timeLogger, req.body);
         
         res.json({
@@ -140,12 +135,10 @@ app.post('/api/time-logger', async (req, res) => {
 });
 
 // ============= REPORT LOGGER API =============
-// This proxies to your working report logger webhook
 app.post('/api/report-logger', async (req, res) => {
     try {
         console.log('Report logger request received:', req.body);
         
-        // The frontend sends the data in the format your n8n webhook expects
         const result = await callN8nWebhook(WEBHOOKS.reportLogger, req.body);
         
         res.json({
@@ -163,32 +156,45 @@ app.post('/api/report-logger', async (req, res) => {
     }
 });
 
-// ============= TASK RETRIEVAL API (Future Enhancement) =============
-// Placeholder for when you create a task retrieval workflow
+// ============= TASK RETRIEVAL API - FIXED =============
+// This now connects to your actual get-tasks webhook
+app.post('/api/get-tasks', async (req, res) => {
+    try {
+        console.log('Get tasks request received:', req.body);
+        
+        // Forward the request to your n8n webhook
+        const result = await callN8nWebhook(WEBHOOKS.taskRetrieval, req.body);
+        
+        res.json(result);
+        
+    } catch (error) {
+        console.error('Get tasks error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Failed to retrieve tasks'
+        });
+    }
+});
+
+// Legacy endpoint for backward compatibility
 app.get('/api/tasks/:employee', async (req, res) => {
     try {
         const { employee } = req.params;
         const { company } = req.query;
         
-        // For now, return mock data - you can replace this when you create task retrieval
+        // Convert to the format your webhook expects
+        const requestData = {
+            action: 'get_tasks_by_employee',
+            employee: employee,
+            company: company || 'all'
+        };
+        
+        const result = await callN8nWebhook(WEBHOOKS.taskRetrieval, requestData);
+        
         res.json({
             success: true,
-            data: {
-                tasks: [
-                    {
-                        id: 'sample-task-1',
-                        task_name: 'Sample Task',
-                        company: company || 'CROWN REALITY',
-                        status: 'Current Project',
-                        progress: 50,
-                        due_date: '2025-02-01',
-                        description: 'This is a sample task. Task retrieval will work when you create a task management workflow.',
-                        assigned_to: employee
-                    }
-                ],
-                count: 1,
-                message: 'Mock data - connect to actual task retrieval when ready'
-            }
+            data: result,
+            message: 'Tasks retrieved successfully'
         });
         
     } catch (error) {
@@ -200,42 +206,48 @@ app.get('/api/tasks/:employee', async (req, res) => {
     }
 });
 
-// ============= GENERAL API ENDPOINTS =============
-
-// Get task details by ID (for task editor)
+// ============= INDIVIDUAL TASK RETRIEVAL - NEW =============
 app.get('/api/task/:taskId', async (req, res) => {
     try {
         const { taskId } = req.params;
         const { company } = req.query;
         
-        // Mock response for now - you can enhance this when you create task retrieval
-        res.json({
-            success: true,
-            data: {
-                task_id: taskId,
-                task_name: 'Sample Task',
-                description: 'Sample Description',
-                status: 'Current Project',
-                progress: 50,
-                company: company || 'CROWN REALITY',
-                due_date: '2025-02-01',
-                assigned_to: ['Tony Herrera'],
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            },
-            message: 'Mock data - will be replaced when you create task retrieval workflow'
-        });
+        // Parse taskId if it contains both master and company board IDs
+        let masterBoardId, companyBoardId;
+        
+        if (taskId.includes('_')) {
+            [masterBoardId, companyBoardId] = taskId.split('_');
+        } else {
+            // If only one ID provided, assume it's a master board ID
+            masterBoardId = taskId;
+            // You might need to derive company board ID or return error
+            return res.status(400).json({
+                success: false,
+                error: 'Task ID must contain both master and company board IDs separated by underscore'
+            });
+        }
+        
+        const requestData = {
+            action: 'get_task_by_ids',
+            master_board_id: masterBoardId,
+            company_board_id: companyBoardId,
+            company: company
+        };
+        
+        const result = await callN8nWebhook(WEBHOOKS.taskRetrieval, requestData);
+        
+        res.json(result);
         
     } catch (error) {
         console.error('Get task error:', error);
         res.status(500).json({
             success: false,
-            error: error.message
+            error: error.message || 'Failed to retrieve task'
         });
     }
 });
 
-// Health check endpoints
+// ============= HEALTH CHECK ENDPOINTS =============
 app.get('/health', (req, res) => {
     res.json({
         status: 'healthy',
@@ -245,7 +257,8 @@ app.get('/health', (req, res) => {
             taskIntake: 'connected to n8n',
             taskUpdate: 'connected to n8n',
             timeLogger: 'connected to n8n',
-            reportLogger: 'connected to n8n'
+            reportLogger: 'connected to n8n',
+            taskRetrieval: 'connected to n8n'
         }
     });
 });
@@ -261,7 +274,7 @@ app.get('/api/health', (req, res) => {
             taskEditor: '✅ Connected to n8n workflow',
             timeLogger: '✅ Connected to n8n workflow',
             reportLogger: '✅ Connected to n8n workflow',
-            taskRetrieval: '⏳ Ready for future enhancement'
+            taskRetrieval: '✅ Connected to n8n workflow'
         }
     });
 });
@@ -303,6 +316,7 @@ app.listen(PORT, () => {
     console.log(`   ✏️ Task Update: ${WEBHOOKS.taskUpdate}`);
     console.log(`   ⏰ Time Logger: ${WEBHOOKS.timeLogger}`);
     console.log(`   📊 Report Logger: ${WEBHOOKS.reportLogger}`);
+    console.log(`   🔍 Task Retrieval: ${WEBHOOKS.taskRetrieval}`);
     console.log(`✅ All systems ready!`);
 });
 
