@@ -560,7 +560,7 @@ async function handleEndWork() {
     showToast('Shift completed! Great work today! 🎯', 'success');
 }
 
-// ============= SIMPLIFIED TASK EDITOR =============
+// ============= SIMPLIFIED TASK IMPORT & MANAGEMENT =============
 
 function openTaskEditorModal() {
     // Create modal if it doesn't exist
@@ -571,7 +571,7 @@ function openTaskEditorModal() {
     // Reset form
     document.getElementById('masterBoardId').value = '';
     document.getElementById('companyBoardId').value = '';
-    document.getElementById('taskEditorContent').innerHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 2rem;">Enter both IDs above and click "Load Task" to edit</p>';
+    document.getElementById('taskEditorContent').innerHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 2rem;">Enter both IDs above and click "Import Task" to add it to your dashboard</p>';
     
     // Show modal
     document.getElementById('taskEditorModal').style.display = 'block';
@@ -582,7 +582,7 @@ function createTaskEditorModal() {
     <div id="taskEditorModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>✏️ Task Editor</h2>
+                <h2>📥 Import Task from Infinity</h2>
                 <span class="close" onclick="closeTaskEditorModal()">&times;</span>
             </div>
             
@@ -590,22 +590,22 @@ function createTaskEditorModal() {
                 <div class="task-id-inputs">
                     <div class="form-group">
                         <label for="masterBoardId">Master Board Item ID*</label>
-                        <input type="text" id="masterBoardId" placeholder="Enter master board item ID" required>
+                        <input type="text" id="masterBoardId" placeholder="Enter master board item ID from Infinity" required>
                     </div>
                     
                     <div class="form-group">
                         <label for="companyBoardId">Company Board Item ID*</label>
-                        <input type="text" id="companyBoardId" placeholder="Enter company board item ID" required>
+                        <input type="text" id="companyBoardId" placeholder="Enter company board item ID from Infinity" required>
                     </div>
                     
-                    <button type="button" class="btn btn-primary" onclick="loadTaskForEditing()">
-                        🔍 Load Task
+                    <button type="button" class="btn btn-primary" onclick="importTaskToMyDashboard()">
+                        📥 Import Task to My Dashboard
                     </button>
                 </div>
                 
                 <div id="taskEditorContent">
                     <p style="color: var(--text-secondary); text-align: center; padding: 2rem;">
-                        Enter both IDs above and click "Load Task" to edit
+                        Enter both IDs above and click "Import Task" to add it to your dashboard
                     </p>
                 </div>
                 
@@ -613,8 +613,8 @@ function createTaskEditorModal() {
                     <button type="button" class="btn btn-secondary" onclick="closeTaskEditorModal()">
                         Cancel
                     </button>
-                    <button type="button" class="btn btn-primary" onclick="saveTaskChanges()">
-                        💾 Save Changes
+                    <button type="button" class="btn btn-success" onclick="updateTaskInInfinity()">
+                        🔄 Update in Infinity
                     </button>
                 </div>
             </div>
@@ -625,7 +625,7 @@ function createTaskEditorModal() {
     document.body.insertAdjacentHTML('beforeend', modalHTML);
 }
 
-async function loadTaskForEditing() {
+async function importTaskToMyDashboard() {
     const masterBoardId = document.getElementById('masterBoardId').value.trim();
     const companyBoardId = document.getElementById('companyBoardId').value.trim();
     
@@ -634,9 +634,15 @@ async function loadTaskForEditing() {
         return;
     }
     
+    if (!currentEmployee) {
+        showToast('Please select an employee first', 'warning');
+        return;
+    }
+    
     try {
-        showToast('Loading task from Infinity...', 'info');
+        showToast('📥 Importing task from Infinity...', 'info');
         
+        // Fetch task data from Infinity
         const response = await fetch(CONFIG.taskRetrievalUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -650,34 +656,204 @@ async function loadTaskForEditing() {
         if (response.ok) {
             const data = await response.json();
             if (data.success && data.task) {
-                displayTaskForEditing(data.task);
-                showToast('Task loaded successfully from Infinity!', 'success');
+                // Add task to user's personal dashboard
+                await saveTaskToMyDashboard(data.task, masterBoardId, companyBoardId);
+                displayTaskForEditing(data.task, masterBoardId, companyBoardId);
+                showToast('✅ Task imported successfully to your dashboard!', 'success');
+                
+                // Refresh the assigned tasks list to show the new task
+                await loadAssignedTasks();
             } else {
                 throw new Error(data.message || 'Task not found in Infinity');
             }
         } else {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            // If API fails, allow manual entry
+            showManualTaskEntry(masterBoardId, companyBoardId);
         }
     } catch (error) {
-        console.error('Error loading task from Infinity:', error);
-        document.getElementById('taskEditorContent').innerHTML = `
-            <div style="text-align: center; padding: 2rem; color: var(--text-error);">
-                <p>❌ Error loading task from Infinity: ${error.message}</p>
-                <p>Please check the IDs and try again.</p>
-            </div>
-        `;
-        showToast('Error loading task from Infinity', 'error');
+        console.error('Error importing task from Infinity:', error);
+        // Allow manual entry if API fails
+        showManualTaskEntry(masterBoardId, companyBoardId);
     }
 }
 
-function displayTaskForEditing(task) {
+function showManualTaskEntry(masterBoardId, companyBoardId) {
+    document.getElementById('taskEditorContent').innerHTML = `
+        <div class="task-editor-form">
+            <div class="task-info-header">
+                <h3>✏️ Manual Task Entry</h3>
+                <span class="task-company-badge">Infinity Import</span>
+            </div>
+            
+            <p style="color: var(--text-secondary); margin-bottom: var(--spacing-lg); text-align: center;">
+                Unable to auto-fetch from Infinity. Please enter task details manually:
+            </p>
+            
+            <div class="form-group">
+                <label for="manualTaskName">Task Name*</label>
+                <input type="text" id="manualTaskName" placeholder="Enter task name" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="manualTaskCompany">Company*</label>
+                <select id="manualTaskCompany" required>
+                    <option value="">Select Company</option>
+                    <option value="VEBLEN (Internal)">VEBLEN (Internal)</option>
+                    <option value="LCMB GROUP">LCMB GROUP</option>
+                    <option value="NEWTECH TRAILERS">NEWTECH TRAILERS</option>
+                    <option value="CROWN REALITY">CROWN REALITY</option>
+                    <option value="FLECK GROUP">FLECK GROUP</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="manualTaskProgress">Progress (%)</label>
+                <div class="progress-input-container">
+                    <input type="range" id="manualTaskProgress" min="0" max="100" value="0" 
+                           oninput="updateProgressDisplay(this.value)">
+                    <span id="progressDisplay">0%</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="editProgressBar" style="width: 0%"></div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="manualTaskStatus">Status</label>
+                <select id="manualTaskStatus">
+                    <option value="Project">Project</option>
+                    <option value="Priority Project">Priority Project</option>
+                    <option value="Current Project" selected>Current Project</option>
+                    <option value="Revision">Revision</option>
+                    <option value="Waiting Approval">Waiting Approval</option>
+                    <option value="Project Finished">Project Finished</option>
+                    <option value="Rejected">Rejected</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="manualTaskDescription">Description</label>
+                <textarea id="manualTaskDescription" rows="3" placeholder="Enter task description"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="manualTaskNotes">Notes</label>
+                <textarea id="manualTaskNotes" rows="4" placeholder="Add any notes or updates..."></textarea>
+            </div>
+            
+            <div class="task-meta-info">
+                <p><strong>Master Board ID:</strong> ${masterBoardId}</p>
+                <p><strong>Company Board ID:</strong> ${companyBoardId}</p>
+                <p><strong>Employee:</strong> ${currentEmployee}</p>
+            </div>
+            
+            <button type="button" class="btn btn-primary" onclick="saveManualTaskEntry('${masterBoardId}', '${companyBoardId}')">
+                💾 Add to My Dashboard
+            </button>
+        </div>
+    `;
+}
+
+async function saveManualTaskEntry(masterBoardId, companyBoardId) {
+    const taskName = document.getElementById('manualTaskName').value.trim();
+    const taskCompany = document.getElementById('manualTaskCompany').value;
+    const progress = parseInt(document.getElementById('manualTaskProgress').value);
+    const status = document.getElementById('manualTaskStatus').value;
+    const description = document.getElementById('manualTaskDescription').value;
+    const notes = document.getElementById('manualTaskNotes').value;
+    
+    if (!taskName || !taskCompany) {
+        showToast('Please fill in Task Name and Company', 'warning');
+        return;
+    }
+    
+    const manualTask = {
+        id: `${masterBoardId}_${companyBoardId}`,
+        name: taskName,
+        company: taskCompany,
+        progress: progress,
+        status: status,
+        description: description,
+        notes: notes,
+        dueDate: 'Not set',
+        createdDate: new Date().toLocaleDateString(),
+        masterBoardId: masterBoardId,
+        companyBoardId: companyBoardId,
+        importedBy: currentEmployee,
+        importedAt: new Date().toISOString()
+    };
+    
+    await saveTaskToMyDashboard(manualTask, masterBoardId, companyBoardId);
+    showToast('✅ Task added to your dashboard successfully!', 'success');
+    closeTaskEditorModal();
+    await loadAssignedTasks();
+}
+
+async function saveTaskToMyDashboard(task, masterBoardId, companyBoardId) {
+    if (!currentEmployee) return;
+    
+    // Get user's personal task list
+    const tasksKey = `myTasks_${currentEmployee}`;
+    let myTasks = [];
+    
+    try {
+        const saved = localStorage.getItem(tasksKey);
+        if (saved) {
+            myTasks = JSON.parse(saved);
+        }
+    } catch (error) {
+        console.error('Error loading existing tasks:', error);
+        myTasks = [];
+    }
+    
+    // Create task with Infinity IDs
+    const taskForDashboard = {
+        id: `${masterBoardId}_${companyBoardId}`,
+        name: task.name || 'Imported Task',
+        company: task.company || 'Unknown Company',
+        progress: task.progress || 0,
+        status: task.status || 'Current Project',
+        description: task.description || '',
+        notes: task.notes || '',
+        dueDate: task.dueDate || 'Not set',
+        createdDate: task.createdDate || new Date().toLocaleDateString(),
+        masterBoardId: masterBoardId,
+        companyBoardId: companyBoardId,
+        importedBy: currentEmployee,
+        importedAt: new Date().toISOString(),
+        lastUpdated: new Date().toISOString()
+    };
+    
+    // Check if task already exists
+    const existingIndex = myTasks.findIndex(t => t.id === taskForDashboard.id);
+    if (existingIndex >= 0) {
+        myTasks[existingIndex] = taskForDashboard;
+        showToast('📝 Task updated in your dashboard', 'info');
+    } else {
+        myTasks.push(taskForDashboard);
+        showToast('📥 Task added to your dashboard', 'success');
+    }
+    
+    // Save back to localStorage
+    localStorage.setItem(tasksKey, JSON.stringify(myTasks));
+    
+    // Update availableTasks array
+    availableTasks = myTasks;
+}
+
+function displayTaskForEditing(task, masterBoardId, companyBoardId) {
     const content = document.getElementById('taskEditorContent');
     
     content.innerHTML = `
         <div class="task-editor-form">
             <div class="task-info-header">
-                <h3>${task.name || 'Untitled Task'}</h3>
+                <h3>${task.name || 'Imported Task'}</h3>
                 <span class="task-company-badge">${task.company || 'Unknown Company'}</span>
+            </div>
+            
+            <div class="form-group">
+                <label for="editTaskName">Task Name*</label>
+                <input type="text" id="editTaskName" value="${task.name || ''}" placeholder="Enter task name" required>
             </div>
             
             <div class="form-group">
@@ -706,20 +882,31 @@ function displayTaskForEditing(task) {
             </div>
             
             <div class="form-group">
-                <label for="editTaskNotes">Notes (optional)</label>
+                <label for="editTaskDescription">Description</label>
+                <textarea id="editTaskDescription" rows="3" placeholder="Enter task description">${task.description || ''}</textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="editTaskNotes">Notes</label>
                 <textarea id="editTaskNotes" rows="4" placeholder="Add any notes or updates...">${task.notes || ''}</textarea>
             </div>
             
             <div class="task-meta-info">
-                <p><strong>Task ID:</strong> ${task.id || 'N/A'}</p>
+                <p><strong>Master Board ID:</strong> ${masterBoardId}</p>
+                <p><strong>Company Board ID:</strong> ${companyBoardId}</p>
+                <p><strong>Task ID:</strong> ${task.id || `${masterBoardId}_${companyBoardId}`}</p>
                 <p><strong>Due Date:</strong> ${task.dueDate || 'Not set'}</p>
-                <p><strong>Created:</strong> ${task.createdDate || 'Unknown'}</p>
+                <p><strong>Imported:</strong> ${new Date().toLocaleString()}</p>
             </div>
         </div>
     `;
     
     // Store current task data for saving
-    window.currentEditingTask = task;
+    window.currentEditingTask = {
+        ...task,
+        masterBoardId: masterBoardId,
+        companyBoardId: companyBoardId
+    };
     
     // Show footer buttons
     document.getElementById('taskEditorFooter').style.display = 'flex';
@@ -730,32 +917,42 @@ function updateProgressDisplay(value) {
     document.getElementById('editProgressBar').style.width = value + '%';
 }
 
-async function saveTaskChanges() {
+async function updateTaskInInfinity() {
     if (!window.currentEditingTask) {
         showToast('No task loaded for editing', 'error');
         return;
     }
     
+    const taskName = document.getElementById('editTaskName').value.trim();
     const progress = parseInt(document.getElementById('editTaskProgress').value);
     const status = document.getElementById('editTaskStatus').value;
+    const description = document.getElementById('editTaskDescription').value;
     const notes = document.getElementById('editTaskNotes').value;
-    const masterBoardId = document.getElementById('masterBoardId').value;
-    const companyBoardId = document.getElementById('companyBoardId').value;
+    const masterBoardId = window.currentEditingTask.masterBoardId;
+    const companyBoardId = window.currentEditingTask.companyBoardId;
+    
+    if (!taskName) {
+        showToast('Please enter a task name', 'warning');
+        return;
+    }
     
     const updateData = {
         action: 'update_task',
         master_board_id: masterBoardId,
         company_board_id: companyBoardId,
+        task_name: taskName,
         progress: progress,
         status: status,
+        description: description,
         notes: notes,
         timestamp: new Date().toISOString(),
         updated_by: currentEmployee || 'Unknown User'
     };
     
     try {
-        showToast('Saving changes...', 'info');
+        showToast('🔄 Updating task in Infinity...', 'info');
         
+        // Update in Infinity
         const response = await fetch(CONFIG.taskUpdateUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -765,13 +962,20 @@ async function saveTaskChanges() {
         if (response.ok) {
             const result = await response.json();
             if (result.success) {
-                showToast('✅ Task updated successfully in Infinity!', 'success');
+                // Update local dashboard
+                await updateTaskInMyDashboard(masterBoardId, companyBoardId, {
+                    name: taskName,
+                    progress: progress,
+                    status: status,
+                    description: description,
+                    notes: notes
+                });
+                
+                showToast('✅ Task updated successfully in Infinity and your dashboard!', 'success');
                 closeTaskEditorModal();
                 
-                // Refresh assigned tasks if they're loaded
-                if (availableTasks.length > 0) {
-                    await loadAssignedTasks();
-                }
+                // Refresh assigned tasks list
+                await loadAssignedTasks();
             } else {
                 throw new Error(result.message || 'Update failed in Infinity');
             }
@@ -779,8 +983,51 @@ async function saveTaskChanges() {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
     } catch (error) {
-        console.error('Error saving task changes:', error);
-        showToast('❌ Error saving changes: ' + error.message, 'error');
+        console.error('Error updating task in Infinity:', error);
+        
+        // Still update locally even if Infinity update fails
+        await updateTaskInMyDashboard(masterBoardId, companyBoardId, {
+            name: taskName,
+            progress: progress,
+            status: status,
+            description: description,
+            notes: notes
+        });
+        
+        showToast('⚠️ Updated locally, but failed to sync with Infinity: ' + error.message, 'warning');
+        await loadAssignedTasks();
+    }
+}
+
+async function updateTaskInMyDashboard(masterBoardId, companyBoardId, updates) {
+    if (!currentEmployee) return;
+    
+    const tasksKey = `myTasks_${currentEmployee}`;
+    let myTasks = [];
+    
+    try {
+        const saved = localStorage.getItem(tasksKey);
+        if (saved) {
+            myTasks = JSON.parse(saved);
+        }
+    } catch (error) {
+        console.error('Error loading tasks for update:', error);
+        return;
+    }
+    
+    const taskId = `${masterBoardId}_${companyBoardId}`;
+    const taskIndex = myTasks.findIndex(t => t.id === taskId);
+    
+    if (taskIndex >= 0) {
+        // Update existing task
+        myTasks[taskIndex] = {
+            ...myTasks[taskIndex],
+            ...updates,
+            lastUpdated: new Date().toISOString()
+        };
+        
+        localStorage.setItem(tasksKey, JSON.stringify(myTasks));
+        availableTasks = myTasks;
     }
 }
 
@@ -1257,27 +1504,161 @@ function stopAllClocks() {
     }
 }
 
-// Basic implementations of essential functions
+// Load user's imported tasks from dashboard
 async function loadAssignedTasks() {
-    console.log('📋 Loading assigned tasks...');
+    console.log('📋 Loading your imported tasks...');
     if (!currentEmployee) {
         document.getElementById('assignedTasksList').innerHTML = '<p class="loading">Select an employee to view assigned tasks...</p>';
         return;
     }
     
-    // Sample tasks for basic functionality
-    availableTasks = [
-        {
-            id: 'TASK_001',
-            name: 'Website Updates',
-            company: 'CROWN REALITY',
-            status: 'Current Project',
-            progress: 45,
-            dueDate: '2025-02-01'
+    try {
+        // Load user's personal imported tasks
+        const tasksKey = `myTasks_${currentEmployee}`;
+        const saved = localStorage.getItem(tasksKey);
+        let myTasks = [];
+        
+        if (saved) {
+            myTasks = JSON.parse(saved);
+            availableTasks = myTasks;
         }
-    ];
+        
+        if (myTasks.length === 0) {
+            document.getElementById('assignedTasksList').innerHTML = `
+                <p class="loading">No tasks imported yet.</p>
+                <div style="background: rgba(102, 126, 234, 0.1); border: 2px solid rgba(102, 126, 234, 0.3); border-radius: var(--radius-md); padding: var(--spacing-lg); margin-top: var(--spacing-md);">
+                    <h4 style="color: var(--text-primary); margin-bottom: var(--spacing-sm);">📥 Import Your First Task:</h4>
+                    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">1. Click "📥 Import Task from Infinity" button above</p>
+                    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">2. Enter your Master Board Item ID and Company Board Item ID</p>
+                    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">3. Click "Import Task" to add it to your personal dashboard</p>
+                    <p style="color: var(--text-secondary);">4. Edit progress, status, and sync changes back to Infinity</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Render imported tasks
+        renderMyImportedTasks(myTasks);
+        showToast(`📋 Loaded ${myTasks.length} imported task${myTasks.length === 1 ? '' : 's'}`, 'info');
+        
+    } catch (error) {
+        console.error('Error loading imported tasks:', error);
+        document.getElementById('assignedTasksList').innerHTML = '<p class="loading" style="color: var(--text-error);">Error loading your tasks. Please try refreshing.</p>';
+        showToast('Error loading your imported tasks', 'error');
+    }
+}
+
+function renderMyImportedTasks(tasks) {
+    const tasksList = document.getElementById('assignedTasksList');
     
-    document.getElementById('assignedTasksList').innerHTML = '<p class="loading">Task loading functionality simplified. Use Task Editor to edit specific tasks.</p>';
+    tasksList.innerHTML = `
+        <div style="margin-bottom: var(--spacing-lg); text-align: center;">
+            <p style="color: var(--text-secondary);">Your Personal Task Dashboard - ${tasks.length} imported task${tasks.length === 1 ? '' : 's'}</p>
+        </div>
+        ${tasks.map(task => `
+            <div class="task-card imported-task-card">
+                <div class="task-card-header">
+                    <h4>${task.name}</h4>
+                    <div class="task-badges">
+                        <span class="task-status ${getStatusClass(task.status)}">${task.status}</span>
+                        <span class="infinity-badge">📥 Infinity</span>
+                    </div>
+                </div>
+                <p><strong>Company:</strong> ${task.company}</p>
+                <p><strong>Description:</strong> ${task.description || 'No description'}</p>
+                <p><strong>Due Date:</strong> ${task.dueDate || 'Not set'}</p>
+                
+                <div class="progress-section">
+                    <div class="progress-header">
+                        <span class="progress-label">Progress</span>
+                        <span class="progress-value">${task.progress}%</span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" style="width: ${task.progress}%"></div>
+                    </div>
+                </div>
+                
+                <div class="task-meta-info" style="margin-top: var(--spacing-md);">
+                    <p><strong>Master ID:</strong> ${task.masterBoardId}</p>
+                    <p><strong>Company ID:</strong> ${task.companyBoardId}</p>
+                    <p><strong>Imported:</strong> ${new Date(task.importedAt).toLocaleDateString()}</p>
+                    <p><strong>Last Updated:</strong> ${task.lastUpdated ? new Date(task.lastUpdated).toLocaleDateString() : 'Never'}</p>
+                </div>
+                
+                <div class="task-actions">
+                    <button class="btn btn-primary btn-sm" onclick="editImportedTask('${task.id}')">
+                        ✏️ Edit & Sync
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="removeImportedTask('${task.id}')">
+                        🗑️ Remove
+                    </button>
+                </div>
+                
+                ${task.notes ? `
+                    <div class="task-notes" style="margin-top: var(--spacing-md); padding: var(--spacing-sm); background: rgba(0,0,0,0.2); border-radius: var(--radius-sm);">
+                        <strong>Notes:</strong> ${task.notes}
+                    </div>
+                ` : ''}
+            </div>
+        `).join('')}
+    `;
+}
+
+async function editImportedTask(taskId) {
+    const task = availableTasks.find(t => t.id === taskId);
+    if (!task) {
+        showToast('Task not found', 'error');
+        return;
+    }
+    
+    // Open task editor modal
+    if (!document.getElementById('taskEditorModal')) {
+        createTaskEditorModal();
+    }
+    
+    // Pre-fill the IDs
+    document.getElementById('masterBoardId').value = task.masterBoardId;
+    document.getElementById('companyBoardId').value = task.companyBoardId;
+    
+    // Display task for editing
+    displayTaskForEditing(task, task.masterBoardId, task.companyBoardId);
+    
+    // Show modal
+    document.getElementById('taskEditorModal').style.display = 'block';
+}
+
+async function removeImportedTask(taskId) {
+    if (!confirm('Are you sure you want to remove this task from your dashboard?\n\nThis will not affect the task in Infinity, only remove it from your personal dashboard.')) {
+        return;
+    }
+    
+    if (!currentEmployee) return;
+    
+    try {
+        const tasksKey = `myTasks_${currentEmployee}`;
+        let myTasks = [];
+        
+        const saved = localStorage.getItem(tasksKey);
+        if (saved) {
+            myTasks = JSON.parse(saved);
+        }
+        
+        // Remove task
+        myTasks = myTasks.filter(t => t.id !== taskId);
+        
+        // Save back
+        localStorage.setItem(tasksKey, JSON.stringify(myTasks));
+        availableTasks = myTasks;
+        
+        // Refresh display
+        await loadAssignedTasks();
+        
+        showToast('🗑️ Task removed from your dashboard', 'success');
+        
+    } catch (error) {
+        console.error('Error removing task:', error);
+        showToast('Error removing task', 'error');
+    }
 }
 
 // Stub implementations for form handlers
