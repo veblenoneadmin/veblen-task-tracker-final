@@ -733,6 +733,7 @@ function createTaskEditorModal() {
     document.body.insertAdjacentHTML('beforeend', modalHTML);
 }
 
+// Enhanced import function with immediate dashboard display
 async function importTaskToMyDashboard() {
     const masterBoardId = document.getElementById('masterBoardId').value.trim();
     const companyBoardId = document.getElementById('companyBoardId').value.trim();
@@ -766,11 +767,26 @@ async function importTaskToMyDashboard() {
             if (data.success && data.task) {
                 // Add task to user's personal dashboard
                 await saveTaskToMyDashboard(data.task, masterBoardId, companyBoardId);
-                displayTaskForEditing(data.task, masterBoardId, companyBoardId);
-                showToast('✅ Task imported successfully to your dashboard!', 'success');
                 
-                // Refresh the assigned tasks list to show the new task
+                // Close the import modal
+                closeTaskEditorModal();
+                
+                // Immediately refresh the dashboard to show the new task
                 await loadAssignedTasks();
+                
+                showToast('✅ Task imported successfully! Now visible on your dashboard.', 'success');
+                
+                // Auto-scroll to the new task
+                setTimeout(() => {
+                    const taskCards = document.querySelectorAll('.task-card');
+                    if (taskCards.length > 0) {
+                        taskCards[taskCards.length - 1].scrollIntoView({ 
+                            behavior: 'smooth', 
+                            block: 'center' 
+                        });
+                    }
+                }, 500);
+                
             } else {
                 throw new Error(data.message || 'Task not found in Infinity');
             }
@@ -897,6 +913,7 @@ async function saveManualTaskEntry(masterBoardId, companyBoardId) {
     await loadAssignedTasks();
 }
 
+// Enhanced task saving with better data structure
 async function saveTaskToMyDashboard(task, masterBoardId, companyBoardId) {
     if (!currentEmployee) return;
     
@@ -914,7 +931,7 @@ async function saveTaskToMyDashboard(task, masterBoardId, companyBoardId) {
         myTasks = [];
     }
     
-    // Create task with Infinity IDs
+    // Create enhanced task with Infinity IDs
     const taskForDashboard = {
         id: `${masterBoardId}_${companyBoardId}`,
         name: task.name || 'Imported Task',
@@ -929,13 +946,21 @@ async function saveTaskToMyDashboard(task, masterBoardId, companyBoardId) {
         companyBoardId: companyBoardId,
         importedBy: currentEmployee,
         importedAt: new Date().toISOString(),
-        lastUpdated: new Date().toISOString()
+        lastUpdated: new Date().toISOString(),
+        lastSyncedAt: new Date().toISOString(),
+        syncStatus: 'synced', // synced, pending, error
+        isEditable: true
     };
     
     // Check if task already exists
     const existingIndex = myTasks.findIndex(t => t.id === taskForDashboard.id);
     if (existingIndex >= 0) {
-        myTasks[existingIndex] = taskForDashboard;
+        // Update existing task but preserve edit status
+        myTasks[existingIndex] = {
+            ...myTasks[existingIndex],
+            ...taskForDashboard,
+            lastUpdated: new Date().toISOString()
+        };
         showToast('📝 Task updated in your dashboard', 'info');
     } else {
         myTasks.push(taskForDashboard);
@@ -1660,29 +1685,96 @@ async function loadAssignedTasks() {
     }
 }
 
+// Enhanced dashboard rendering with edit capabilities
 function renderMyImportedTasks(tasks) {
     const tasksList = document.getElementById('assignedTasksList');
     
+    if (tasks.length === 0) {
+        tasksList.innerHTML = `
+            <div style="text-align: center; padding: var(--spacing-2xl);">
+                <p style="color: var(--text-secondary); margin-bottom: var(--spacing-lg);">No tasks imported yet.</p>
+                <div style="background: rgba(102, 126, 234, 0.1); border: 2px solid rgba(102, 126, 234, 0.3); border-radius: var(--radius-lg); padding: var(--spacing-xl);">
+                    <h4 style="color: var(--text-primary); margin-bottom: var(--spacing-md);">📥 Import Your First Task:</h4>
+                    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">1. Click "📥 Import Task from Infinity" button above</p>
+                    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">2. Enter Master Board Item ID and Company Board Item ID</p>
+                    <p style="color: var(--text-secondary);">3. Task will appear here for editing and syncing</p>
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
     tasksList.innerHTML = `
-        <div style="margin-bottom: var(--spacing-lg); text-align: center;">
-            <p style="color: var(--text-secondary);">Your Personal Task Dashboard - ${tasks.length} imported task${tasks.length === 1 ? '' : 's'}</p>
+        <div style="margin-bottom: var(--spacing-xl); text-align: center;">
+            <h3 style="color: var(--text-primary); margin-bottom: var(--spacing-sm);">📋 Your Personal Task Dashboard</h3>
+            <p style="color: var(--text-secondary);">${tasks.length} imported task${tasks.length === 1 ? '' : 's'} • Click any task to edit inline</p>
         </div>
-        ${tasks.map(task => `
-            <div class="task-card imported-task-card">
-                <div class="task-card-header">
-                    <h4>${task.name}</h4>
+        <div class="tasks-grid">
+            ${tasks.map(task => createTaskCard(task)).join('')}
+        </div>
+    `;
+    
+    // Add event listeners for inline editing
+    tasks.forEach(task => {
+        attachTaskEventListeners(task.id);
+    });
+}
+// Create enhanced task card with inline editing
+function createTaskCard(task) {
+    const syncStatusIcon = getSyncStatusIcon(task.syncStatus);
+    const statusClass = getStatusClass(task.status);
+    
+    return `
+        <div class="task-card enhanced-task-card" data-task-id="${task.id}">
+            <div class="task-card-header">
+                <div class="task-title-section">
+                    <input type="text" 
+                           class="task-name-edit" 
+                           value="${task.name}" 
+                           data-field="name"
+                           placeholder="Task name...">
                     <div class="task-badges">
-                        <span class="task-status ${getStatusClass(task.status)}">${task.status}</span>
-                        <span class="infinity-badge">📥 Infinity</span>
+                        <span class="task-status ${statusClass}">${task.status}</span>
+                        <span class="sync-status ${task.syncStatus}">${syncStatusIcon}</span>
                     </div>
                 </div>
-                <p><strong>Company:</strong> ${task.company}</p>
-                <p><strong>Description:</strong> ${task.description || 'No description'}</p>
-                <p><strong>Due Date:</strong> ${task.dueDate || 'Not set'}</p>
+            </div>
+            
+            <div class="task-details">
+                <div class="task-field">
+                    <label>Company:</label>
+                    <span class="company-badge">${task.company}</span>
+                </div>
                 
-                <div class="progress-section">
-                    <div class="progress-header">
-                        <span class="progress-label">Progress</span>
+                <div class="task-field">
+                    <label>Description:</label>
+                    <textarea class="task-description-edit" 
+                              data-field="description" 
+                              placeholder="Add description...">${task.description}</textarea>
+                </div>
+                
+                <div class="task-field">
+                    <label>Status:</label>
+                    <select class="task-status-edit" data-field="status">
+                        <option value="Project" ${task.status === 'Project' ? 'selected' : ''}>Project</option>
+                        <option value="Priority Project" ${task.status === 'Priority Project' ? 'selected' : ''}>Priority Project</option>
+                        <option value="Current Project" ${task.status === 'Current Project' ? 'selected' : ''}>Current Project</option>
+                        <option value="Revision" ${task.status === 'Revision' ? 'selected' : ''}>Revision</option>
+                        <option value="Waiting Approval" ${task.status === 'Waiting Approval' ? 'selected' : ''}>Waiting Approval</option>
+                        <option value="Project Finished" ${task.status === 'Project Finished' ? 'selected' : ''}>Project Finished</option>
+                        <option value="Rejected" ${task.status === 'Rejected' ? 'selected' : ''}>Rejected</option>
+                    </select>
+                </div>
+                
+                <div class="task-field">
+                    <label>Progress:</label>
+                    <div class="progress-control">
+                        <input type="range" 
+                               class="task-progress-edit" 
+                               data-field="progress"
+                               min="0" 
+                               max="100" 
+                               value="${task.progress}">
                         <span class="progress-value">${task.progress}%</span>
                     </div>
                     <div class="progress-bar-container">
@@ -1690,32 +1782,279 @@ function renderMyImportedTasks(tasks) {
                     </div>
                 </div>
                 
-                <div class="task-meta-info" style="margin-top: var(--spacing-md);">
-                    <p><strong>Master ID:</strong> ${task.masterBoardId}</p>
-                    <p><strong>Company ID:</strong> ${task.companyBoardId}</p>
-                    <p><strong>Imported:</strong> ${new Date(task.importedAt).toLocaleDateString()}</p>
-                    <p><strong>Last Updated:</strong> ${task.lastUpdated ? new Date(task.lastUpdated).toLocaleDateString() : 'Never'}</p>
+                <div class="task-field">
+                    <label>Notes:</label>
+                    <textarea class="task-notes-edit" 
+                              data-field="notes" 
+                              placeholder="Add notes...">${task.notes}</textarea>
                 </div>
-                
-                <div class="task-actions">
-                    <button class="btn btn-primary btn-sm" onclick="editImportedTask('${task.id}')">
-                        ✏️ Edit & Sync
-                    </button>
-                    <button class="btn btn-danger btn-sm" onclick="removeImportedTask('${task.id}')">
-                        🗑️ Remove
-                    </button>
-                </div>
-                
-                ${task.notes ? `
-                    <div class="task-notes" style="margin-top: var(--spacing-md); padding: var(--spacing-sm); background: rgba(0,0,0,0.2); border-radius: var(--radius-sm);">
-                        <strong>Notes:</strong> ${task.notes}
-                    </div>
-                ` : ''}
             </div>
-        `).join('')}
+            
+            <div class="task-meta-info">
+                <div class="meta-row">
+                    <span><strong>Master ID:</strong> ${task.masterBoardId}</span>
+                    <span><strong>Company ID:</strong> ${task.companyBoardId}</span>
+                </div>
+                <div class="meta-row">
+                    <span><strong>Due:</strong> ${task.dueDate}</span>
+                    <span><strong>Last Sync:</strong> ${formatDate(task.lastSyncedAt)}</span>
+                </div>
+            </div>
+            
+            <div class="task-actions">
+                <button class="btn btn-primary btn-sm sync-btn" onclick="syncTaskWithInfinity('${task.id}')">
+                    🔄 Sync to Infinity
+                </button>
+                <button class="btn btn-secondary btn-sm save-btn" onclick="saveTaskChanges('${task.id}')" style="display: none;">
+                    💾 Save Changes
+                </button>
+                <button class="btn btn-danger btn-sm" onclick="removeImportedTask('${task.id}')">
+                    🗑️ Remove
+                </button>
+            </div>
+        </div>
     `;
 }
 
+// Attach event listeners for inline editing
+function attachTaskEventListeners(taskId) {
+    const taskCard = document.querySelector(`[data-task-id="${taskId}"]`);
+    if (!taskCard) return;
+    
+    const editableFields = taskCard.querySelectorAll('.task-name-edit, .task-description-edit, .task-status-edit, .task-progress-edit, .task-notes-edit');
+    
+    editableFields.forEach(field => {
+        field.addEventListener('input', () => handleTaskFieldChange(taskId, field));
+        field.addEventListener('change', () => handleTaskFieldChange(taskId, field));
+    });
+}
+
+// Handle field changes and show save button
+function handleTaskFieldChange(taskId, field) {
+    const taskCard = document.querySelector(`[data-task-id="${taskId}"]`);
+    const saveBtn = taskCard.querySelector('.save-btn');
+    const syncBtn = taskCard.querySelector('.sync-btn');
+    
+    // Show save button, hide sync button
+    saveBtn.style.display = 'inline-flex';
+    syncBtn.style.opacity = '0.5';
+    
+    // Update progress display if it's the progress field
+    if (field.classList.contains('task-progress-edit')) {
+        const progressValue = taskCard.querySelector('.progress-value');
+        const progressBar = taskCard.querySelector('.progress-bar');
+        const value = field.value;
+        
+        progressValue.textContent = `${value}%`;
+        progressBar.style.width = `${value}%`;
+    }
+    
+    // Mark task as having unsaved changes
+    taskCard.classList.add('has-unsaved-changes');
+    
+    // Update sync status
+    updateTaskSyncStatus(taskId, 'pending');
+}
+
+// Save task changes locally
+async function saveTaskChanges(taskId) {
+    const taskCard = document.querySelector(`[data-task-id="${taskId}"]`);
+    const saveBtn = taskCard.querySelector('.save-btn');
+    const syncBtn = taskCard.querySelector('.sync-btn');
+    
+    // Collect all field values
+    const updatedData = {
+        name: taskCard.querySelector('.task-name-edit').value.trim(),
+        description: taskCard.querySelector('.task-description-edit').value.trim(),
+        status: taskCard.querySelector('.task-status-edit').value,
+        progress: parseInt(taskCard.querySelector('.task-progress-edit').value),
+        notes: taskCard.querySelector('.task-notes-edit').value.trim()
+    };
+    
+    // Validate required fields
+    if (!updatedData.name) {
+        showToast('Task name is required', 'warning');
+        return;
+    }
+    
+    try {
+        // Update task in local storage
+        await updateTaskInMyDashboard(taskId, updatedData);
+        
+        // Update UI
+        saveBtn.style.display = 'none';
+        syncBtn.style.opacity = '1';
+        taskCard.classList.remove('has-unsaved-changes');
+        
+        // Update status badge
+        const statusBadge = taskCard.querySelector('.task-status');
+        statusBadge.textContent = updatedData.status;
+        statusBadge.className = `task-status ${getStatusClass(updatedData.status)}`;
+        
+        updateTaskSyncStatus(taskId, 'pending');
+        showToast('💾 Changes saved locally. Click "Sync to Infinity" to update Infinity.', 'success');
+        
+    } catch (error) {
+        console.error('Error saving task changes:', error);
+        showToast('Error saving changes', 'error');
+    }
+}
+
+// Sync task with Infinity
+async function syncTaskWithInfinity(taskId) {
+    const task = availableTasks.find(t => t.id === taskId);
+    if (!task) {
+        showToast('Task not found', 'error');
+        return;
+    }
+    
+    const syncBtn = document.querySelector(`[data-task-id="${taskId}"] .sync-btn`);
+    const originalText = syncBtn.innerHTML;
+    
+    try {
+        // Update button to show loading
+        syncBtn.innerHTML = '⏳ Syncing...';
+        syncBtn.disabled = true;
+        
+        updateTaskSyncStatus(taskId, 'syncing');
+        
+        const updateData = {
+            action: 'update_task',
+            master_board_id: task.masterBoardId,
+            company_board_id: task.companyBoardId,
+            task_name: task.name,
+            progress: task.progress,
+            status: task.status,
+            description: task.description,
+            notes: task.notes,
+            timestamp: new Date().toISOString(),
+            updated_by: currentEmployee || 'Unknown User'
+        };
+        
+        const response = await fetch(CONFIG.taskUpdateUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updateData)
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            if (result.success) {
+                // Update sync status and timestamp
+                await updateTaskSyncStatus(taskId, 'synced');
+                await updateTaskInMyDashboard(taskId, {
+                    lastSyncedAt: new Date().toISOString(),
+                    syncStatus: 'synced'
+                });
+                
+                showToast('✅ Task synced successfully with Infinity!', 'success');
+                
+                // Refresh dashboard to show updated sync time
+                await loadAssignedTasks();
+                
+            } else {
+                throw new Error(result.message || 'Sync failed');
+            }
+        } else {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+    } catch (error) {
+        console.error('Error syncing task:', error);
+        updateTaskSyncStatus(taskId, 'error');
+        showToast(`❌ Sync failed: ${error.message}`, 'error');
+        
+    } finally {
+        // Restore button
+        syncBtn.innerHTML = originalText;
+        syncBtn.disabled = false;
+    }
+}
+
+// Update task in dashboard storage
+async function updateTaskInMyDashboard(taskId, updates) {
+    if (!currentEmployee) return;
+    
+    const tasksKey = `myTasks_${currentEmployee}`;
+    let myTasks = [];
+    
+    try {
+        const saved = localStorage.getItem(tasksKey);
+        if (saved) {
+            myTasks = JSON.parse(saved);
+        }
+    } catch (error) {
+        console.error('Error loading tasks for update:', error);
+        return;
+    }
+    
+    const taskIndex = myTasks.findIndex(t => t.id === taskId);
+    
+    if (taskIndex >= 0) {
+        // Update existing task
+        myTasks[taskIndex] = {
+            ...myTasks[taskIndex],
+            ...updates,
+            lastUpdated: new Date().toISOString()
+        };
+        
+        localStorage.setItem(tasksKey, JSON.stringify(myTasks));
+        availableTasks = myTasks;
+    }
+}
+
+// Update sync status indicator
+function updateTaskSyncStatus(taskId, status) {
+    const taskCard = document.querySelector(`[data-task-id="${taskId}"]`);
+    if (!taskCard) return;
+    
+    const syncStatus = taskCard.querySelector('.sync-status');
+    const icon = getSyncStatusIcon(status);
+    
+    syncStatus.innerHTML = icon;
+    syncStatus.className = `sync-status ${status}`;
+    
+    // Update local storage
+    updateTaskInMyDashboard(taskId, { syncStatus: status });
+}
+
+// Helper functions
+function getSyncStatusIcon(status) {
+    switch (status) {
+        case 'synced': return '✅ Synced';
+        case 'pending': return '⏳ Pending';
+        case 'syncing': return '🔄 Syncing';
+        case 'error': return '❌ Error';
+        default: return '📥 Imported';
+    }
+}
+
+function getStatusClass(status) {
+    const statusClasses = {
+        'Project': 'status-project',
+        'Priority Project': 'status-priority',
+        'Current Project': 'status-current',
+        'Revision': 'status-revision',
+        'Waiting Approval': 'status-waiting',
+        'Project Finished': 'status-finished',
+        'Rejected': 'status-rejected'
+    };
+    return statusClasses[status] || 'status-project';
+}
+
+function formatDate(dateString) {
+    if (!dateString) return 'Never';
+    try {
+        return new Date(dateString).toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    } catch (e) {
+        return 'Invalid date';
+    }
+}
 function getStatusClass(status) {
     const statusClasses = {
         'Project': 'status-project',
