@@ -1,4 +1,4 @@
-// Configuration - SIMPLIFIED VERSION
+// Configuration - UPDATED WITH BACKEND ENDPOINTS
 const CONFIG = {
     taskIntakeUrl: 'https://primary-s0q-production.up.railway.app/webhook/taskintakewebhook',
     taskUpdateUrl: 'https://primary-s0q-production.up.railway.app/webhook/task-update',
@@ -560,7 +560,7 @@ async function handleEndWork() {
     showToast('Shift completed! Great work today! 🎯', 'success');
 }
 
-// ============= SIMPLIFIED TASK IMPORT & MANAGEMENT =============
+// ============= TASK IMPORT & MANAGEMENT WITH BACKEND INTEGRATION =============
 
 function openTaskEditorModal() {
     // Create modal if it doesn't exist
@@ -642,7 +642,7 @@ async function importTaskToMyDashboard() {
     try {
         showToast('📥 Importing task from Infinity...', 'info');
         
-        // Fetch task data from Infinity
+        // NEW: Use the backend API to fetch task data
         const response = await fetch(CONFIG.taskRetrievalUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -655,6 +655,8 @@ async function importTaskToMyDashboard() {
         
         if (response.ok) {
             const data = await response.json();
+            console.log('📥 Backend response:', data);
+            
             if (data.success && data.task) {
                 // Add task to user's personal dashboard
                 await saveTaskToMyDashboard(data.task, masterBoardId, companyBoardId);
@@ -667,12 +669,14 @@ async function importTaskToMyDashboard() {
                 throw new Error(data.message || 'Task not found in Infinity');
             }
         } else {
-            // If API fails, allow manual entry
-            showManualTaskEntry(masterBoardId, companyBoardId);
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
         }
     } catch (error) {
         console.error('Error importing task from Infinity:', error);
-        // Allow manual entry if API fails
+        showToast('❌ Failed to import from Infinity: ' + error.message, 'error');
+        
+        // Fallback to manual entry
         showManualTaskEntry(masterBoardId, companyBoardId);
     }
 }
@@ -806,7 +810,7 @@ async function saveTaskToMyDashboard(task, masterBoardId, companyBoardId) {
         myTasks = [];
     }
     
-    // Create task with Infinity IDs
+    // Create task with Infinity IDs - UPDATED FORMAT
     const taskForDashboard = {
         id: `${masterBoardId}_${companyBoardId}`,
         name: task.name || 'Imported Task',
@@ -816,7 +820,9 @@ async function saveTaskToMyDashboard(task, masterBoardId, companyBoardId) {
         description: task.description || '',
         notes: task.notes || '',
         dueDate: task.dueDate || 'Not set',
+        assignedTo: task.assignedTo || [],
         createdDate: task.createdDate || new Date().toLocaleDateString(),
+        updatedDate: task.updatedDate || new Date().toLocaleDateString(),
         masterBoardId: masterBoardId,
         companyBoardId: companyBoardId,
         importedBy: currentEmployee,
@@ -896,6 +902,7 @@ function displayTaskForEditing(task, masterBoardId, companyBoardId) {
                 <p><strong>Company Board ID:</strong> ${companyBoardId}</p>
                 <p><strong>Task ID:</strong> ${task.id || `${masterBoardId}_${companyBoardId}`}</p>
                 <p><strong>Due Date:</strong> ${task.dueDate || 'Not set'}</p>
+                <p><strong>Assigned To:</strong> ${Array.isArray(task.assignedTo) ? task.assignedTo.join(', ') : 'Not assigned'}</p>
                 <p><strong>Imported:</strong> ${new Date().toLocaleString()}</p>
             </div>
         </div>
@@ -936,6 +943,7 @@ async function updateTaskInInfinity() {
         return;
     }
     
+    // NEW: Use the backend API to update the task
     const updateData = {
         action: 'update_task',
         master_board_id: masterBoardId,
@@ -952,7 +960,7 @@ async function updateTaskInInfinity() {
     try {
         showToast('🔄 Updating task in Infinity...', 'info');
         
-        // Update in Infinity
+        // Update in Infinity via backend
         const response = await fetch(CONFIG.taskUpdateUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -961,6 +969,8 @@ async function updateTaskInInfinity() {
         
         if (response.ok) {
             const result = await response.json();
+            console.log('📤 Update response:', result);
+            
             if (result.success) {
                 // Update local dashboard
                 await updateTaskInMyDashboard(masterBoardId, companyBoardId, {
@@ -980,7 +990,8 @@ async function updateTaskInInfinity() {
                 throw new Error(result.message || 'Update failed in Infinity');
             }
         } else {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
         }
     } catch (error) {
         console.error('Error updating task in Infinity:', error);
@@ -1567,6 +1578,7 @@ function renderMyImportedTasks(tasks) {
                 <p><strong>Company:</strong> ${task.company}</p>
                 <p><strong>Description:</strong> ${task.description || 'No description'}</p>
                 <p><strong>Due Date:</strong> ${task.dueDate || 'Not set'}</p>
+                <p><strong>Assigned To:</strong> ${Array.isArray(task.assignedTo) && task.assignedTo.length > 0 ? task.assignedTo.join(', ') : 'Not assigned'}</p>
                 
                 <div class="progress-section">
                     <div class="progress-header">
@@ -1602,6 +1614,19 @@ function renderMyImportedTasks(tasks) {
             </div>
         `).join('')}
     `;
+}
+
+function getStatusClass(status) {
+    const statusMap = {
+        'Project': 'status-project',
+        'Priority Project': 'status-priority',
+        'Current Project': 'status-current',
+        'Revision': 'status-revision',
+        'Waiting Approval': 'status-waiting',
+        'Project Finished': 'status-finished',
+        'Rejected': 'status-rejected'
+    };
+    return statusMap[status] || 'status-project';
 }
 
 async function editImportedTask(taskId) {
@@ -1661,24 +1686,203 @@ async function removeImportedTask(taskId) {
     }
 }
 
-// Stub implementations for form handlers
+// ============= FORM HANDLERS - UPDATED =============
+
 async function handleTaskIntake(e) {
     e.preventDefault();
-    showToast('Task intake feature available in full version', 'info');
+    
+    if (!currentEmployee) {
+        showToast('Please select an employee first', 'warning');
+        return;
+    }
+    
+    const formData = new FormData(e.target);
+    const taskData = {
+        company: formData.get('taskCompany'),
+        priority: formData.get('taskPriority'),
+        taskTitle: formData.get('taskTitle'),
+        description: formData.get('taskDescription'),
+        dueDate: formData.get('taskDueDate'),
+        assignedTo: Array.from(formData.getAll('taskAssigned')),
+        links: formData.get('taskLinks'),
+        submittedBy: currentEmployee,
+        timestamp: new Date().toISOString()
+    };
+    
+    // Handle image upload
+    const imageFile = formData.get('taskImage');
+    if (imageFile && imageFile.size > 0) {
+        try {
+            showToast('📸 Uploading image...', 'info');
+            const imageUrl = await uploadImageToImgBB(imageFile);
+            taskData.imageUrl = imageUrl;
+        } catch (error) {
+            console.error('Image upload error:', error);
+            showToast('Failed to upload image', 'error');
+            return;
+        }
+    }
+    
+    try {
+        showToast('📝 Creating task...', 'info');
+        
+        const response = await fetch(CONFIG.taskIntakeUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(taskData)
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            console.log('✅ Task created:', result);
+            showToast('✅ Task created successfully!', 'success');
+            
+            // Reset form
+            e.target.reset();
+            document.getElementById('taskImagePreview').innerHTML = '';
+            
+            // Set default date again
+            document.getElementById('taskDueDate').valueAsDate = new Date();
+        } else {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        }
+    } catch (error) {
+        console.error('Task creation error:', error);
+        showToast('❌ Failed to create task: ' + error.message, 'error');
+    }
 }
 
 async function handleDailyReport(e) {
     e.preventDefault();
-    showToast('Daily report feature available in full version', 'info');
+    
+    if (!currentEmployee) {
+        showToast('Please select an employee first', 'warning');
+        return;
+    }
+    
+    const formData = new FormData(e.target);
+    const reportData = {
+        employee: currentEmployee,
+        company: formData.get('reportCompany'),
+        date: formData.get('reportDate'),
+        projectName: formData.get('projectName'),
+        numRevisions: parseInt(formData.get('numRevisions')),
+        totalTimeSpent: formData.get('totalTimeSpent'),
+        notes: formData.get('reportNotes'),
+        links: formData.get('reportLinks'),
+        feedbackRequests: formData.get('feedbackRequests'),
+        timestamp: new Date().toISOString()
+    };
+    
+    // Handle photo upload
+    const photoFile = formData.get('reportPhoto');
+    if (photoFile && photoFile.size > 0) {
+        try {
+            showToast('📸 Uploading photo...', 'info');
+            const photoUrl = await uploadImageToImgBB(photoFile);
+            reportData.photoUrl = photoUrl;
+        } catch (error) {
+            console.error('Photo upload error:', error);
+            showToast('Failed to upload photo', 'error');
+            return;
+        }
+    }
+    
+    try {
+        showToast('📊 Submitting report...', 'info');
+        
+        const response = await fetch(CONFIG.reportLoggerUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(reportData)
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            console.log('✅ Report submitted:', result);
+            showToast('✅ Daily report submitted successfully!', 'success');
+            
+            // Reset form
+            e.target.reset();
+            document.getElementById('reportPhotoPreview').innerHTML = '';
+            
+            // Set default date again
+            document.getElementById('reportDate').valueAsDate = new Date();
+        } else {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        }
+    } catch (error) {
+        console.error('Report submission error:', error);
+        showToast('❌ Failed to submit report: ' + error.message, 'error');
+    }
+}
+
+// ============= IMAGE UPLOAD FUNCTIONS =============
+
+async function uploadImageToImgBB(file) {
+    const formData = new FormData();
+    formData.append('image', file);
+    
+    const response = await fetch(`https://api.imgbb.com/1/upload?key=${CONFIG.imgbbApiKey}`, {
+        method: 'POST',
+        body: formData
+    });
+    
+    if (!response.ok) {
+        throw new Error('Failed to upload image to ImgBB');
+    }
+    
+    const data = await response.json();
+    if (data.success) {
+        return data.data.url;
+    } else {
+        throw new Error('ImgBB upload failed');
+    }
 }
 
 function handleTaskImagePreview(e) {
-    console.log('📸 Image preview');
+    const file = e.target.files[0];
+    const previewDiv = document.getElementById('taskImagePreview');
+    
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            previewDiv.innerHTML = `
+                <div style="margin-top: var(--spacing-md);">
+                    <img src="${e.target.result}" style="max-width: 200px; max-height: 200px; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); border: 2px solid var(--border);">
+                    <p style="color: var(--text-secondary); font-size: 0.75rem; margin-top: var(--spacing-sm);">Preview: ${file.name}</p>
+                </div>
+            `;
+        };
+        reader.readAsDataURL(file);
+    } else {
+        previewDiv.innerHTML = '';
+    }
 }
 
 function handleReportPhotoPreview(e) {
-    console.log('📸 Photo preview');
+    const file = e.target.files[0];
+    const previewDiv = document.getElementById('reportPhotoPreview');
+    
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            previewDiv.innerHTML = `
+                <div style="margin-top: var(--spacing-md);">
+                    <img src="${e.target.result}" style="max-width: 200px; max-height: 200px; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); border: 2px solid var(--border);">
+                    <p style="color: var(--text-secondary); font-size: 0.75rem; margin-top: var(--spacing-sm);">Preview: ${file.name}</p>
+                </div>
+            `;
+        };
+        reader.readAsDataURL(file);
+    } else {
+        previewDiv.innerHTML = '';
+    }
 }
+
+// ============= MODAL & UI UTILITIES =============
 
 // Modal close on outside click
 window.addEventListener('click', function(event) {
@@ -1716,4 +1920,4 @@ window.debugStartButton = function() {
     }
 };
 
-console.log('🚀 Simplified VEBLEN Task Tracker loaded!');
+console.log('🚀 Enhanced VEBLEN Task Tracker with Backend Integration loaded!');
