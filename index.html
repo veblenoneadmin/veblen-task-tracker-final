@@ -536,12 +536,103 @@
             font-weight: 500;
         }
 
+        /* Task Editor Modal Styles */
+        .task-id-inputs {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-lg);
+            margin-bottom: var(--spacing-lg);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .task-id-inputs .form-group {
+            margin-bottom: var(--spacing-md);
+        }
+
+        .task-id-inputs .form-group:last-of-type {
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .task-editor-form {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-lg);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .task-info-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-lg);
+            padding-bottom: var(--spacing-md);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .task-info-header h3 {
+            margin: 0;
+            color: var(--text-primary);
+            font-size: 1.25rem;
+        }
+
+        .progress-input-container {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .progress-input-container input[type="range"] {
+            flex: 1;
+            height: 8px;
+            border-radius: var(--radius-full);
+            background: rgba(0, 0, 0, 0.3);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .progress-input-container input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
+        }
+
+        .progress-input-container input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
+        }
+
+        #progressDisplay {
+            font-weight: 700;
+            color: var(--primary-color);
+            font-size: 1.1rem;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        .task-meta-info {
+            margin-top: var(--spacing-lg);
+            padding-top: var(--spacing-md);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
         /* Button disabled styles */
         .btn-disabled {
             opacity: 0.4 !important;
             pointer-events: none !important;
             filter: grayscale(0.8) !important;
         }
+    </style>
     </style>
 </head>
 <body>
@@ -716,6 +807,13 @@
             <button id="refreshTasksBtn" class="btn btn-secondary">🔄 Refresh Tasks</button>
             <div id="assignedTasksList" class="assigned-tasks-list">
                 <p class="loading">Select an employee to view assigned tasks...</p>
+                <div style="background: rgba(102, 126, 234, 0.1); border: 2px solid rgba(102, 126, 234, 0.3); border-radius: var(--radius-md); padding: var(--spacing-lg); margin-top: var(--spacing-md);">
+                    <h4 style="color: var(--text-primary); margin-bottom: var(--spacing-sm);">💡 How to Edit Tasks:</h4>
+                    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">1. Click "✏️ Edit Task by ID" button above</p>
+                    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">2. Enter your Master Board Item ID and Company Board Item ID</p>
+                    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">3. Click "Load Task" to edit progress, status, and notes</p>
+                    <p style="color: var(--text-secondary);">4. Save your changes to update the task in Infinity</p>
+                </div>
             </div>
         </section>
 
