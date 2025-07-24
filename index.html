@@ -662,8 +662,15 @@
         <!-- Brisbane Clock will be inserted here by JavaScript -->
 
         <!-- Time Clock Section -->
-        <section class="time-clock-section">
-            <h2>🕐 Time Clock</h2>
+<section class="time-clock-section">
+    <!-- Bypass Button -->
+    <div class="bypass-container">
+        <button class="bypass-btn" onclick="openPasswordModal()">
+            🔓 Bypass
+        </button>
+    </div>
+
+    <h2>🕐 Time Clock</h2>
             
             <!-- Real-time Work Clock Display -->
             <div id="workClockDisplay" class="work-clock-display" style="display: none;">
@@ -910,5 +917,35 @@
             .then(data => console.log('API Health:', data))
             .catch(err => console.error('API not responding:', err));
     </script>
+<!-- Password Modal -->
+<div id="passwordModal" class="password-modal">
+    <div class="password-modal-content">
+        <h3>🔐 Admin Bypass</h3>
+        <div class="password-input-group">
+            <input type="password" 
+                   id="passwordInput" 
+                   class="password-input" 
+                   placeholder="Enter password"
+                   maxlength="20">
+            <div id="passwordError" class="password-error">
+                ❌ Incorrect password. Please try again.
+            </div>
+            <div id="passwordSuccess" class="password-success">
+                ✅ Access granted! Resetting shift...
+            </div>
+        </div>
+        <div class="password-buttons">
+            <button class="password-btn password-btn-cancel" onclick="closePasswordModal()">
+                Cancel
+            </button>
+            <button class="password-btn password-btn-confirm" onclick="validatePassword()">
+                Reset Shift
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Notification Container -->
+<div id="toastContainer" class="toast-container"></div>
 </body>
 </html>
