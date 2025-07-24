@@ -1,210 +1,323 @@
 const express = require('express');
+const cors = require('cors');
 const path = require('path');
-const { createProxyMiddleware } = require('http-proxy-middleware');
+const fetch = require('node-fetch');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// FIXED: Updated webhook URLs to match your n8n workflow exactly
+// Your working webhook URLs - UPDATED with the correct get-tasks URL
 const WEBHOOKS = {
-    // Frontend: '/api/task-intake' → n8n: 'taskintakewebhook'
+    // Working webhooks from your n8n workflow
     taskIntake: 'https://primary-s0q-production.up.railway.app/webhook/taskintakewebhook',
-    
-    // Frontend: '/api/task-update' → n8n: 'task-update' ✅ (already matches)
     taskUpdate: 'https://primary-s0q-production.up.railway.app/webhook/task-update',
-    
-    // Frontend: '/api/time-logger' → n8n: 'timelogging'
     timeLogger: 'https://primary-s0q-production.up.railway.app/webhook/timelogging',
-    
-    // Frontend: '/api/report-logger' → n8n: 'reportlogging'
     reportLogger: 'https://primary-s0q-production.up.railway.app/webhook/reportlogging',
-    
-    // Frontend: '/api/get-tasks' → n8n: 'get-tasks' ✅ (already matches)
-    taskRetrieval: 'https://primary-s0q-production.up.railway.app/webhook/get-tasks'
+    taskRetrieval: 'https://primary-s0q-production.up.railway.app/webhook/get-tasks' // FIXED: This is your actual webhook
 };
 
 // Middleware
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
+app.use(express.json());
+app.use(express.static(__dirname));
 
-// Serve static files
-app.use(express.static(path.join(__dirname, 'public')));
+// Helper function to call n8n webhooks
+async function callN8nWebhook(webhookUrl, data, method = 'POST') {
+    try {
+        console.log(`Calling webhook: ${webhookUrl}`, method, data);
+        
+        const options = {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        };
+        
+        if (method === 'POST' && data) {
+            options.body = JSON.stringify(data);
+        }
 
-// CORS headers
-app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-    
-    if (req.method === 'OPTIONS') {
-        return res.sendStatus(200);
+        const response = await fetch(webhookUrl, options);
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        let result;
+        try {
+            result = await response.json();
+        } catch (jsonError) {
+            // Some webhooks might not return JSON
+            result = { success: true, message: 'Action completed successfully' };
+        }
+        
+        console.log('Webhook response:', result);
+        return result;
+    } catch (error) {
+        console.error('Webhook call failed:', error);
+        throw error;
     }
-    next();
+}
+
+// Serve main dashboard
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-    res.json({
-        status: 'ok',
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        environment: process.env.NODE_ENV || 'development',
-        webhooks: {
-            taskIntake: 'connected',
-            taskUpdate: 'connected',
-            timeLogger: 'connected',
-            reportLogger: 'connected',
-            taskRetrieval: 'connected'
-        }
-    });
-});
-
-// Create proxy configuration with better error handling
-const createProxy = (target, pathRewrite = {}) => {
-    return createProxyMiddleware({
-        target,
-        changeOrigin: true,
-        pathRewrite,
-        timeout: 30000, // 30 second timeout
-        proxyTimeout: 30000,
-        onError: (err, req, res) => {
-            console.error(`❌ Proxy error for ${req.path}:`, err.message);
-            
-            if (!res.headersSent) {
-                res.status(502).json({
-                    success: false,
-                    error: 'Backend service unavailable',
-                    message: 'The n8n workflow is not responding. Please try again later.',
-                    timestamp: new Date().toISOString()
-                });
-            }
-        },
-        onProxyReq: (proxyReq, req, res) => {
-            console.log(`📤 Proxying ${req.method} ${req.path} → ${target}`);
-            
-            // Log request body for debugging
-            if (req.body && Object.keys(req.body).length > 0) {
-                console.log('📋 Request body:', JSON.stringify(req.body, null, 2));
-            }
-        },
-        onProxyRes: (proxyRes, req, res) => {
-            console.log(`📥 Response ${proxyRes.statusCode} for ${req.path}`);
-            
-            // Log response for debugging (first 500 chars)
-            let body = '';
-            proxyRes.on('data', chunk => {
-                body += chunk.toString();
-            });
-            
-            proxyRes.on('end', () => {
-                if (body.length > 0) {
-                    const preview = body.length > 500 ? body.substring(0, 500) + '...' : body;
-                    console.log('📋 Response preview:', preview);
-                }
-            });
-        }
-    });
-};
-
-// API Routes - FIXED to match frontend expectations and n8n webhooks
-
-// Task Intake: /api/task-intake → taskintakewebhook
-app.use('/api/task-intake', createProxy(WEBHOOKS.taskIntake));
-
-// Task Update: /api/task-update → task-update ✅
-app.use('/api/task-update', createProxy(WEBHOOKS.taskUpdate));
-
-// Time Logger: /api/time-logger → timelogging
-app.use('/api/time-logger', createProxy(WEBHOOKS.timeLogger));
-
-// Report Logger: /api/report-logger → reportlogging  
-app.use('/api/report-logger', createProxy(WEBHOOKS.reportLogger));
-
-// Task Retrieval: /api/get-tasks → get-tasks ✅
-app.use('/api/get-tasks', createProxy(WEBHOOKS.taskRetrieval));
-
-// Catch-all handler for client-side routing
-app.get('*', (req, res) => {
-    // Serve index.html for all non-API routes
-    if (!req.path.startsWith('/api/')) {
-        res.sendFile(path.join(__dirname, 'public', 'index.html'));
-    } else {
-        // Unknown API route
-        res.status(404).json({
-            success: false,
-            error: 'API endpoint not found',
-            availableEndpoints: [
-                '/api/health',
-                '/api/task-intake',
-                '/api/task-update', 
-                '/api/time-logger',
-                '/api/report-logger',
-                '/api/get-tasks'
-            ],
-            timestamp: new Date().toISOString()
+// ============= TASK INTAKE API =============
+app.post('/api/task-intake', async (req, res) => {
+    try {
+        console.log('Task intake request received:', req.body);
+        
+        const result = await callN8nWebhook(WEBHOOKS.taskIntake, req.body);
+        
+        res.json({
+            success: true,
+            message: 'Task created successfully',
+            data: result
         });
-    }
-});
-
-// Global error handler
-app.use((err, req, res, next) => {
-    console.error('❌ Unhandled error:', err);
-    
-    if (!res.headersSent) {
+        
+    } catch (error) {
+        console.error('Task intake error:', error);
         res.status(500).json({
             success: false,
-            error: 'Internal server error',
-            message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong',
-            timestamp: new Date().toISOString()
+            error: error.message || 'Failed to create task'
         });
     }
 });
 
-// Start server
-app.listen(PORT, () => {
-    console.log('🚀 VEBLEN Task Tracker Server Started');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log(`📍 Server running on port ${PORT}`);
-    console.log(`🌐 Local URL: http://localhost:${PORT}`);
-    console.log('');
-    console.log('🔗 API Endpoints:');
-    console.log(`   📋 Health Check: http://localhost:${PORT}/api/health`);
-    console.log(`   📝 Task Intake:  http://localhost:${PORT}/api/task-intake → ${WEBHOOKS.taskIntake}`);
-    console.log(`   📊 Time Logger:  http://localhost:${PORT}/api/time-logger → ${WEBHOOKS.timeLogger}`);
-    console.log(`   📈 Report Log:   http://localhost:${PORT}/api/report-logger → ${WEBHOOKS.reportLogger}`);
-    console.log(`   🔄 Task Update:  http://localhost:${PORT}/api/task-update → ${WEBHOOKS.taskUpdate}`);
-    console.log(`   📥 Get Tasks:    http://localhost:${PORT}/api/get-tasks → ${WEBHOOKS.taskRetrieval}`);
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('');
-    
-    // Test connection to n8n webhooks
-    console.log('🔍 Testing n8n webhook connections...');
-    Object.entries(WEBHOOKS).forEach(([name, url], index) => {
-        setTimeout(() => {
-            fetch(url, { method: 'HEAD' })
-                .then(res => {
-                    if (res.ok) {
-                        console.log(`✅ ${name}: Connected (${res.status})`);
-                    } else {
-                        console.log(`⚠️  ${name}: Responding but might need data (${res.status})`);
-                    }
-                })
-                .catch(err => {
-                    console.log(`❌ ${name}: Connection failed - ${err.message}`);
-                });
-        }, index * 200); // Stagger requests
+// ============= TASK UPDATE API =============
+app.post('/api/task-update', async (req, res) => {
+    try {
+        console.log('Task update request received:', req.body);
+        
+        const result = await callN8nWebhook(WEBHOOKS.taskUpdate, req.body);
+        
+        res.json({
+            success: true,
+            message: 'Task updated successfully',
+            data: result
+        });
+        
+    } catch (error) {
+        console.error('Task update error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Failed to update task'
+        });
+    }
+});
+
+// ============= TIME LOGGER API =============
+app.post('/api/time-logger', async (req, res) => {
+    try {
+        console.log('Time logger request received:', req.body);
+        
+        const result = await callN8nWebhook(WEBHOOKS.timeLogger, req.body);
+        
+        res.json({
+            success: true,
+            message: 'Time logged successfully',
+            data: result
+        });
+        
+    } catch (error) {
+        console.error('Time logger error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Failed to log time'
+        });
+    }
+});
+
+// ============= REPORT LOGGER API =============
+app.post('/api/report-logger', async (req, res) => {
+    try {
+        console.log('Report logger request received:', req.body);
+        
+        const result = await callN8nWebhook(WEBHOOKS.reportLogger, req.body);
+        
+        res.json({
+            success: true,
+            message: 'Report submitted successfully',
+            data: result
+        });
+        
+    } catch (error) {
+        console.error('Report logger error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Failed to submit report'
+        });
+    }
+});
+
+// ============= TASK RETRIEVAL API - FIXED =============
+// This now connects to your actual get-tasks webhook
+app.post('/api/get-tasks', async (req, res) => {
+    try {
+        console.log('Get tasks request received:', req.body);
+        
+        // Forward the request to your n8n webhook
+        const result = await callN8nWebhook(WEBHOOKS.taskRetrieval, req.body);
+        
+        res.json(result);
+        
+    } catch (error) {
+        console.error('Get tasks error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Failed to retrieve tasks'
+        });
+    }
+});
+
+// Legacy endpoint for backward compatibility
+app.get('/api/tasks/:employee', async (req, res) => {
+    try {
+        const { employee } = req.params;
+        const { company } = req.query;
+        
+        // Convert to the format your webhook expects
+        const requestData = {
+            action: 'get_tasks_by_employee',
+            employee: employee,
+            company: company || 'all'
+        };
+        
+        const result = await callN8nWebhook(WEBHOOKS.taskRetrieval, requestData);
+        
+        res.json({
+            success: true,
+            data: result,
+            message: 'Tasks retrieved successfully'
+        });
+        
+    } catch (error) {
+        console.error('Task retrieval error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Failed to retrieve tasks'
+        });
+    }
+});
+
+// ============= INDIVIDUAL TASK RETRIEVAL - NEW =============
+app.get('/api/task/:taskId', async (req, res) => {
+    try {
+        const { taskId } = req.params;
+        const { company } = req.query;
+        
+        // Parse taskId if it contains both master and company board IDs
+        let masterBoardId, companyBoardId;
+        
+        if (taskId.includes('_')) {
+            [masterBoardId, companyBoardId] = taskId.split('_');
+        } else {
+            // If only one ID provided, assume it's a master board ID
+            masterBoardId = taskId;
+            // You might need to derive company board ID or return error
+            return res.status(400).json({
+                success: false,
+                error: 'Task ID must contain both master and company board IDs separated by underscore'
+            });
+        }
+        
+        const requestData = {
+            action: 'get_task_by_ids',
+            master_board_id: masterBoardId,
+            company_board_id: companyBoardId,
+            company: company
+        };
+        
+        const result = await callN8nWebhook(WEBHOOKS.taskRetrieval, requestData);
+        
+        res.json(result);
+        
+    } catch (error) {
+        console.error('Get task error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Failed to retrieve task'
+        });
+    }
+});
+
+// ============= HEALTH CHECK ENDPOINTS =============
+app.get('/health', (req, res) => {
+    res.json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        service: 'VEBLEN Task Tracker',
+        webhooks: {
+            taskIntake: 'connected to n8n',
+            taskUpdate: 'connected to n8n',
+            timeLogger: 'connected to n8n',
+            reportLogger: 'connected to n8n',
+            taskRetrieval: 'connected to n8n'
+        }
     });
 });
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-    console.log('🛑 SIGTERM received, shutting down gracefully...');
-    process.exit(0);
+app.get('/api/health', (req, res) => {
+    res.json({
+        status: 'healthy',
+        api: 'active',
+        webhooks: WEBHOOKS,
+        timestamp: new Date().toISOString(),
+        features: {
+            taskIntake: '✅ Connected to n8n workflow',
+            taskEditor: '✅ Connected to n8n workflow',
+            timeLogger: '✅ Connected to n8n workflow',
+            reportLogger: '✅ Connected to n8n workflow',
+            taskRetrieval: '✅ Connected to n8n workflow'
+        }
+    });
 });
 
-process.on('SIGINT', () => {
-    console.log('🛑 SIGINT received, shutting down gracefully...');
-    process.exit(0);
+// Handle OPTIONS requests for CORS
+app.options('*', (req, res) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.sendStatus(200);
+});
+
+// Serve static files
+app.get('*', (req, res) => {
+    // Don't serve index.html for API routes
+    if (req.path.startsWith('/api/')) {
+        return res.status(404).json({ error: 'API endpoint not found' });
+    }
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error('Server Error:', err);
+    res.status(500).json({
+        success: false,
+        error: 'Internal Server Error',
+        message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
+    });
+});
+
+// Start the server
+app.listen(PORT, () => {
+    console.log(`🚀 VEBLEN Task Tracker running on port ${PORT}`);
+    console.log(`📱 Access at: http://localhost:${PORT}`);
+    console.log(`⚡ Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🔗 Connected Webhooks:`);
+    console.log(`   📝 Task Intake: ${WEBHOOKS.taskIntake}`);
+    console.log(`   ✏️ Task Update: ${WEBHOOKS.taskUpdate}`);
+    console.log(`   ⏰ Time Logger: ${WEBHOOKS.timeLogger}`);
+    console.log(`   📊 Report Logger: ${WEBHOOKS.reportLogger}`);
+    console.log(`   🔍 Task Retrieval: ${WEBHOOKS.taskRetrieval}`);
+    console.log(`✅ All systems ready!`);
 });
 
 module.exports = app;
