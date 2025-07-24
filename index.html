@@ -7,15 +7,673 @@
     <link rel="icon" type="image/png" href="https://i.ibb.co/50CN8P5/fe71a9da-24a6-46cf-8eda-df73bff35fc8.png">
     <link rel="apple-touch-icon" href="https://i.ibb.co/50CN8P5/fe71a9da-24a6-46cf-8eda-df73bff35fc8.png">
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* Brisbane Clock Styles */
+        .brisbane-clock-section {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%);
+            border: 2px solid rgba(102, 126, 234, 0.3);
+            border-radius: var(--radius-xl);
+            padding: var(--spacing-xl);
+            margin: var(--spacing-xl) 0;
+            box-shadow: 0 0 20px rgba(102, 126, 234, 0.2);
+        }
+
+        .brisbane-clock-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: var(--spacing-lg);
+            align-items: start;
+        }
+
+        .local-time-display, .brisbane-time-display, .shift-reset-display {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-lg);
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .time-zone-label, .reset-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: var(--spacing-sm);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-weight: 600;
+        }
+
+        .current-time {
+            font-size: 2.5rem;
+            font-weight: 700;
+            font-family: 'Courier New', monospace;
+            margin-bottom: var(--spacing-sm);
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .local-time {
+            background: var(--success-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .current-date {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .reset-countdown {
+            font-size: 2rem;
+            font-weight: 700;
+            font-family: 'Courier New', monospace;
+            color: #f6ad55;
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .reset-time, .work-start-notice {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+            margin-top: var(--spacing-xs);
+        }
+
+        .work-start-notice {
+            background: rgba(252, 129, 129, 0.2);
+            padding: var(--spacing-sm);
+            border-radius: var(--radius-sm);
+            border: 1px solid rgba(252, 129, 129, 0.3);
+        }
+
+        /* Real-time Work Clock Styles */
+        .work-clock-display, .break-clock-display {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%);
+            border: 2px solid rgba(102, 126, 234, 0.4);
+            border-radius: var(--radius-xl);
+            padding: var(--spacing-xl);
+            margin-bottom: var(--spacing-xl);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(102, 126, 234, 0.3);
+            animation: pulseGlow 3s ease-in-out infinite;
+        }
+
+        .break-clock-display {
+            background: linear-gradient(135deg, rgba(250, 112, 154, 0.2) 0%, rgba(254, 225, 64, 0.2) 100%);
+            border-color: rgba(250, 112, 154, 0.4);
+            box-shadow: 0 0 30px rgba(250, 112, 154, 0.3);
+            animation: pulseGlowOrange 3s ease-in-out infinite;
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% { 
+                box-shadow: 0 0 30px rgba(102, 126, 234, 0.3);
+                transform: scale(1);
+            }
+            50% { 
+                box-shadow: 0 0 40px rgba(102, 126, 234, 0.5);
+                transform: scale(1.02);
+            }
+        }
+
+        @keyframes pulseGlowOrange {
+            0%, 100% { 
+                box-shadow: 0 0 30px rgba(250, 112, 154, 0.3);
+                transform: scale(1);
+            }
+            50% { 
+                box-shadow: 0 0 40px rgba(250, 112, 154, 0.5);
+                transform: scale(1.02);
+            }
+        }
+
+        .clock-info h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: var(--spacing-md);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .work-timer, .break-timer {
+            font-size: 4rem;
+            font-weight: 700;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-variant-numeric: tabular-nums;
+            filter: drop-shadow(0 4px 8px rgba(102, 126, 234, 0.4));
+            margin-bottom: var(--spacing-md);
+            font-family: 'Courier New', monospace;
+        }
+
+        .break-timer {
+            background: var(--warning-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            filter: drop-shadow(0 4px 8px rgba(250, 112, 154, 0.4));
+        }
+
+        .work-status, .break-status {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        /* Shift Progress Styles */
+        .shift-progress {
+            margin: var(--spacing-lg) 0;
+            padding: var(--spacing-lg);
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: var(--radius-lg);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .shift-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-md);
+        }
+
+        .shift-label {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .shift-time {
+            font-size: 1.25rem;
+            font-weight: 700;
+            background: var(--success-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-family: 'Courier New', monospace;
+        }
+
+        .shift-bar-container {
+            height: 12px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: var(--radius-full);
+            overflow: hidden;
+            margin-bottom: var(--spacing-sm);
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .shift-bar {
+            height: 100%;
+            background: var(--success-gradient);
+            transition: width 0.5s ease;
+            position: relative;
+            min-width: 2px;
+            box-shadow: 0 0 10px rgba(72, 187, 120, 0.5);
+        }
+
+        .shift-bar.overtime {
+            background: var(--warning-gradient);
+            box-shadow: 0 0 10px rgba(250, 112, 154, 0.5);
+        }
+
+        .shift-bar.complete {
+            background: var(--primary-gradient);
+            box-shadow: 0 0 15px rgba(102, 126, 234, 0.7);
+            animation: celebrate 2s ease-in-out infinite;
+        }
+
+        @keyframes celebrate {
+            0%, 100% { box-shadow: 0 0 15px rgba(102, 126, 234, 0.7); }
+            50% { box-shadow: 0 0 25px rgba(102, 126, 234, 0.9); }
+        }
+
+        .shift-target {
+            text-align: center;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .shift-target.complete {
+            color: var(--primary-color);
+            font-weight: 700;
+            font-size: 1rem;
+        }
+
+        .shift-target.overtime {
+            color: #f6ad55;
+            font-weight: 700;
+        }
+
+        /* Break Info Styles */
+        .break-info {
+            margin: var(--spacing-lg) 0;
+            padding: var(--spacing-lg);
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: var(--radius-lg);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .break-info p {
+            margin: var(--spacing-sm) 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .total-worked span, .shift-remaining span {
+            font-weight: 700;
+            font-family: 'Courier New', monospace;
+            font-size: 1.1rem;
+        }
+
+        .total-worked span {
+            background: var(--success-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .shift-remaining span {
+            background: var(--warning-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Modal Styles for Task Selection */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background: var(--surface);
+            margin: 5% auto;
+            padding: 0;
+            border-radius: var(--radius-xl);
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            border: 2px solid var(--border);
+        }
+
+        .modal-header {
+            padding: var(--spacing-xl);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            color: var(--text-primary);
+        }
+
+        .close {
+            color: var(--text-secondary);
+            font-size: 2rem;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        .close:hover {
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            padding: var(--spacing-xl);
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: var(--spacing-md);
+            justify-content: flex-end;
+            margin-top: var(--spacing-xl);
+        }
+
+        .task-selection-list {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .task-selection-item {
+            background: rgba(0, 0, 0, 0.2);
+            border: 2px solid transparent;
+            border-radius: var(--radius-md);
+            padding: var(--spacing-lg);
+            margin-bottom: var(--spacing-md);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .task-selection-item:hover {
+            border-color: var(--primary-color);
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        .task-selection-item.selected {
+            border-color: var(--primary-color);
+            background: rgba(102, 126, 234, 0.2);
+            box-shadow: 0 0 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .task-selection-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .task-selection-title {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 1.1rem;
+        }
+
+        .task-selection-company {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            background: rgba(0, 0, 0, 0.3);
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border-radius: var(--radius-sm);
+        }
+
+        .task-selection-meta {
+            display: flex;
+            gap: var(--spacing-md);
+            align-items: center;
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .task-selection-status {
+            font-size: 0.75rem;
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .task-selection-progress {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .task-selection-time {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            font-family: 'Courier New', monospace;
+        }
+
+        /* Active Task Display Styles */
+        .active-task-card {
+            background: linear-gradient(135deg, rgba(72, 187, 120, 0.2) 0%, rgba(56, 178, 172, 0.2) 100%);
+            border: 2px solid rgba(72, 187, 120, 0.4);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-lg);
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .active-task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-md);
+        }
+
+        .active-task-header h4 {
+            margin: 0;
+            color: var(--text-primary);
+            font-size: 1.1rem;
+        }
+
+        .task-company-badge {
+            background: rgba(72, 187, 120, 0.3);
+            color: var(--text-primary);
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border-radius: var(--radius-sm);
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .active-task-name {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .active-task-meta {
+            display: flex;
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .active-task-time {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: var(--radius-sm);
+            padding: var(--spacing-md);
+        }
+
+        .time-today, .time-session {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: var(--spacing-xs);
+            font-family: 'Courier New', monospace;
+        }
+
+        /* Infinity Badge Styles - NEW */
+        .infinity-badge {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border-radius: var(--radius-full);
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+        }
+
+        .task-badges {
+            display: flex;
+            gap: var(--spacing-sm);
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        /* Imported Task Card Styles - NEW */
+        .imported-task-card {
+            border-left: 4px solid var(--primary-color);
+        }
+
+        .imported-task-card::before {
+            content: '📥';
+            position: absolute;
+            top: var(--spacing-sm);
+            left: var(--spacing-sm);
+            font-size: 1.2rem;
+            opacity: 0.6;
+        }
+
+        /* Responsive design for clock */
+        @media (max-width: 768px) {
+            .brisbane-clock-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .current-time {
+                font-size: 2rem;
+            }
+            
+            .work-timer, .break-timer {
+                font-size: 2.5rem;
+            }
+            
+            .clock-info h3 {
+                font-size: 1rem;
+            }
+            
+            .modal-content {
+                width: 95%;
+                margin: 2% auto;
+            }
+        }
+
+        /* Status indicator styles */
+        .status-working {
+            color: #48bb78;
+            font-weight: 600;
+        }
+
+        .status-break {
+            color: #f6ad55;
+            font-weight: 600;
+        }
+
+        .status-ended {
+            color: #fc8181;
+            font-weight: 600;
+        }
+
+        .status-ready {
+            color: #38b2ac;
+            font-weight: 600;
+        }
+
+        .time-clock-status {
+            text-align: center;
+            padding: var(--spacing-lg);
+            background: var(--surface);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border);
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+            font-weight: 500;
+        }
+
+        /* Task Editor Modal Styles */
+        .task-id-inputs {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-lg);
+            margin-bottom: var(--spacing-lg);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .task-id-inputs .form-group {
+            margin-bottom: var(--spacing-md);
+        }
+
+        .task-id-inputs .form-group:last-of-type {
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .task-editor-form {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-lg);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .task-info-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-lg);
+            padding-bottom: var(--spacing-md);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .task-info-header h3 {
+            margin: 0;
+            color: var(--text-primary);
+            font-size: 1.25rem;
+        }
+
+        .progress-input-container {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .progress-input-container input[type="range"] {
+            flex: 1;
+            height: 8px;
+            border-radius: var(--radius-full);
+            background: rgba(0, 0, 0, 0.3);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .progress-input-container input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
+        }
+
+        .progress-input-container input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
+        }
+
+        #progressDisplay {
+            font-weight: 700;
+            color: var(--primary-color);
+            font-size: 1.1rem;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        .task-meta-info {
+            margin-top: var(--spacing-lg);
+            padding-top: var(--spacing-md);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Button disabled styles */
+        .btn-disabled {
+            opacity: 0.4 !important;
+            pointer-events: none !important;
+            filter: grayscale(0.8) !important;
+        }
+    </style>
+    </style>
 </head>
 <body>
     <div class="container">
         <!-- Header -->
         <header class="header">
-            <h1>
-                <img src="https://i.ibb.co/50CN8P5/fe71a9da-24a6-46cf-8eda-df73bff35fc8.png" alt="VEBLEN" class="logo"> 
-                Task & Time Tracker
-            </h1>
+        <h1><img src="https://i.ibb.co/50CN8P5/fe71a9da-24a6-46cf-8eda-df73bff35fc8.png" alt="VEBLEN" class="logo"> Task & Time Tracker</h1>
             <div class="employee-selector">
                 <label for="employeeSelect">Employee:</label>
                 <select id="employeeSelect">
@@ -35,8 +693,7 @@
             </div>
         </header>
 
-        <!-- Brisbane Clock Section - Inserted by JavaScript -->
-        <!-- The Brisbane clock will be dynamically inserted here by script.js -->
+        <!-- Brisbane Clock will be inserted here by JavaScript -->
 
         <!-- Time Clock Section -->
         <section class="time-clock-section">
@@ -76,16 +733,13 @@
                 </div>
             </div>
             
-            <!-- Time Clock Buttons -->
             <div class="time-clock-buttons">
                 <button id="startWorkBtn" class="btn btn-success">🟢 START WORK</button>
                 <button id="breakBtn" class="btn btn-warning">☕ BREAK</button>
                 <button id="backToWorkBtn" class="btn btn-info">🔵 BACK TO WORK</button>
                 <button id="endWorkBtn" class="btn btn-danger">🔴 END WORK</button>
             </div>
-            
-            <!-- Time Clock Status -->
-            <div id="timeClockStatus" class="time-clock-status">Ready to start your shift</div>
+            <div id="timeClockStatus" class="time-clock-status"></div>
         </section>
 
         <!-- Active Task Display Section -->
@@ -96,7 +750,7 @@
             </div>
         </section>
 
-        <!-- Task Intake Section -->
+        <!-- Task Intake Section - UPDATED WITH REQUIRED FIELDS -->
         <section class="task-intake-section">
             <h2>📝 Create New Task</h2>
             <form id="taskIntakeForm">
@@ -159,17 +813,17 @@
                     </select>
                 </div>
 
-                <!-- Image Upload -->
+                <!-- Image Upload - NOW REQUIRED -->
                 <div class="form-group">
                     <label for="taskImage">Attach Image* <span style="color: #f56565;">●</span></label>
                     <input type="file" id="taskImage" name="taskImage" accept=".jpg,.jpeg,.png,.gif,.bmp,.webp" required>
                     <small style="color: var(--text-secondary); font-size: 0.75rem; display: block; margin-top: 0.5rem;">
                         📸 Accepted: JPEG, PNG, GIF, BMP, WebP (max 32MB)
                     </small>
-                    <div id="taskImagePreview" style="display: none;"></div>
+                    <div id="taskImagePreview"></div>
                 </div>
 
-                <!-- Links -->
+                <!-- Links - OPTIONAL -->
                 <div class="form-group">
                     <label for="taskLinks">Links (optional)</label>
                     <textarea id="taskLinks" name="taskLinks" rows="3" placeholder="Add any relevant links (one per line)"></textarea>
@@ -190,21 +844,21 @@
             </div>
         </section>
 
-        <!-- Daily Report Section -->
+        <!-- Daily Report Section - UPDATED WITH REQUIRED FIELDS -->
         <section class="daily-report-section">
             <h2>📊 Daily Report</h2>
             <form id="dailyReportForm">
-                <!-- Photo Upload -->
+                <!-- Photo Upload - REQUIRED -->
                 <div class="form-group">
                     <label for="reportPhoto">Photo for Report* <span style="color: #f56565;">●</span></label>
                     <input type="file" id="reportPhoto" name="reportPhoto" accept=".jpg,.jpeg,.png,.gif,.bmp,.webp" required>
                     <small style="color: var(--text-secondary); font-size: 0.75rem; display: block; margin-top: 0.5rem;">
                         📸 Accepted: JPEG, PNG, GIF, BMP, WebP (max 32MB)
                     </small>
-                    <div id="reportPhotoPreview" style="display: none;"></div>
+                    <div id="reportPhotoPreview"></div>
                 </div>
                 
-                <!-- Company Selection -->
+                <!-- Company Selection - REQUIRED -->
                 <div class="form-group">
                     <label for="reportCompany">Company* <span style="color: #f56565;">●</span></label>
                     <select id="reportCompany" name="reportCompany" required>
@@ -217,43 +871,43 @@
                     </select>
                 </div>
                 
-                <!-- Date -->
+                <!-- Date - REQUIRED -->
                 <div class="form-group">
                     <label for="reportDate">Date* <span style="color: #f56565;">●</span></label>
                     <input type="date" id="reportDate" name="reportDate" required>
                 </div>
                 
-                <!-- Project Name -->
+                <!-- Project Name - REQUIRED -->
                 <div class="form-group">
                     <label for="projectName">Project Name* <span style="color: #f56565;">●</span></label>
                     <input type="text" id="projectName" name="projectName" placeholder="Enter the project name" required>
                 </div>
                 
-                <!-- Number of Revisions -->
+                <!-- Number of Revisions - REQUIRED -->
                 <div class="form-group">
                     <label for="numRevisions">Number of Revisions* <span style="color: #f56565;">●</span></label>
                     <input type="number" id="numRevisions" name="numRevisions" placeholder="Number of Revisions" min="0" required>
                 </div>
                 
-                <!-- Total Time Spent -->
+                <!-- Total Time Spent - REQUIRED -->
                 <div class="form-group">
                     <label for="totalTimeSpent">Total Time Spent on Project* <span style="color: #f56565;">●</span></label>
                     <input type="text" id="totalTimeSpent" name="totalTimeSpent" placeholder="e.g., 3 hours" required>
                 </div>
                 
-                <!-- Notes -->
+                <!-- Notes - REQUIRED -->
                 <div class="form-group">
                     <label for="reportNotes">Notes* <span style="color: #f56565;">●</span></label>
                     <textarea id="reportNotes" name="reportNotes" rows="4" placeholder="Notes" required></textarea>
                 </div>
                 
-                <!-- Links -->
+                <!-- Links - OPTIONAL -->
                 <div class="form-group">
                     <label for="reportLinks">Links (optional)</label>
                     <textarea id="reportLinks" name="reportLinks" rows="3" placeholder="Add any relevant links (one per line)"></textarea>
                 </div>
                 
-                <!-- Feedback or Requests -->
+                <!-- Feedback or Requests - OPTIONAL -->
                 <div class="form-group">
                     <label for="feedbackRequests">Feedback or Requests (optional)</label>
                     <textarea id="feedbackRequests" name="feedbackRequests" rows="5" placeholder="Any feedback, requests, or suggestions? e.g.:&#10;&#10;• Can we use a simpler tool instead of X?&#10;• I'm having trouble with Y software&#10;• Can we add Z feature to our workflow?&#10;• The current process for A is confusing&#10;&#10;(Leave blank if no feedback)"></textarea>
