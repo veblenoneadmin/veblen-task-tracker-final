@@ -76,72 +76,61 @@ app.post('/api/task-action', async (req, res) => {
         const { action } = req.body;
         
         console.log('📥 Task action received:', action);
-        console.log('Request body:', JSON.stringify(req.body, null, 2));
         
         let webhookUrl;
-        
-        // Route to correct n8n workflow based on action
-        if (action === 'task_intake') {
-            webhookUrl = WEBHOOKS.taskIntake;
-        } else if (action === 'daily_report') {
-            webhookUrl = WEBHOOKS.reportLogger;
-        } else if (action === 'get_task_by_ids') {
-            webhookUrl = WEBHOOKS.getTasks;
-        } else if (action === 'update_task') {
-            webhookUrl = WEBHOOKS.taskUpdate;
-        } else if (action === 'time_clock') {
-            webhookUrl = WEBHOOKS.timeLogger;
-        } else {
-            return res.status(400).json({
-                success: false,
-                error: `Unsupported action: ${action}`,
-                supported_actions: ['task_intake', 'daily_report', 'get_task_by_ids', 'update_task', 'time_clock']
-            });
-        }
-        
-        console.log('🎯 Routing to webhook:', webhookUrl);
-        
-        // Prepare request body - wrap in body property for task intake
         let requestBody = req.body;
-        if (action === 'task_intake') {
-            requestBody = {
-                body: req.body  // n8n task intake expects data wrapped in body
-            };
-            console.log('📦 Wrapped task intake data in body property');
+        
+        // Route to correct n8n workflow 
+        switch (action) {
+            case 'task_intake':
+                webhookUrl = WEBHOOKS.taskIntake;
+                // Wrap for n8n task intake
+                requestBody = { body: req.body };
+                break;
+            case 'daily_report':
+                webhookUrl = WEBHOOKS.reportLogger;
+                break;
+            case 'get_task_by_ids':
+                webhookUrl = WEBHOOKS.getTasks;
+                break;
+            case 'update_task':
+                webhookUrl = WEBHOOKS.taskUpdate;
+                break;
+            case 'time_clock':
+                webhookUrl = WEBHOOKS.timeLogger;
+                break;
+            default:
+                return res.status(400).json({
+                    success: false,
+                    error: `Unsupported action: ${action}`
+                });
         }
         
-        // Forward to n8n
+        console.log('🎯 Routing to:', webhookUrl);
+        
         const response = await fetch(webhookUrl, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody)
         });
         
-        const data = await response.json();
-        
-        // Add CORS headers
-        res.set({
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type'
-        });
-        
-        console.log('📨 N8N response:', response.status, response.ok);
-        
         if (response.ok) {
-            res.status(200).json(data);
+            const data = await response.json().catch(() => ({ success: true }));
+            res.json(data);
         } else {
-            console.error('❌ N8N error response:', data);
-            res.status(400).json(data);
+            const errorText = await response.text();
+            console.error('N8N Error:', response.status, errorText);
+            res.status(response.status).json({
+                success: false,
+                error: `N8N workflow error: ${response.status}`
+            });
         }
         
     } catch (error) {
-        console.error('❌ Task action error:', error);
+        console.error('API Error:', error);
         res.status(500).json({
             success: false,
-            error: 'Internal server error',
+            error: 'Server error',
             details: error.message
         });
     }
