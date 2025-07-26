@@ -7,13 +7,14 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Your working webhook URLs
-const CONFIG = {
-    taskIntakeUrl: '/api/task-action',
-    taskUpdateUrl: '/api/task-action', 
-    timeLoggerUrl: '/api/task-action',
-    reportLoggerUrl: '/api/task-action',
-    taskRetrievalUrl: '/api/task-action',
-    imgbbApiKey: '679bd601ac49c50cae877fb240620cfe'
+const WEBHOOKS = {
+    // Working webhooks from your n8n workflow
+    taskIntake: 'https://primary-s0q-production.up.railway.app/webhook/taskintakewebhook',
+    taskUpdate: 'https://primary-s0q-production.up.railway.app/webhook/task-update',
+    timeLogger: 'https://primary-s0q-production.up.railway.app/webhook/timelogging',
+    reportLogger: 'https://primary-s0q-production.up.railway.app/webhook/reportlogging',
+    // New task editor webhooks
+    getTasks: 'https://primary-s0q-production.up.railway.app/webhook/get-tasks'
 };
 
 // Middleware
