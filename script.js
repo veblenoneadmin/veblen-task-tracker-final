@@ -749,10 +749,18 @@ async function importTaskToMyDashboard() {
     }
     
     try {
-        showToast('📥 Importing task from Infinity...', 'info');
+        // Show loading state
+        const importBtn = document.querySelector('button[onclick="importTaskToMyDashboard()"]');
+        const originalText = importBtn.innerHTML;
+        importBtn.innerHTML = '🔄 Importing from StartInfinity...';
+        importBtn.disabled = true;
         
-        // Fetch task data from Infinity via your server
-        const response = await fetch(CONFIG.taskRetrievalUrl, {
+        console.log('📥 Importing task via n8n workflow...');
+        console.log('- Master ID:', masterBoardId);
+        console.log('- Company ID:', companyBoardId);
+        
+        // ✅ Call your working n8n workflow (the one we just fixed!)
+        const response = await fetch('/api/task-action', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -762,50 +770,66 @@ async function importTaskToMyDashboard() {
             })
         });
         
-        console.log('📡 Task retrieval response status:', response.status);
-        
-        if (response.ok) {
-            const data = await response.json();
-            console.log('📥 Task data received:', data);
-            
-            if (data.success && data.task) {
-                // Add task to user's personal dashboard
-                await saveTaskToMyDashboard(data.task, masterBoardId, companyBoardId);
-                
-                // Close the import modal
-                closeTaskEditorModal();
-                
-                // Immediately refresh the dashboard to show the new task
-                await loadAssignedTasks();
-                
-                showToast('✅ Task imported successfully! Now visible on your dashboard.', 'success');
-                
-                // Auto-scroll to the new task
-                setTimeout(() => {
-                    const taskCards = document.querySelectorAll('.task-card');
-                    if (taskCards.length > 0) {
-                        taskCards[taskCards.length - 1].scrollIntoView({ 
-                            behavior: 'smooth', 
-                            block: 'center' 
-                        });
-                    }
-                }, 500);
-                
-            } else {
-                throw new Error(data.message || 'Task not found in Infinity');
-            }
-        } else {
-            const errorData = await response.json().catch(() => ({}));
-            console.error('❌ Task retrieval error:', errorData);
-            
-            // If API fails, allow manual entry
-            showManualTaskEntry(masterBoardId, companyBoardId);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
+        
+        const result = await response.json();
+        console.log('📊 n8n Response:', result);
+        
+        // ✅ Handle the n8n response format
+        if (result.success && result.task) {
+            const importedTask = result.task;
+            
+            console.log('✅ Real task data imported from StartInfinity:');
+            console.log('- Name:', importedTask.name);
+            console.log('- Progress:', importedTask.progress + '%');
+            console.log('- Status:', importedTask.status);
+            console.log('- Company:', importedTask.company);
+            console.log('- Description length:', importedTask.description?.length || 0);
+            
+            // ✅ Save to your existing dashboard system
+            await saveTaskToMyDashboard(importedTask, masterBoardId, companyBoardId);
+            
+            // ✅ Show the imported task for editing in the modal
+            displayTaskForEditing(importedTask, masterBoardId, companyBoardId);
+            
+            // ✅ Refresh your task list to show the new task
+            await loadAssignedTasks();
+            
+            // ✅ Show success message with real data
+            showToast(`✅ "${importedTask.name}" imported successfully! (${importedTask.progress}% complete, ${importedTask.status})`, 'success');
+            
+            // ✅ Auto-scroll to see the new task
+            setTimeout(() => {
+                const taskCards = document.querySelectorAll('.task-card');
+                if (taskCards.length > 0) {
+                    taskCards[taskCards.length - 1].scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'center' 
+                    });
+                }
+            }, 500);
+            
+        } else {
+            throw new Error(result.error || 'Failed to import task - invalid response format');
+        }
+        
     } catch (error) {
-        console.error('Error importing task from Infinity:', error);
-        showToast(`Import failed: ${error.message}`, 'error');
-        // Allow manual entry if API fails
+        console.error('❌ n8n import failed:', error);
+        showToast(`❌ Import failed: ${error.message}`, 'error');
+        
+        // ✅ Fall back to manual entry if n8n fails
+        console.log('🔄 Falling back to manual entry...');
         showManualTaskEntry(masterBoardId, companyBoardId);
+        
+    } finally {
+        // Restore button
+        const importBtn = document.querySelector('button[onclick="importTaskToMyDashboard()"]');
+        if (importBtn) {
+            importBtn.innerHTML = originalText;
+            importBtn.disabled = false;
+        }
     }
 }
 
@@ -922,6 +946,7 @@ async function saveManualTaskEntry(masterBoardId, companyBoardId) {
 }
 
 // Enhanced task saving with better data structure
+// ✅ UPDATED - Enhanced task saving with n8n import data
 async function saveTaskToMyDashboard(task, masterBoardId, companyBoardId) {
     if (!currentEmployee) return;
     
@@ -939,79 +964,139 @@ async function saveTaskToMyDashboard(task, masterBoardId, companyBoardId) {
         myTasks = [];
     }
     
-    // Create enhanced task with Infinity IDs
+    // ✅ Create enhanced task with REAL n8n import data
     const taskForDashboard = {
+        // Core identifiers
         id: `${masterBoardId}_${companyBoardId}`,
-        name: task.name || 'Imported Task',
-        company: task.company || 'Unknown Company',
-        progress: task.progress || 0,
-        status: task.status || 'Current Project',
-        description: task.description || '',
-        notes: task.notes || '',
-        dueDate: task.dueDate || 'Not set',
-        createdDate: task.createdDate || new Date().toLocaleDateString(),
         masterBoardId: masterBoardId,
         companyBoardId: companyBoardId,
+        
+        // ✅ REAL data from StartInfinity (via n8n)
+        name: task.name || 'Imported Task',
+        description: task.description || '',
+        notes: task.notes || '',
+        progress: task.progress || 0,
+        status: task.status || 'Current Project',
+        company: task.company || 'Unknown Company',
+        company_display_name: task.company_display_name || task.company,
+        
+        // Date information
+        dueDate: task.dueDate || 'Not set',
+        dueDateRaw: task.dueDateRaw,
+        createdDate: task.createdDate || new Date().toLocaleDateString(),
+        updatedDate: task.updatedDate || new Date().toLocaleDateString(),
+        
+        // Import metadata
         importedBy: currentEmployee,
         importedAt: new Date().toISOString(),
         lastUpdated: new Date().toISOString(),
-        lastSyncedAt: new Date().toISOString(),
-        syncStatus: 'synced', // synced, pending, error
-        isEditable: true
+        lastSyncedAt: task.lastSyncedAt || new Date().toISOString(),
+        syncStatus: task.syncStatus || 'synced',
+        
+        // UI flags
+        isHighPriority: task.isHighPriority || false,
+        isCurrentProject: task.isCurrentProject || false,
+        isComplete: task.isComplete || false,
+        isEditable: true,
+        
+        // Links and additional data
+        links: task.links || '',
+        assignedTo: task.assignedTo || [],
+        
+        // Debug info (helpful for troubleshooting)
+        debug: {
+            importSource: 'n8n_workflow',
+            extractedFromInfinity: true,
+            originalTaskData: task.debug || null
+        }
     };
     
-    // Check if task already exists
+    // Check if task already exists (update) or add new
     const existingIndex = myTasks.findIndex(t => t.id === taskForDashboard.id);
+    
     if (existingIndex >= 0) {
-        // Update existing task but preserve edit status
+        // Update existing task with new data from StartInfinity
         myTasks[existingIndex] = {
-            ...myTasks[existingIndex],
-            ...taskForDashboard,
-            lastUpdated: new Date().toISOString()
+            ...myTasks[existingIndex], // Keep existing metadata
+            ...taskForDashboard,       // Override with fresh data
+            importedAt: myTasks[existingIndex].importedAt, // Keep original import time
+            lastUpdated: new Date().toISOString() // Update the last updated time
         };
-        showToast('📝 Task updated in your dashboard', 'info');
+        console.log('🔄 Updated existing task:', taskForDashboard.name);
     } else {
+        // Add new task
         myTasks.push(taskForDashboard);
-        showToast('📥 Task added to your dashboard', 'success');
+        console.log('➕ Added new task:', taskForDashboard.name);
     }
     
-    // Save back to localStorage
+    // Save to localStorage
     localStorage.setItem(tasksKey, JSON.stringify(myTasks));
-    
-    // Update availableTasks array
     availableTasks = myTasks;
+    
+    console.log('💾 Task saved to dashboard:', taskForDashboard.id);
 }
 
+// ✅ UPDATED - Display real task data in editor
 function displayTaskForEditing(task, masterBoardId, companyBoardId) {
-    const content = document.getElementById('taskEditorContent');
-    
-    content.innerHTML = `
+    document.getElementById('taskEditorContent').innerHTML = `
         <div class="task-editor-form">
-            <div class="task-info-header">
-                <h3>${task.name || 'Imported Task'}</h3>
-                <span class="task-company-badge">${task.company || 'Unknown Company'}</span>
+            <!-- ✅ Header showing REAL task data -->
+            <div class="task-info-header" style="
+                display: flex; 
+                justify-content: space-between; 
+                align-items: center; 
+                margin-bottom: var(--spacing-lg);
+                padding: var(--spacing-md);
+                background: rgba(102, 126, 234, 0.1);
+                border-radius: var(--radius-md);
+                border: 1px solid rgba(102, 126, 234, 0.3);
+            ">
+                <h3 style="margin: 0; color: var(--text-primary);">
+                    ✅ ${task.name || 'Imported Task'}
+                </h3>
+                <span class="task-company-badge" style="
+                    padding: 0.25rem 0.75rem;
+                    background: rgba(16, 185, 129, 0.2);
+                    color: #34D399;
+                    border-radius: 12px;
+                    font-size: 0.75rem;
+                    font-weight: 600;
+                ">
+                    ${task.company || 'Unknown Company'}
+                </span>
             </div>
             
+            <!-- ✅ Real Progress Display -->
             <div class="form-group">
-                <label for="editTaskName">Task Name*</label>
-                <input type="text" id="editTaskName" value="${task.name || ''}" placeholder="Enter task name" required>
+                <label for="editTaskProgress">Progress: ${task.progress || 0}%</label>
+                <div style="display: flex; align-items: center; gap: var(--spacing-md);">
+                    <input type="range" 
+                           id="editTaskProgress" 
+                           min="0" 
+                           max="100" 
+                           value="${task.progress || 0}"
+                           style="flex: 1;">
+                    <span id="progressDisplay" style="
+                        font-weight: 700;
+                        color: var(--primary-color);
+                        min-width: 50px;
+                    ">${task.progress || 0}%</span>
+                </div>
+                <div style="height: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; margin-top: 0.5rem;">
+                    <div id="progressBar" style="
+                        height: 100%;
+                        background: var(--primary-gradient);
+                        border-radius: 4px;
+                        width: ${task.progress || 0}%;
+                        transition: width 0.3s ease;
+                    "></div>
+                </div>
             </div>
             
-            <div class="form-group">
-                <label for="editTaskProgress">Progress (%)</label>
-                <div class="progress-input-container">
-                    <input type="range" id="editTaskProgress" min="0" max="100" value="${task.progress || 0}" 
-                           oninput="updateProgressDisplay(this.value)">
-                    <span id="progressDisplay">${task.progress || 0}%</span>
-                </div>
-                <div class="progress-bar-container">
-                    <div class="progress-bar" id="editProgressBar" style="width: ${task.progress || 0}%"></div>
-                </div>
-            </div>
-            
+            <!-- ✅ Real Status Selection -->
             <div class="form-group">
                 <label for="editTaskStatus">Status</label>
-                <select id="editTaskStatus">
+                <select id="editTaskStatus" class="form-control">
                     <option value="Project" ${task.status === 'Project' ? 'selected' : ''}>Project</option>
                     <option value="Priority Project" ${task.status === 'Priority Project' ? 'selected' : ''}>Priority Project</option>
                     <option value="Current Project" ${task.status === 'Current Project' ? 'selected' : ''}>Current Project</option>
@@ -1022,25 +1107,55 @@ function displayTaskForEditing(task, masterBoardId, companyBoardId) {
                 </select>
             </div>
             
+            <!-- ✅ Real Description -->
             <div class="form-group">
                 <label for="editTaskDescription">Description</label>
-                <textarea id="editTaskDescription" rows="3" placeholder="Enter task description">${task.description || ''}</textarea>
+                <textarea id="editTaskDescription" 
+                          rows="3" 
+                          placeholder="Enter task description"
+                          style="min-height: 80px;">${task.description || ''}</textarea>
             </div>
             
+            <!-- ✅ Notes Section -->
             <div class="form-group">
                 <label for="editTaskNotes">Notes</label>
-                <textarea id="editTaskNotes" rows="4" placeholder="Add any notes or updates...">${task.notes || ''}</textarea>
+                <textarea id="editTaskNotes" 
+                          rows="4" 
+                          placeholder="Add any notes or updates...">${task.notes || ''}</textarea>
             </div>
             
-            <div class="task-meta-info">
-                <p><strong>Master Board ID:</strong> ${masterBoardId}</p>
-                <p><strong>Company Board ID:</strong> ${companyBoardId}</p>
-                <p><strong>Task ID:</strong> ${task.id || `${masterBoardId}_${companyBoardId}`}</p>
-                <p><strong>Due Date:</strong> ${task.dueDate || 'Not set'}</p>
-                <p><strong>Imported:</strong> ${new Date().toLocaleString()}</p>
+            <!-- ✅ Task Metadata Display -->
+            <div class="task-meta-info" style="
+                background: rgba(0,0,0,0.2);
+                padding: var(--spacing-md);
+                border-radius: var(--radius-md);
+                font-size: 0.85rem;
+                color: var(--text-secondary);
+                margin-top: var(--spacing-lg);
+            ">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-sm);">
+                    <p><strong>Master ID:</strong> ${masterBoardId}</p>
+                    <p><strong>Company ID:</strong> ${companyBoardId}</p>
+                    <p><strong>Due Date:</strong> ${task.dueDate || 'Not set'}</p>
+                    <p><strong>Last Updated:</strong> ${task.lastUpdated ? new Date(task.lastUpdated).toLocaleDateString() : 'Now'}</p>
+                </div>
+                <p style="margin-top: var(--spacing-sm);"><strong>Imported from:</strong> StartInfinity via n8n workflow</p>
             </div>
         </div>
     `;
+    
+    // ✅ Add real-time progress slider updates
+    const progressSlider = document.getElementById('editTaskProgress');
+    const progressDisplay = document.getElementById('progressDisplay');
+    const progressBar = document.getElementById('progressBar');
+    
+    if (progressSlider) {
+        progressSlider.addEventListener('input', function() {
+            const value = this.value;
+            progressDisplay.textContent = value + '%';
+            progressBar.style.width = value + '%';
+        });
+    }
     
     // Store current task data for saving
     window.currentEditingTask = {
@@ -1049,7 +1164,7 @@ function displayTaskForEditing(task, masterBoardId, companyBoardId) {
         companyBoardId: companyBoardId
     };
     
-    // Show footer buttons
+    // Show the footer buttons
     document.getElementById('taskEditorFooter').style.display = 'flex';
 }
 
@@ -1717,7 +1832,119 @@ function renderMyImportedTasks(tasks) {
             <p style="color: var(--text-secondary);">${tasks.length} imported task${tasks.length === 1 ? '' : 's'} • Click any task to edit inline</p>
         </div>
         <div class="tasks-grid">
-            ${tasks.map(task => createTaskCard(task)).join('')}
+            // ✅ UPDATED TASK CARD - Shows real data properly
+${tasks.map(task => {
+    // Calculate progress bar color based on real progress
+    const progressColor = task.progress >= 80 ? '#10B981' : 
+                        task.progress >= 50 ? '#F59E0B' : '#EF4444';
+    
+    // Status badge styling with real status
+    const statusClass = getStatusClass(task.status);
+    
+    // Truncate description if too long
+    const shortDescription = task.description ? 
+        (task.description.length > 120 ? 
+            task.description.substring(0, 120) + '...' : 
+            task.description) 
+        : 'No description available';
+    
+    return `
+        <div class="task-card" data-task-id="${task.id}" style="
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+            margin-bottom: var(--spacing-lg);
+        ">
+            <!-- ✅ Task Header with Real Data -->
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; gap: 1rem;">
+                <h3 style="
+                    font-size: 1.1rem;
+                    font-weight: 600;
+                    color: var(--text-primary);
+                    margin: 0;
+                    flex: 1;
+                    line-height: 1.4;
+                " title="${task.name}">
+                    ${task.name || 'Untitled Task'}
+                </h3>
+                <span class="task-status ${statusClass}" style="
+                    padding: 0.25rem 0.75rem;
+                    border-radius: 12px;
+                    font-size: 0.75rem;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    letter-spacing: 0.05em;
+                    white-space: nowrap;
+                ">
+                    ${task.status || 'Unknown'}
+                </span>
+            </div>
+            
+            <!-- ✅ Company Info -->
+            <div style="margin-bottom: 0.75rem; opacity: 0.8;">
+                <small>🏢 ${task.company || 'No Company'}</small>
+            </div>
+            
+            <!-- ✅ Real Description -->
+            <div style="
+                color: var(--text-secondary);
+                font-size: 0.9rem;
+                line-height: 1.5;
+                margin-bottom: 1rem;
+                min-height: 2.7rem;
+            ">
+                ${shortDescription}
+            </div>
+            
+            <!-- ✅ Real Progress Bar -->
+            <div style="margin-bottom: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <span>Progress</span>
+                    <span style="font-weight: 700; color: ${progressColor};">${task.progress || 0}%</span>
+                </div>
+                <div style="height: 8px; background: rgba(0, 0, 0, 0.3); border-radius: 4px; overflow: hidden;">
+                    <div style="
+                        height: 100%;
+                        border-radius: 4px;
+                        transition: width 0.5s ease;
+                        background-color: ${progressColor};
+                        width: ${task.progress || 0}%;
+                    "></div>
+                </div>
+            </div>
+            
+            <!-- ✅ Task Metadata -->
+            <div style="margin-bottom: 1rem; font-size: 0.8rem; color: var(--text-secondary);">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                    <small>🆔 Master: ${task.masterBoardId?.substring(0, 8)}...</small>
+                    <small>🏢 Company: ${task.companyBoardId?.substring(0, 8)}...</small>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                    <small>📅 Updated: ${formatDate(task.lastUpdated)}</small>
+                    <small>${getSyncStatusIcon(task.syncStatus || 'synced')}</small>
+                </div>
+            </div>
+            
+            <!-- ✅ Action Buttons -->
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <button class="btn btn-primary" style="flex: 1; min-width: 0; font-size: 0.8rem; padding: 0.5rem 0.75rem;" 
+                        onclick="startWorkingOnTask('${task.id}', '${task.name?.replace(/'/g, "\\'")}')">
+                    ▶️ Start Work
+                </button>
+                <button class="btn btn-secondary" style="flex: 1; min-width: 0; font-size: 0.8rem; padding: 0.5rem 0.75rem;" 
+                        onclick="editImportedTask('${task.id}')">
+                    ✏️ Edit
+                </button>
+                <button class="btn btn-info" style="flex: 1; min-width: 0; font-size: 0.8rem; padding: 0.5rem 0.75rem;" 
+                        onclick="refreshTask('${task.masterBoardId}', '${task.companyBoardId}')">
+                    🔄 Refresh
+                </button>
+            </div>
+        </div>
+    `;
+}).join('')}
         </div>
     `;
     
@@ -1835,7 +2062,45 @@ function attachTaskEventListeners(taskId) {
         field.addEventListener('change', () => handleTaskFieldChange(taskId, field));
     });
 }
-
+// ✅ NEW - Refresh task from StartInfinity
+async function refreshTask(masterBoardId, companyBoardId) {
+    try {
+        showToast('🔄 Refreshing task from StartInfinity...', 'info');
+        
+        // Call your n8n import workflow again to get fresh data
+        const response = await fetch('/api/task-action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'get_task_by_ids',
+                master_board_id: masterBoardId,
+                company_board_id: companyBoardId
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success && result.task) {
+            // Update the task in your dashboard with fresh data
+            await saveTaskToMyDashboard(result.task, masterBoardId, companyBoardId);
+            
+            // Refresh the display
+            await loadAssignedTasks();
+            
+            showToast(`✅ "${result.task.name}" refreshed with latest data!`, 'success');
+        } else {
+            throw new Error(result.error || 'Failed to refresh task');
+        }
+        
+    } catch (error) {
+        console.error('❌ Task refresh failed:', error);
+        showToast(`❌ Refresh failed: ${error.message}`, 'error');
+    }
+}
 // Handle field changes and show save button
 function handleTaskFieldChange(taskId, field) {
     const taskCard = document.querySelector(`[data-task-id="${taskId}"]`);
