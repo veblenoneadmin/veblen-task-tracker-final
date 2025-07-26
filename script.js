@@ -2140,28 +2140,11 @@ async function handleTaskIntake(e) {
     try {
         showToast('📝 Creating new task...', 'info');
         
-        // Build task data with CORRECT field names that match n8n workflow
-        const taskData = {
-            action: 'task_intake',
-            'Project Title': formData.get('taskName'),           // Maps to Project Title
-            'Description': formData.get('taskDescription'),     // Maps to Description
-            'Company': formData.get('taskCompany'),            // Maps to Company
-            'Is this project a priority?': formData.get('taskPriority') === 'yes' ? 'Yes' : 'No', // Maps to priority
-            'Due Date': formData.get('taskDueDate'),           // Maps to Due Date
-            'Links': formData.get('taskLinks'),                // Maps to Links
-            'Name': currentEmployee,                           // Who submitted it
-            'Assigned': formData.getAll('taskAssigned'),       // Maps to Assigned (array)
-            'Employee Name': currentEmployee,                  // For logging
-            'Timestamp': new Date().toISOString()
-        };
-        
-        console.log('📤 Sending task data:', taskData);
-        
-        // Handle image upload if present
+        // Handle image upload first
         const imageFile = formData.get('taskImage');
+        let imageUrl = '';
+        
         if (imageFile && imageFile.size > 0) {
-            console.log('📸 Uploading image to ImgBB...');
-            
             const imgbbFormData = new FormData();
             imgbbFormData.append('image', imageFile);
             
@@ -2172,37 +2155,41 @@ async function handleTaskIntake(e) {
             
             if (imgbbResponse.ok) {
                 const imgbbData = await imgbbResponse.json();
-                taskData.Image_URL = imgbbData.data.url;
-                console.log('✅ Image uploaded successfully:', imgbbData.data.url);
-            } else {
-                console.warn('⚠️ Image upload failed, proceeding without image');
+                imageUrl = imgbbData.data.url;
             }
         }
         
-        // Send to n8n webhook via your server
-        const response = await fetch(CONFIG.n8nWebhookUrl, {
+        // Build task data with EXACT field names from n8n workflow
+        const taskData = {
+            action: 'task_intake',
+            'Project Title': formData.get('taskTitle'),
+            'Description': formData.get('taskDescription'), 
+            'Company': formData.get('taskCompany'),
+            'Is this project a priority?': formData.get('taskPriority'),
+            'Due Date': formData.get('taskDueDate'),
+            'Links': formData.get('taskLinks') || '',
+            'Name': currentEmployee,
+            'Assigned': Array.from(formData.getAll('taskAssigned')),
+            'Image_URL': imageUrl,
+            'Employee Name': currentEmployee,
+            'Timestamp': new Date().toISOString()
+        };
+        
+        const response = await fetch(CONFIG.taskIntakeUrl, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(taskData)
         });
         
-        console.log('📡 Server response status:', response.status);
-        
         if (response.ok) {
-            const result = await response.json();
-            console.log('✅ Task created successfully:', result);
             showToast('✅ Task created successfully!', 'success');
             form.reset();
         } else {
-            const errorData = await response.json();
-            console.error('❌ Server error:', errorData);
-            throw new Error(`HTTP ${response.status}: ${errorData.error || response.statusText}`);
+            throw new Error(`HTTP ${response.status}`);
         }
         
     } catch (error) {
-        console.error('❌ Task intake error:', error);
+        console.error('Task intake error:', error);
         showToast(`Failed to create task: ${error.message}`, 'error');
     }
 }
