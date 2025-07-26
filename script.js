@@ -833,6 +833,31 @@ async function importTaskToMyDashboard() {
     }
 }
 
+// ✅ REMOVE TASK - Smart confirmation
+async function removeTaskFromDashboard(taskId) {
+    const task = availableTasks.find(t => t.id === taskId);
+    if (!task) return;
+    
+    // Smart confirmation based on completion
+    const isComplete = task.status === 'Project Finished' || task.progress >= 100;
+    const message = isComplete 
+        ? `✅ Remove completed task "${task.name}"?`
+        : `⚠️ Remove "${task.name}"? (${task.progress}% complete)`;
+    
+    if (!confirm(message)) return;
+    
+    // Remove from localStorage  
+    const tasksKey = `myTasks_${currentEmployee}`;
+    let myTasks = JSON.parse(localStorage.getItem(tasksKey) || '[]');
+    myTasks = myTasks.filter(t => t.id !== taskId);
+    localStorage.setItem(tasksKey, JSON.stringify(myTasks));
+    availableTasks = myTasks;
+    
+    // Refresh display
+    await loadAssignedTasks();
+    showToast(`🗑️ "${task.name}" removed from dashboard`, 'success');
+}
+
 function showManualTaskEntry(masterBoardId, companyBoardId) {
     document.getElementById('taskEditorContent').innerHTML = `
         <div class="task-editor-form">
