@@ -172,12 +172,19 @@ app.post('/api/task-intake', async (req, res) => {
 });
 
 // ============= LEGACY TASK UPDATE API (for backward compatibility) =============
-// This proxies to your working task update webhook
+// ✅ ADD THIS ROUTE - Point sync to your UPDATE workflow
 app.post('/api/task-update', async (req, res) => {
     try {
-        console.log('Task update request received:', req.body);
+        console.log('🔄 Task update request:', req.body);
         
-        const result = await callN8nWebhook(WEBHOOKS.taskUpdate, req.body);
+        // Call your UPDATE n8n workflow
+        const result = await callN8nWebhook('https://primary-s0q-production.up.railway.app/webhook/task-update', req.body);
+        
+        res.set({
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type'
+        });
         
         res.json({
             success: true,
