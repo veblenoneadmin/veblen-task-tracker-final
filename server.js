@@ -101,13 +101,22 @@ app.post('/api/task-action', async (req, res) => {
         
         console.log('🎯 Routing to webhook:', webhookUrl);
         
+        // Prepare request body - wrap in body property for task intake
+        let requestBody = req.body;
+        if (action === 'task_intake') {
+            requestBody = {
+                body: req.body  // n8n task intake expects data wrapped in body
+            };
+            console.log('📦 Wrapped task intake data in body property');
+        }
+        
         // Forward to n8n
         const response = await fetch(webhookUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify(req.body)
+            body: JSON.stringify(requestBody)
         });
         
         const data = await response.json();
