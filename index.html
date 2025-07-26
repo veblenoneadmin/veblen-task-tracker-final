@@ -724,87 +724,87 @@
         </section>
 
         <!-- Task Intake Section - UPDATED WITH REQUIRED FIELDS -->
-        <section class="task-intake-section">
-            <h2>📝 Create New Task</h2>
-            <form id="taskIntakeForm">
-                <!-- Company Selection -->
-                <div class="form-group">
-                    <label for="taskCompany">Company* <span style="color: #f56565;">●</span></label>
-                    <select id="taskCompany" required>
-                        <option value="">Select Company</option>
-                        <option value="VEBLEN (Internal)">VEBLEN (Internal)</option>
-                        <option value="LCMB GROUP">LCMB GROUP</option>
-                        <option value="NEWTECH TRAILERS">NEWTECH TRAILERS</option>
-                        <option value="CROWN REALITY">CROWN REALITY</option>
-                        <option value="FLECK GROUP">FLECK GROUP</option>
-                    </select>
-                </div>
+<section class="task-intake-section">
+    <h2>📝 Create New Task</h2>
+    <form id="taskIntakeForm">
+        <!-- Company Selection -->
+        <div class="form-group">
+            <label for="taskCompany">Company* <span style="color: #f56565;">●</span></label>
+            <select id="taskCompany" name="taskCompany" required>
+                <option value="">Select Company</option>
+                <option value="VEBLEN (Internal)">VEBLEN (Internal)</option>
+                <option value="LCMB GROUP">LCMB GROUP</option>
+                <option value="NEWTECH TRAILERS">NEWTECH TRAILERS</option>
+                <option value="CROWN REALITY">CROWN REALITY</option>
+                <option value="FLECK GROUP">FLECK GROUP</option>
+            </select>
+        </div>
 
-                <!-- Priority -->
-                <div class="form-group">
-                    <label for="taskPriority">Is this project a priority?* <span style="color: #f56565;">●</span></label>
-                    <select id="taskPriority" required>
-                        <option value="">Select Priority</option>
-                        <option value="No">🟢 No</option>
-                        <option value="Yes">🔴 Yes</option>
-                    </select>
-                </div>
+        <!-- Priority -->
+        <div class="form-group">
+            <label for="taskPriority">Is this project a priority?* <span style="color: #f56565;">●</span></label>
+            <select id="taskPriority" name="taskPriority" required>
+                <option value="">Select Priority</option>
+                <option value="No">🟢 No</option>
+                <option value="Yes">🔴 Yes</option>
+            </select>
+        </div>
 
-                <!-- Task Name -->
-                <div class="form-group">
-                    <label for="taskTitle">Project Title* <span style="color: #f56565;">●</span></label>
-                    <input type="text" id="taskTitle" required placeholder="Enter project title">
-                </div>
+        <!-- Task Name -->
+        <div class="form-group">
+            <label for="taskTitle">Project Title* <span style="color: #f56565;">●</span></label>
+            <input type="text" id="taskTitle" name="taskTitle" required placeholder="Enter project title">
+        </div>
 
-                <!-- Description -->
-                <div class="form-group">
-                    <label for="taskDescription">Description* <span style="color: #f56565;">●</span></label>
-                    <textarea id="taskDescription" rows="4" required placeholder="Describe the task in detail"></textarea>
-                </div>
+        <!-- Description -->
+        <div class="form-group">
+            <label for="taskDescription">Description* <span style="color: #f56565;">●</span></label>
+            <textarea id="taskDescription" name="taskDescription" rows="4" required placeholder="Describe the task in detail"></textarea>
+        </div>
 
-                <!-- Due Date -->
-                <div class="form-group">
-                    <label for="taskDueDate">Due Date* <span style="color: #f56565;">●</span></label>
-                    <input type="date" id="taskDueDate" required>
-                </div>
+        <!-- Due Date -->
+        <div class="form-group">
+            <label for="taskDueDate">Due Date* <span style="color: #f56565;">●</span></label>
+            <input type="date" id="taskDueDate" name="taskDueDate" required>
+        </div>
 
-                <!-- Assigned To -->
-                <div class="form-group">
-                    <label for="taskAssigned">Assigned To* (Hold Ctrl/Cmd for multiple) <span style="color: #f56565;">●</span></label>
-                    <select id="taskAssigned" multiple required>
-                        <option value="Tony Herrera">Tony Herrera</option>
-                        <option value="Alex">Alex</option>
-                        <option value="Eden">Eden</option>
-                        <option value="Social Media Manager">Social Media Manager</option>
-                        <option value="Ridho">Ridho</option>
-                        <option value="Risna">Risna</option>
-                        <option value="Pran Setiawan">Pran Setiawan</option>
-                        <option value="Wayan Arfian (Konsep Kreatif)">Wayan Arfian</option>
-                        <option value="Hanif (Konsep Kreatif)">Hanif</option>
-                        <option value="Jevahn">Jevahn</option>
-                        <option value="Zac Macanally">Zac Macanally</option>
-                    </select>
-                </div>
+        <!-- Assigned To -->
+        <div class="form-group">
+            <label for="taskAssigned">Assigned To* (Hold Ctrl/Cmd for multiple) <span style="color: #f56565;">●</span></label>
+            <select id="taskAssigned" name="taskAssigned" multiple required>
+                <option value="Tony Herrera">Tony Herrera</option>
+                <option value="Alex">Alex</option>
+                <option value="Eden">Eden</option>
+                <option value="Social Media Manager">Social Media Manager</option>
+                <option value="Ridho">Ridho</option>
+                <option value="Risna">Risna</option>
+                <option value="Pran Setiawan">Pran Setiawan</option>
+                <option value="Wayan Arfian (Konsep Kreatif)">Wayan Arfian</option>
+                <option value="Hanif (Konsep Kreatif)">Hanif</option>
+                <option value="Jevahn">Jevahn</option>
+                <option value="Zac Macanally">Zac Macanally</option>
+            </select>
+        </div>
 
-                <!-- Image Upload - NOW REQUIRED -->
-                <div class="form-group">
-                    <label for="taskImage">Attach Image* <span style="color: #f56565;">●</span></label>
-                    <input type="file" id="taskImage" accept=".jpg,.jpeg,.png,.gif,.bmp,.webp" required>
-                    <small style="color: var(--text-secondary); font-size: 0.75rem; display: block; margin-top: 0.5rem;">
-                        📸 Accepted: JPEG, PNG, GIF, BMP, WebP (max 32MB)
-                    </small>
-                    <div id="taskImagePreview"></div>
-                </div>
+        <!-- Image Upload -->
+        <div class="form-group">
+            <label for="taskImage">Attach Image* <span style="color: #f56565;">●</span></label>
+            <input type="file" id="taskImage" name="taskImage" accept=".jpg,.jpeg,.png,.gif,.bmp,.webp" required>
+            <small style="color: var(--text-secondary); font-size: 0.75rem; display: block; margin-top: 0.5rem;">
+                📸 Accepted: JPEG, PNG, GIF, BMP, WebP (max 32MB)
+            </small>
+            <div id="taskImagePreview"></div>
+        </div>
 
-                <!-- Links - OPTIONAL -->
-                <div class="form-group">
-                    <label for="taskLinks">Links (optional)</label>
-                    <textarea id="taskLinks" rows="3" placeholder="Add any relevant links (one per line)"></textarea>
-                </div>
-                
-                <button type="submit" class="btn btn-primary">✨ Create Task</button>
-            </form>
-        </section>
+        <!-- Links -->
+        <div class="form-group">
+            <label for="taskLinks">Links (optional)</label>
+            <textarea id="taskLinks" name="taskLinks" rows="3" placeholder="Add any relevant links (one per line)"></textarea>
+        </div>
+        
+        <button type="submit" class="btn btn-primary">✨ Create Task</button>
+    </form>
+</section>
 
         <!-- Assigned Tasks Section -->
         <section class="assigned-tasks-section">
