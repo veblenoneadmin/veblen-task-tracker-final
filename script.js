@@ -1226,65 +1226,61 @@ async function updateTaskInInfinity() {
         showToast('No task loaded for editing', 'error');
         return;
     }
-    
-    // ✅ Get values from modal fields safely
+
     const taskName = getValue('editTaskName') || window.currentEditingTask.name;
-    const progress = getValue('editTaskProgress') || window.currentEditingTask.progress;
+    const progress = parseInt(getValue('editTaskProgress') || window.currentEditingTask.progress);
     const status = getValue('editTaskStatus') || window.currentEditingTask.status;
     const description = getValue('editTaskDescription') || window.currentEditingTask.description;
     const notes = getValue('editTaskNotes') || window.currentEditingTask.notes;
-    
+
     const masterBoardId = window.currentEditingTask.masterBoardId;
     const companyBoardId = window.currentEditingTask.companyBoardId;
-    
+
     if (!taskName) {
         showToast('Please enter a task name', 'warning');
         return;
     }
-    
+
     const updateData = {
         action: 'update_task',
         master_board_id: masterBoardId,
         company_board_id: companyBoardId,
         task_name: taskName,
-        progress: parseInt(progress) || 0,
+        progress: progress,
         status: status,
         description: description,
         notes: notes,
         timestamp: new Date().toISOString(),
         updated_by: currentEmployee || 'Unknown User'
     };
-    
+
     try {
         showToast('🔄 Updating task in Infinity...', 'info');
-        
+
         const response = await fetch(CONFIG.taskUpdateUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify(updateData)
         });
-        
+
         if (response.ok) {
             const result = await response.json();
-            
+
             if (result.success) {
-                // Update local dashboard
-                if (typeof updateTaskInMyDashboard === 'function') {
-                    await updateTaskInMyDashboard(masterBoardId, companyBoardId, {
-                        name: taskName,
-                        progress: parseInt(progress) || 0,
-                        status: status,
-                        description: description,
-                        notes: notes
-                    });
-                }
-                
+                const taskId = `${masterBoardId}_${companyBoardId}`;
+                await updateTaskInMyDashboard(taskId, {
+                    name: taskName,
+                    progress: progress,
+                    status: status,
+                    description: description,
+                    notes: notes
+                });
+
                 showToast('✅ Task updated successfully in Infinity!', 'success');
                 closeTaskEditorModal();
-                
-                if (typeof loadAssignedTasks === 'function') {
-                    await loadAssignedTasks();
-                }
+                await loadAssignedTasks();
             } else {
                 throw new Error(result.message || 'Update failed in Infinity');
             }
@@ -1293,23 +1289,19 @@ async function updateTaskInInfinity() {
         }
     } catch (error) {
         console.error('❌ Error updating task in Infinity:', error);
-        
-        // Still update locally even if Infinity update fails
-        if (typeof updateTaskInMyDashboard === 'function') {
-            await updateTaskInMyDashboard(masterBoardId, companyBoardId, {
-                name: taskName,
-                progress: parseInt(progress) || 0,
-                status: status,
-                description: description,
-                notes: notes
-            });
-        }
-        
         showToast('⚠️ Updated locally, but failed to sync with Infinity: ' + error.message, 'warning');
-        
-        if (typeof loadAssignedTasks === 'function') {
-            await loadAssignedTasks();
-        }
+
+        // Still update locally even if Infinity update fails
+        const taskId = `${masterBoardId}_${companyBoardId}`;
+        await updateTaskInMyDashboard(taskId, {
+            name: taskName,
+            progress: progress,
+            status: status,
+            description: description,
+            notes: notes,
+            syncStatus: 'error'
+        });
+        await loadAssignedTasks();
     }
 }
 
