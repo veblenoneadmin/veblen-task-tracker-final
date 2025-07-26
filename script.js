@@ -1204,19 +1204,12 @@ async function updateTaskInInfinity() {
         return;
     }
     
-    // Get field values - check if they exist first
-    const taskNameField = document.getElementById('editTaskName');
-    const progressField = document.getElementById('editTaskProgress');
-    const statusField = document.getElementById('editTaskStatus');
-    const descriptionField = document.getElementById('editTaskDescription');
-    const notesField = document.getElementById('editTaskNotes');
-    
-    // Get values from the modal form
-    const taskName = taskNameField ? taskNameField.value.trim() : window.currentEditingTask.name;
-    const progress = progressField ? parseInt(progressField.value) : window.currentEditingTask.progress;
-    const status = statusField ? statusField.value : window.currentEditingTask.status;
-    const description = descriptionField ? descriptionField.value : window.currentEditingTask.description;
-    const notes = notesField ? notesField.value : window.currentEditingTask.notes;
+    // ✅ Get values from modal fields safely
+    const taskName = getValue('editTaskName') || window.currentEditingTask.name;
+    const progress = getValue('editTaskProgress') || window.currentEditingTask.progress;
+    const status = getValue('editTaskStatus') || window.currentEditingTask.status;
+    const description = getValue('editTaskDescription') || window.currentEditingTask.description;
+    const notes = getValue('editTaskNotes') || window.currentEditingTask.notes;
     
     const masterBoardId = window.currentEditingTask.masterBoardId;
     const companyBoardId = window.currentEditingTask.companyBoardId;
@@ -1231,7 +1224,7 @@ async function updateTaskInInfinity() {
         master_board_id: masterBoardId,
         company_board_id: companyBoardId,
         task_name: taskName,
-        progress: progress,
+        progress: parseInt(progress) || 0,
         status: status,
         description: description,
         notes: notes,
@@ -1256,7 +1249,7 @@ async function updateTaskInInfinity() {
                 if (typeof updateTaskInMyDashboard === 'function') {
                     await updateTaskInMyDashboard(masterBoardId, companyBoardId, {
                         name: taskName,
-                        progress: progress,
+                        progress: parseInt(progress) || 0,
                         status: status,
                         description: description,
                         notes: notes
@@ -1277,8 +1270,50 @@ async function updateTaskInInfinity() {
         }
     } catch (error) {
         console.error('❌ Error updating task in Infinity:', error);
-        showToast('❌ Failed to update task: ' + error.message, 'error');
+        
+        // Still update locally even if Infinity update fails
+        if (typeof updateTaskInMyDashboard === 'function') {
+            await updateTaskInMyDashboard(masterBoardId, companyBoardId, {
+                name: taskName,
+                progress: parseInt(progress) || 0,
+                status: status,
+                description: description,
+                notes: notes
+            });
+        }
+        
+        showToast('⚠️ Updated locally, but failed to sync with Infinity: ' + error.message, 'warning');
+        if (typeof loadAssignedTasks === 'function') {
+            await loadAssignedTasks();
+        }
     }
+}
+
+// ✅ Helper function for safe value retrieval
+function getValue(elementId) {
+    const element = document.getElementById(elementId);
+    return element ? element.value.trim() : '';
+}
+
+// ✅ Missing functions that your HTML needs
+function clearTaskImagePreview() {
+    const fileInput = document.getElementById('taskImage');
+    const previewContainer = document.getElementById('taskImagePreview');
+    
+    if (fileInput) fileInput.value = '';
+    if (previewContainer) previewContainer.innerHTML = '';
+    
+    showToast('🗑️ Task image removed', 'info');
+}
+
+function clearReportPhotoPreview() {
+    const fileInput = document.getElementById('reportPhoto');
+    const previewContainer = document.getElementById('reportPhotoPreview');
+    
+    if (fileInput) fileInput.value = '';
+    if (previewContainer) previewContainer.innerHTML = '';
+    
+    showToast('🗑️ Report photo removed', 'info');
 }
         
         // Still update locally even if Infinity update fails
