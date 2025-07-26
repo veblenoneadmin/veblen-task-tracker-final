@@ -1832,7 +1832,6 @@ function renderMyImportedTasks(tasks) {
             <p style="color: var(--text-secondary);">${tasks.length} imported task${tasks.length === 1 ? '' : 's'} • Click any task to edit inline</p>
         </div>
         <div class="tasks-grid">
-            // ✅ UPDATED TASK CARD - Shows real data properly
 ${tasks.map(task => {
     // Calculate progress bar color based on real progress
     const progressColor = task.progress >= 80 ? '#10B981' : 
