@@ -1291,7 +1291,6 @@ async function updateTaskInInfinity() {
         console.error('❌ Error updating task in Infinity:', error);
         showToast('⚠️ Updated locally, but failed to sync with Infinity: ' + error.message, 'warning');
 
-        // Still update locally even if Infinity update fails
         const taskId = `${masterBoardId}_${companyBoardId}`;
         await updateTaskInMyDashboard(taskId, {
             name: taskName,
