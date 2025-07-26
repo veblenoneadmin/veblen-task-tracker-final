@@ -1,3 +1,5 @@
+This has errors or orphan awaits in them can you clean those for me and output the full script.js that i can copy and paste, NO CUTS
+
 // Configuration - SIMPLIFIED VERSION
 const CONFIG = {
     taskIntakeUrl: '/api/task-intake',
