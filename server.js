@@ -76,61 +76,73 @@ app.post('/api/task-action', async (req, res) => {
         const { action } = req.body;
         
         console.log('📥 Task action received:', action);
+        console.log('Request body:', JSON.stringify(req.body, null, 2));
         
         let webhookUrl;
-        let requestBody = req.body;
+        let requestBody = req.body; // ✅ Don't wrap it!
         
-        // Route to correct n8n workflow 
-        switch (action) {
-            case 'task_intake':
-                webhookUrl = WEBHOOKS.taskIntake;
-                // Wrap for n8n task intake
-                requestBody = { body: req.body };
-                break;
-            case 'daily_report':
-                webhookUrl = WEBHOOKS.reportLogger;
-                break;
-            case 'get_task_by_ids':
-                webhookUrl = WEBHOOKS.getTasks;
-                break;
-            case 'update_task':
-                webhookUrl = WEBHOOKS.taskUpdate;
-                break;
-            case 'time_clock':
-                webhookUrl = WEBHOOKS.timeLogger;
-                break;
-            default:
-                return res.status(400).json({
-                    success: false,
-                    error: `Unsupported action: ${action}`
-                });
+        // Route to correct n8n workflow based on action
+        if (action === 'task_intake') {
+            webhookUrl = WEBHOOKS.taskIntake;
+            // ❌ REMOVE THIS LINE: requestBody = { body: req.body };
+            // ✅ Keep it simple: requestBody = req.body;
+        } else if (action === 'daily_report') {
+            webhookUrl = WEBHOOKS.reportLogger;
+        } else if (action === 'get_task_by_ids') {
+            webhookUrl = WEBHOOKS.getTasks;
+        } else if (action === 'update_task') {
+            webhookUrl = WEBHOOKS.taskUpdate;
+        } else if (action === 'time_clock') {
+            webhookUrl = WEBHOOKS.timeLogger;
+        } else {
+            return res.status(400).json({
+                success: false,
+                error: `Unsupported action: ${action}`,
+                supported_actions: ['task_intake', 'daily_report', 'get_task_by_ids', 'update_task', 'time_clock']
+            });
         }
         
-        console.log('🎯 Routing to:', webhookUrl);
+        console.log('🎯 Routing to webhook:', webhookUrl);
+        console.log('📦 Sending data:', JSON.stringify(requestBody, null, 2));
         
+        // Forward to n8n
         const response = await fetch(webhookUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify(requestBody)
         });
         
+        console.log('📨 N8N response status:', response.status);
+        
         if (response.ok) {
-            const data = await response.json().catch(() => ({ success: true }));
-            res.json(data);
+            let data;
+            try {
+                data = await response.json();
+            } catch (jsonError) {
+                // Some webhooks might not return JSON
+                data = { success: true, message: 'Task processed successfully' };
+            }
+            
+            console.log('✅ N8N success response:', data);
+            res.json({ success: true, data });
+            
         } else {
             const errorText = await response.text();
-            console.error('N8N Error:', response.status, errorText);
+            console.error('❌ N8N error response:', response.status, errorText);
             res.status(response.status).json({
                 success: false,
-                error: `N8N workflow error: ${response.status}`
+                error: `N8N workflow error: ${response.status}`,
+                details: errorText
             });
         }
         
     } catch (error) {
-        console.error('API Error:', error);
+        console.error('❌ Server error:', error);
         res.status(500).json({
             success: false,
-            error: 'Server error',
+            error: 'Internal server error',
             details: error.message
         });
     }
