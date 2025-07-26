@@ -677,12 +677,19 @@ function openTaskEditorModal() {
     }
     
     // Reset form
-    document.getElementById('masterBoardId').value = '';
-    document.getElementById('companyBoardId').value = '';
-    document.getElementById('taskEditorContent').innerHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 2rem;">Enter both IDs above and click "Import Task" to add it to your dashboard</p>';
+    const masterInput = document.getElementById('masterBoardId');
+    const companyInput = document.getElementById('companyBoardId');
+    const contentDiv = document.getElementById('taskEditorContent');
+    
+    if (masterInput) masterInput.value = '';
+    if (companyInput) companyInput.value = '';
+    if (contentDiv) {
+        contentDiv.innerHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 2rem;">Enter both IDs above and click "Import Task" to add it to your dashboard</p>';
+    }
     
     // Show modal
-    document.getElementById('taskEditorModal').style.display = 'block';
+    const modal = document.getElementById('taskEditorModal');
+    if (modal) modal.style.display = 'block';
 }
 
 function createTaskEditorModal() {
