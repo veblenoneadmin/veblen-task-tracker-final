@@ -2140,19 +2140,22 @@ async function handleTaskIntake(e) {
     try {
         showToast('📝 Creating new task...', 'info');
         
-        // Build task data
+        // Build task data with CORRECT field names that match n8n workflow
         const taskData = {
             action: 'task_intake',
-            'Task Name': formData.get('taskName'),
-            'Description': formData.get('taskDescription'),
-            'Company': formData.get('taskCompany'),
-            'Is this project a priority?': formData.get('taskPriority') === 'yes' ? 'Yes' : 'No',
-            'Assigned': formData.getAll('taskAssigned'),
-            'Due Date': formData.get('taskDueDate'),
-            'Links': formData.get('taskLinks'),
-            'Employee Name': currentEmployee,
+            'Project Title': formData.get('taskName'),           // Maps to Project Title
+            'Description': formData.get('taskDescription'),     // Maps to Description
+            'Company': formData.get('taskCompany'),            // Maps to Company
+            'Is this project a priority?': formData.get('taskPriority') === 'yes' ? 'Yes' : 'No', // Maps to priority
+            'Due Date': formData.get('taskDueDate'),           // Maps to Due Date
+            'Links': formData.get('taskLinks'),                // Maps to Links
+            'Name': currentEmployee,                           // Who submitted it
+            'Assigned': formData.getAll('taskAssigned'),       // Maps to Assigned (array)
+            'Employee Name': currentEmployee,                  // For logging
             'Timestamp': new Date().toISOString()
         };
+        
+        console.log('📤 Sending task data:', taskData);
         
         // Handle image upload if present
         const imageFile = formData.get('taskImage');
@@ -2170,13 +2173,13 @@ async function handleTaskIntake(e) {
             if (imgbbResponse.ok) {
                 const imgbbData = await imgbbResponse.json();
                 taskData.Image_URL = imgbbData.data.url;
-                console.log('✅ Image uploaded successfully');
+                console.log('✅ Image uploaded successfully:', imgbbData.data.url);
             } else {
                 console.warn('⚠️ Image upload failed, proceeding without image');
             }
         }
         
-        // Send to n8n webhook
+        // Send to n8n webhook via your server
         const response = await fetch(CONFIG.n8nWebhookUrl, {
             method: 'POST',
             headers: {
@@ -2185,18 +2188,22 @@ async function handleTaskIntake(e) {
             body: JSON.stringify(taskData)
         });
         
+        console.log('📡 Server response status:', response.status);
+        
         if (response.ok) {
             const result = await response.json();
+            console.log('✅ Task created successfully:', result);
             showToast('✅ Task created successfully!', 'success');
             form.reset();
-            console.log('Task created:', result);
         } else {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            const errorData = await response.json();
+            console.error('❌ Server error:', errorData);
+            throw new Error(`HTTP ${response.status}: ${errorData.error || response.statusText}`);
         }
         
     } catch (error) {
         console.error('❌ Task intake error:', error);
-        showToast('Failed to create task. Please try again.', 'error');
+        showToast(`Failed to create task: ${error.message}`, 'error');
     }
 }
 
