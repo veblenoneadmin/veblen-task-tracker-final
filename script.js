@@ -1098,6 +1098,16 @@ function displayTaskForEditing(task, masterBoardId, companyBoardId) {
                 </span>
             </div>
             
+            <!-- ✅ Task Name Field -->
+            <div class="form-group">
+                <label for="editTaskName">Task Name*</label>
+                <input type="text" 
+                       id="editTaskName" 
+                       value="${task.name || ''}"
+                       placeholder="Enter task name"
+                       required>
+            </div>
+            
             <!-- ✅ Real Progress Display -->
             <div class="form-group">
                 <label for="editTaskProgress">Progress: ${task.progress || 0}%</label>
@@ -1205,6 +1215,12 @@ function updateProgressDisplay(value) {
     document.getElementById('editProgressBar').style.width = value + '%';
 }
 
+// ✅ Helper function for safe value retrieval
+function getValue(elementId) {
+    const element = document.getElementById(elementId);
+    return element ? element.value.trim() : '';
+}
+
 async function updateTaskInInfinity() {
     if (!window.currentEditingTask) {
         showToast('No task loaded for editing', 'error');
@@ -1288,6 +1304,35 @@ async function updateTaskInInfinity() {
                 notes: notes
             });
         }
+        
+        showToast('⚠️ Updated locally, but failed to sync with Infinity: ' + error.message, 'warning');
+        
+        if (typeof loadAssignedTasks === 'function') {
+            await loadAssignedTasks();
+        }
+    }
+}
+
+// ✅ Missing functions that your HTML needs
+function clearTaskImagePreview() {
+    const fileInput = document.getElementById('taskImage');
+    const previewContainer = document.getElementById('taskImagePreview');
+    
+    if (fileInput) fileInput.value = '';
+    if (previewContainer) previewContainer.innerHTML = '';
+    
+    showToast('🗑️ Task image removed', 'info');
+}
+
+function clearReportPhotoPreview() {
+    const fileInput = document.getElementById('reportPhoto');
+    const previewContainer = document.getElementById('reportPhotoPreview');
+    
+    if (fileInput) fileInput.value = '';
+    if (previewContainer) previewContainer.innerHTML = '';
+    
+    showToast('🗑️ Report photo removed', 'info');
+}
         
         showToast('⚠️ Updated locally, but failed to sync with Infinity: ' + error.message, 'warning');
         if (typeof loadAssignedTasks === 'function') {
