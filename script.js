@@ -2144,6 +2144,8 @@ async function handleTaskIntake(e) {
         let imageUrl = '';
         
         if (imageFile && imageFile.size > 0) {
+            console.log('📸 Uploading image to ImgBB...');
+            
             const imgbbFormData = new FormData();
             imgbbFormData.append('image', imageFile);
             
@@ -2155,24 +2157,33 @@ async function handleTaskIntake(e) {
             if (imgbbResponse.ok) {
                 const imgbbData = await imgbbResponse.json();
                 imageUrl = imgbbData.data.url;
+                console.log('✅ Image uploaded successfully:', imageUrl);
+            } else {
+                console.warn('⚠️ Image upload failed, proceeding without image');
             }
         }
         
-        // Build task data with EXACT field names from n8n workflow
+        // Get assigned users (multiple select)
+        const assignedElements = form.querySelectorAll('#taskAssigned option:checked');
+        const assignedArray = Array.from(assignedElements).map(option => option.value);
+        
+        // Build task data with CORRECT field names matching your HTML
         const taskData = {
             action: 'task_intake',
-            'Project Title': formData.get('taskTitle'),
-            'Description': formData.get('taskDescription'), 
-            'Company': formData.get('taskCompany'),
-            'Is this project a priority?': formData.get('taskPriority'),
-            'Due Date': formData.get('taskDueDate'),
-            'Links': formData.get('taskLinks') || '',
+            'Project Title': formData.get('taskTitle') || '',           // ✅ Fixed
+            'Description': formData.get('taskDescription') || '',       // ✅ Fixed
+            'Company': formData.get('taskCompany') || '',               // ✅ Fixed
+            'Is this project a priority?': formData.get('taskPriority') || 'No', // ✅ Fixed
+            'Due Date': formData.get('taskDueDate') || '',              // ✅ Fixed
+            'Links': formData.get('taskLinks') || '',                   // ✅ Fixed
             'Name': currentEmployee,
-            'Assigned': Array.from(formData.getAll('taskAssigned')),
+            'Assigned': assignedArray,                                  // ✅ Fixed
             'Image_URL': imageUrl,
             'Employee Name': currentEmployee,
             'Timestamp': new Date().toISOString()
         };
+        
+        console.log('📤 Sending task data:', taskData);
         
         const response = await fetch(CONFIG.taskIntakeUrl, {
             method: 'POST',
@@ -2180,86 +2191,27 @@ async function handleTaskIntake(e) {
             body: JSON.stringify(taskData)
         });
         
+        console.log('📡 Response status:', response.status);
+        
         if (response.ok) {
+            const result = await response.json();
+            console.log('✅ Task created successfully:', result);
             showToast('✅ Task created successfully!', 'success');
             form.reset();
+            
+            // Clear image preview
+            const imagePreview = document.getElementById('taskImagePreview');
+            if (imagePreview) imagePreview.innerHTML = '';
+            
         } else {
-            throw new Error(`HTTP ${response.status}`);
+            const errorData = await response.json().catch(() => ({}));
+            console.error('❌ Server error:', errorData);
+            throw new Error(`HTTP ${response.status}: ${errorData.error || response.statusText}`);
         }
         
     } catch (error) {
-        console.error('Task intake error:', error);
+        console.error('❌ Task intake error:', error);
         showToast(`Failed to create task: ${error.message}`, 'error');
-    }
-}
-
-async function handleDailyReport(e) {
-    e.preventDefault();
-    
-    if (!currentEmployee) {
-        showToast('Please select an employee first', 'warning');
-        return;
-    }
-    
-    const form = e.target;
-    const formData = new FormData(form);
-    
-    try {
-        showToast('📊 Submitting daily report...', 'info');
-        
-        // Handle photo upload (required)
-        const photoFile = formData.get('reportPhoto');
-        if (!photoFile || photoFile.size === 0) {
-            showToast('Please select a photo for your daily report', 'warning');
-            return;
-        }
-        
-        const imgbbFormData = new FormData();
-        imgbbFormData.append('image', photoFile);
-        
-        const imgbbResponse = await fetch(`https://api.imgbb.com/1/upload?key=${CONFIG.imgbbApiKey}`, {
-            method: 'POST',
-            body: imgbbFormData
-        });
-        
-        if (!imgbbResponse.ok) {
-            throw new Error('Failed to upload photo');
-        }
-        
-        const imgbbData = await imgbbResponse.json();
-        
-        // Build report data with EXACT field names from n8n workflow
-        const reportData = {
-            action: 'daily_report',
-            'Name': currentEmployee,
-            'Company': formData.get('reportCompany'),
-            'Project Name': formData.get('projectName'),
-            'Number of Revisions': formData.get('numRevisions'),
-            'Total Time Spent on Project': formData.get('totalTimeSpent'),
-            'Notes': formData.get('reportNotes'),
-            'Links': formData.get('reportLinks') || '',
-            'Date': formData.get('reportDate'),
-            'Photo for report': imgbbData.data.url,
-            'Feedback or Requests': formData.get('feedbackRequests') || '',
-            'Timestamp': new Date().toISOString()
-        };
-        
-        const response = await fetch(CONFIG.reportLoggerUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(reportData)
-        });
-        
-        if (response.ok) {
-            showToast('✅ Daily report submitted successfully!', 'success');
-            form.reset();
-        } else {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        
-    } catch (error) {
-        console.error('Daily report error:', error);
-        showToast('Failed to submit daily report. Please try again.', 'error');
     }
 }
 
