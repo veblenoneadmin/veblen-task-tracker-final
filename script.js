@@ -1,10 +1,10 @@
 // Configuration - SIMPLIFIED VERSION
 const CONFIG = {
-    taskIntakeUrl: 'https://primary-s0q-production.up.railway.app/webhook/taskintakewebhook',
-    taskUpdateUrl: 'https://primary-s0q-production.up.railway.app/webhook/task-update',
-    timeLoggerUrl: 'https://primary-s0q-production.up.railway.app/webhook/timelogging',
-    reportLoggerUrl: 'https://primary-s0q-production.up.railway.app/webhook/reportlogging',
-    taskRetrievalUrl: 'https://primary-s0q-production.up.railway.app/webhook/get-tasks',
+    taskIntakeUrl: '/api/task-action',
+    taskUpdateUrl: '/api/task-action', 
+    timeLoggerUrl: '/api/task-action',
+    reportLoggerUrl: '/api/task-action',
+    taskRetrievalUrl: '/api/task-action',
     imgbbApiKey: '679bd601ac49c50cae877fb240620cfe'
 };
 
