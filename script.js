@@ -1857,7 +1857,6 @@ function renderMyImportedTasks(tasks) {
             <p style="color: var(--text-secondary);">${tasks.length} imported task${tasks.length === 1 ? '' : 's'} • Click any task to edit inline</p>
         </div>
         <div class="tasks-grid">
-// ✅ CLEAN TASK CARD - Just Edit & Sync buttons
 ${tasks.map(task => {
     // Calculate progress bar color based on real progress
     const progressColor = task.progress >= 80 ? '#10B981' : 
@@ -1953,15 +1952,50 @@ ${tasks.map(task => {
             </div>
             
             <!-- ✅ SIMPLIFIED Action Buttons - Just Edit & Sync -->
-           <!-- ✅ CLEAN 3 BUTTONS -->
+          <!-- ✅ CLEAN 3-BUTTON SETUP -->
 <div style="display: flex; gap: 0.5rem;">
-    <button onclick="editImportedTask('${task.id}')">
+    <button class="btn btn-primary" style="
+        flex: 1; 
+        font-size: 0.85rem; 
+        padding: 0.6rem 0.8rem;
+        background: var(--primary-gradient);
+        border: none;
+        border-radius: var(--radius-md);
+        color: white;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    " onclick="editImportedTask('${task.id}')">
         ✏️ Edit
     </button>
-    <button onclick="syncTaskToInfinity('${task.id}')">
-        🔄 Sync  
+    
+    <button class="btn btn-success" style="
+        flex: 1; 
+        font-size: 0.85rem; 
+        padding: 0.6rem 0.8rem;
+        background: linear-gradient(135deg, #10B981, #059669);
+        border: none;
+        border-radius: var(--radius-md);
+        color: white;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    " onclick="syncTaskToInfinity('${task.id}')">
+        🔄 Sync
     </button>
-    <button onclick="removeTaskFromDashboard('${task.id}')">
+    
+    <button class="btn btn-danger" style="
+        flex: 0.8; 
+        font-size: 0.85rem; 
+        padding: 0.6rem 0.8rem;
+        background: linear-gradient(135deg, #EF4444, #DC2626);
+        border: none;
+        border-radius: var(--radius-md);
+        color: white;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    " onclick="removeTaskFromDashboard('${task.id}')">
         🗑️ Remove
     </button>
 </div>
