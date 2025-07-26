@@ -2010,6 +2010,94 @@ ${tasks.map(task => {
         attachTaskEventListeners(task.id);
     });
 }
+// ✅ ADD THIS - Missing sync function for your task cards
+async function syncTaskToInfinity(taskId) {
+    const task = availableTasks.find(t => t.id === taskId);
+    if (!task) {
+        showToast('Task not found', 'error');
+        return;
+    }
+    
+    try {
+        // Show syncing state
+        const syncBtn = document.querySelector(`[onclick="syncTaskToInfinity('${taskId}')"]`);
+        if (!syncBtn) {
+            console.error('Sync button not found');
+            return;
+        }
+        
+        const originalText = syncBtn.innerHTML;
+        syncBtn.innerHTML = '🔄 Syncing...';
+        syncBtn.disabled = true;
+        
+        console.log('🔄 Syncing task to StartInfinity:', task.name);
+        console.log('- Master ID:', task.masterBoardId);
+        console.log('- Company ID:', task.companyBoardId);
+        console.log('- Progress:', task.progress + '%');
+        console.log('- Status:', task.status);
+        
+        // ✅ Call your UPDATE n8n workflow
+        const response = await fetch('/api/task-action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'update_task',
+                master_board_id: task.masterBoardId,
+                company_board_id: task.companyBoardId,
+                company: task.company || 'VEBLEN (Internal)',
+                task_name: task.name,
+                description: task.description || '',
+                progress: task.progress || 0,
+                status: task.status || 'Project',
+                notes: task.notes || ''
+            })
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            console.log('✅ Update response:', result);
+            
+            if (result.success) {
+                // Update local sync status
+                task.syncStatus = 'synced';
+                task.lastSyncedAt = new Date().toISOString();
+                task.lastUpdated = new Date().toISOString();
+                
+                // Save updated task
+                await saveTaskToMyDashboard(task, task.masterBoardId, task.companyBoardId);
+                
+                // Refresh display
+                await loadAssignedTasks();
+                
+                showToast(`✅ "${task.name}" synced to StartInfinity!`, 'success');
+            } else {
+                throw new Error(result.error || 'Sync failed');
+            }
+        } else {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `HTTP ${response.status}: Failed to sync`);
+        }
+        
+    } catch (error) {
+        console.error('❌ Sync failed:', error);
+        showToast(`❌ Sync failed: ${error.message}`, 'error');
+        
+        // Mark as sync error
+        if (task) {
+            task.syncStatus = 'error';
+            await saveTaskToMyDashboard(task, task.masterBoardId, task.companyBoardId);
+            await loadAssignedTasks();
+        }
+        
+    } finally {
+        // Restore button
+        const syncBtn = document.querySelector(`[onclick="syncTaskToInfinity('${taskId}')"]`);
+        if (syncBtn) {
+            syncBtn.innerHTML = originalText;
+            syncBtn.disabled = false;
+        }
+    }
+}
 // Create enhanced task card with inline editing
 function createTaskCard(task) {
     const syncStatusIcon = getSyncStatusIcon(task.syncStatus);
