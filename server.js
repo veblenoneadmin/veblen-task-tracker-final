@@ -172,31 +172,45 @@ app.post('/api/task-intake', async (req, res) => {
 });
 
 // ============= LEGACY TASK UPDATE API (for backward compatibility) =============
-// ✅ ADD THIS ROUTE - Point sync to your UPDATE workflow
 app.post('/api/task-update', async (req, res) => {
     try {
-        console.log('🔄 Task update request:', req.body);
+        console.log('🔄 Task update request received:', req.body);
         
-        // Call your UPDATE n8n workflow
-        const result = await callN8nWebhook('https://primary-s0q-production.up.railway.app/webhook/task-update', req.body);
-        
-        res.set({
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type'
+        const response = await fetch(WEBHOOKS.taskUpdate, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(req.body)
         });
         
-        res.json({
-            success: true,
-            message: 'Task updated successfully',
-            data: result
-        });
+        console.log('📨 N8N response status:', response.status);
+        
+        if (response.ok) {
+            let data;
+            try {
+                data = await response.json();
+            } catch (jsonError) {
+                data = { success: true, message: 'Task updated successfully' };
+            }
+            
+            console.log('✅ Task update success:', data);
+            res.json({ success: true, ...data });
+            
+        } else {
+            const errorText = await response.text();
+            console.error('❌ N8N error response:', response.status, errorText);
+            res.status(response.status).json({
+                success: false,
+                error: `N8N workflow error: ${response.status}`,
+                details: errorText
+            });
+        }
         
     } catch (error) {
-        console.error('Task update error:', error);
+        console.error('❌ Server error:', error);
         res.status(500).json({
             success: false,
-            error: error.message || 'Failed to update task'
+            error: 'Internal server error',
+            details: error.message
         });
     }
 });
@@ -250,34 +264,37 @@ app.post('/api/report-logger', async (req, res) => {
 // ============= GET TASKS API (for task editor) =============
 app.post('/api/get-tasks', async (req, res) => {
     try {
-        console.log('Get tasks request received:', req.body);
+        console.log('📖 Get tasks request received:', req.body);
         
-        // Ensure action is set for get requests
-        req.body.action = req.body.action || 'get_task_by_ids';
-        
-        const result = await callN8nWebhook(WEBHOOKS.getTasks, req.body);
-        
-        res.set({
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, OPTIONS', 
-            'Access-Control-Allow-Headers': 'Content-Type'
+        const response = await fetch(WEBHOOKS.getTasks, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(req.body)
         });
         
-        res.json({
-            success: true,
-            message: 'Tasks retrieved successfully',
-            data: result
-        });
+        if (response.ok) {
+            const data = await response.json();
+            console.log('✅ Task retrieval success');
+            res.json({ success: true, ...data });
+        } else {
+            const errorText = await response.text();
+            console.error('❌ Task retrieval error:', response.status, errorText);
+            res.status(response.status).json({
+                success: false,
+                error: `Failed to retrieve task: ${response.status}`,
+                details: errorText
+            });
+        }
         
     } catch (error) {
-        console.error('Get tasks error:', error);
+        console.error('❌ Task retrieval error:', error);
         res.status(500).json({
             success: false,
-            error: error.message || 'Failed to retrieve tasks'
+            error: 'Internal server error',
+            details: error.message
         });
     }
 });
-
 // ============= HEALTH CHECK =============
 app.get('/api/health', (req, res) => {
     res.json({
