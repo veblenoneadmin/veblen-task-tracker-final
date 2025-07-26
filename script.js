@@ -1217,6 +1217,7 @@ async function handleTimeClock(action) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
+                action: 'time_clock',
                 'WHO ARE YOU?': currentEmployee,
                 'WHAT ARE YOU DOING?': action
             })
@@ -1224,8 +1225,6 @@ async function handleTimeClock(action) {
 
         if (response.ok) {
             console.log(`✅ ${action} recorded successfully!`);
-            
-            // Update real-time clock based on action
             const now = new Date();
             handleClockAction(action, now);
             updateTimeClockStatus(action, now);
@@ -2208,29 +2207,12 @@ async function handleDailyReport(e) {
     try {
         showToast('📊 Submitting daily report...', 'info');
         
-        // Build report data
-        const reportData = {
-            action: 'daily_report',
-            'Employee Name': currentEmployee,
-            'Company': formData.get('reportCompany'),
-            'Project Name': formData.get('reportProject'),
-            'Revisions': formData.get('reportRevisions'),
-            'Total Time Spent': formData.get('reportTotalTime'),
-            'Today Time Spent': formData.get('reportTodayTime'),
-            'Notes': formData.get('reportNotes'),
-            'Links': formData.get('reportLinks'),
-            'Date': new Date().toISOString().split('T')[0], // YYYY-MM-DD format
-            'Timestamp': new Date().toISOString()
-        };
-        
-        // Handle photo upload (required for daily reports)
+        // Handle photo upload (required)
         const photoFile = formData.get('reportPhoto');
         if (!photoFile || photoFile.size === 0) {
             showToast('Please select a photo for your daily report', 'warning');
             return;
         }
-        
-        console.log('📸 Uploading photo to ImgBB...');
         
         const imgbbFormData = new FormData();
         imgbbFormData.append('image', photoFile);
@@ -2240,44 +2222,187 @@ async function handleDailyReport(e) {
             body: imgbbFormData
         });
         
-        if (imgbbResponse.ok) {
-            const imgbbData = await imgbbResponse.json();
-            reportData.Photo_URL = imgbbData.data.url;
-            console.log('✅ Photo uploaded successfully');
-        } else {
+        if (!imgbbResponse.ok) {
             throw new Error('Failed to upload photo');
         }
         
-        // Send to n8n webhook
-        const response = await fetch(CONFIG.n8nWebhookUrl, {
+        const imgbbData = await imgbbResponse.json();
+        
+        // Build report data with EXACT field names from n8n workflow
+        const reportData = {
+            action: 'daily_report',
+            'Name': currentEmployee,
+            'Company': formData.get('reportCompany'),
+            'Project Name': formData.get('projectName'),
+            'Number of Revisions': formData.get('numRevisions'),
+            'Total Time Spent on Project': formData.get('totalTimeSpent'),
+            'Notes': formData.get('reportNotes'),
+            'Links': formData.get('reportLinks') || '',
+            'Date': formData.get('reportDate'),
+            'Photo for report': imgbbData.data.url,
+            'Feedback or Requests': formData.get('feedbackRequests') || '',
+            'Timestamp': new Date().toISOString()
+        };
+        
+        const response = await fetch(CONFIG.reportLoggerUrl, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(reportData)
         });
         
         if (response.ok) {
-            const result = await response.json();
             showToast('✅ Daily report submitted successfully!', 'success');
             form.reset();
-            console.log('Daily report submitted:', result);
         } else {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            throw new Error(`HTTP ${response.status}`);
         }
         
     } catch (error) {
-        console.error('❌ Daily report error:', error);
+        console.error('Daily report error:', error);
         showToast('Failed to submit daily report. Please try again.', 'error');
     }
 }
 
 function handleTaskImagePreview(e) {
-    console.log('📸 Image preview');
+    const file = e.target.files[0];
+    const previewContainer = document.getElementById('taskImagePreview');
+    
+    // Clear previous preview
+    previewContainer.innerHTML = '';
+    
+    if (!file) {
+        console.log('📸 No file selected for task image');
+        return;
+    }
+    
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp'];
+    if (!allowedTypes.includes(file.type.toLowerCase())) {
+        showToast('❌ Please select a valid image file (JPEG, PNG, GIF, BMP, WebP)', 'error');
+        e.target.value = ''; // Clear the input
+        return;
+    }
+    
+    // Validate file size (32MB limit for ImgBB)
+    const maxSize = 32 * 1024 * 1024; // 32MB in bytes
+    if (file.size > maxSize) {
+        showToast('❌ Image too large. Please select an image under 32MB', 'error');
+        e.target.value = ''; // Clear the input
+        return;
+    }
+    
+    // Create file reader
+    const reader = new FileReader();
+    
+    reader.onload = function(event) {
+        console.log('📸 Task image preview loaded:', file.name, `(${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+        
+        // Create preview HTML
+        const previewHTML = `
+            <div style="margin-top: var(--spacing-md); padding: var(--spacing-md); background: rgba(0, 0, 0, 0.2); border-radius: var(--radius-md); border: 1px solid rgba(255, 255, 255, 0.1);">
+                <div style="display: flex; align-items: center; gap: var(--spacing-md); margin-bottom: var(--spacing-sm);">
+                    <span style="color: var(--text-primary); font-weight: 600;">📸 Image Preview:</span>
+                    <span style="color: var(--text-secondary); font-size: 0.875rem;">${file.name}</span>
+                    <span style="color: var(--text-secondary); font-size: 0.75rem; background: rgba(102, 126, 234, 0.2); padding: 2px 8px; border-radius: 12px;">${(file.size / 1024 / 1024).toFixed(2)}MB</span>
+                </div>
+                <div style="text-align: center;">
+                    <img src="${event.target.result}" 
+                         alt="Task Image Preview" 
+                         style="max-width: 300px; max-height: 200px; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); border: 2px solid var(--border); object-fit: cover;">
+                </div>
+                <button type="button" 
+                        onclick="clearTaskImagePreview()" 
+                        style="margin-top: var(--spacing-sm); padding: var(--spacing-xs) var(--spacing-sm); background: rgba(252, 129, 129, 0.2); color: #fc8181; border: 1px solid rgba(252, 129, 129, 0.3); border-radius: var(--radius-sm); font-size: 0.75rem; cursor: pointer; transition: all 0.3s ease;"
+                        onmouseover="this.style.background='rgba(252, 129, 129, 0.3)'"
+                        onmouseout="this.style.background='rgba(252, 129, 129, 0.2)'">
+                    🗑️ Remove Image
+                </button>
+            </div>
+        `;
+        
+        previewContainer.innerHTML = previewHTML;
+        showToast('✅ Task image loaded successfully', 'success');
+    };
+    
+    reader.onerror = function() {
+        console.error('❌ Error reading task image file');
+        showToast('❌ Error reading image file', 'error');
+        previewContainer.innerHTML = '';
+    };
+    
+    // Read the file as data URL
+    reader.readAsDataURL(file);
 }
 
 function handleReportPhotoPreview(e) {
-    console.log('📸 Photo preview');
+    const file = e.target.files[0];
+    const previewContainer = document.getElementById('reportPhotoPreview');
+    
+    // Clear previous preview
+    previewContainer.innerHTML = '';
+    
+    if (!file) {
+        console.log('📸 No file selected for report photo');
+        return;
+    }
+    
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp'];
+    if (!allowedTypes.includes(file.type.toLowerCase())) {
+        showToast('❌ Please select a valid image file (JPEG, PNG, GIF, BMP, WebP)', 'error');
+        e.target.value = ''; // Clear the input
+        return;
+    }
+    
+    // Validate file size (32MB limit for ImgBB)
+    const maxSize = 32 * 1024 * 1024; // 32MB in bytes
+    if (file.size > maxSize) {
+        showToast('❌ Image too large. Please select an image under 32MB', 'error');
+        e.target.value = ''; // Clear the input
+        return;
+    }
+    
+    // Create file reader
+    const reader = new FileReader();
+    
+    reader.onload = function(event) {
+        console.log('📸 Report photo preview loaded:', file.name, `(${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+        
+        // Create preview HTML
+        const previewHTML = `
+            <div style="margin-top: var(--spacing-md); padding: var(--spacing-md); background: rgba(0, 0, 0, 0.2); border-radius: var(--radius-md); border: 1px solid rgba(255, 255, 255, 0.1);">
+                <div style="display: flex; align-items: center; gap: var(--spacing-md); margin-bottom: var(--spacing-sm);">
+                    <span style="color: var(--text-primary); font-weight: 600;">📷 Report Photo:</span>
+                    <span style="color: var(--text-secondary); font-size: 0.875rem;">${file.name}</span>
+                    <span style="color: var(--text-secondary); font-size: 0.75rem; background: rgba(72, 187, 120, 0.2); padding: 2px 8px; border-radius: 12px;">${(file.size / 1024 / 1024).toFixed(2)}MB</span>
+                </div>
+                <div style="text-align: center;">
+                    <img src="${event.target.result}" 
+                         alt="Report Photo Preview" 
+                         style="max-width: 300px; max-height: 200px; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); border: 2px solid var(--border); object-fit: cover;">
+                </div>
+                <button type="button" 
+                        onclick="clearReportPhotoPreview()" 
+                        style="margin-top: var(--spacing-sm); padding: var(--spacing-xs) var(--spacing-sm); background: rgba(252, 129, 129, 0.2); color: #fc8181; border: 1px solid rgba(252, 129, 129, 0.3); border-radius: var(--radius-sm); font-size: 0.75rem; cursor: pointer; transition: all 0.3s ease;"
+                        onmouseover="this.style.background='rgba(252, 129, 129, 0.3)'"
+                        onmouseout="this.style.background='rgba(252, 129, 129, 0.2)'">
+                    🗑️ Remove Photo
+                </button>
+            </div>
+        `;
+        
+        previewContainer.innerHTML = previewHTML;
+        showToast('✅ Report photo loaded successfully', 'success');
+    };
+    
+    reader.onerror = function() {
+        console.error('❌ Error reading report photo file');
+        showToast('❌ Error reading photo file', 'error');
+        previewContainer.innerHTML = '';
+    };
+    
+    // Read the file as data URL
+    reader.readAsDataURL(file);
 }
 
 // Modal close on outside click
