@@ -1333,13 +1333,6 @@ function clearReportPhotoPreview() {
     
     showToast('🗑️ Report photo removed', 'info');
 }
-        
-        showToast('⚠️ Updated locally, but failed to sync with Infinity: ' + error.message, 'warning');
-        if (typeof loadAssignedTasks === 'function') {
-            await loadAssignedTasks();
-        }
-    }
-}
 
 // ✅ Helper function for safe value retrieval
 function getValue(elementId) {
