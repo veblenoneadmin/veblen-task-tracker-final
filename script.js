@@ -1,10 +1,10 @@
 // Configuration - SIMPLIFIED VERSION
 const CONFIG = {
     taskIntakeUrl: '/api/task-action',
-    taskUpdateUrl: '/api/task-action', 
+    taskUpdateUrl: '/api/task-action',  // ✅ Use unified endpoint
     timeLoggerUrl: '/api/task-action',
-    reportLoggerUrl: '/api/task-action',
-    taskRetrievalUrl: '/api/task-action',
+    reportLoggerUrl: '/api/task-action', 
+    taskRetrievalUrl: '/api/task-action', // ✅ Use unified endpoint
     imgbbApiKey: '679bd601ac49c50cae877fb240620cfe'
 };
 
@@ -751,7 +751,7 @@ async function importTaskToMyDashboard() {
     try {
         showToast('📥 Importing task from Infinity...', 'info');
         
-        // Fetch task data from Infinity
+        // Fetch task data from Infinity via your server
         const response = await fetch(CONFIG.taskRetrievalUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -762,8 +762,12 @@ async function importTaskToMyDashboard() {
             })
         });
         
+        console.log('📡 Task retrieval response status:', response.status);
+        
         if (response.ok) {
             const data = await response.json();
+            console.log('📥 Task data received:', data);
+            
             if (data.success && data.task) {
                 // Add task to user's personal dashboard
                 await saveTaskToMyDashboard(data.task, masterBoardId, companyBoardId);
@@ -791,11 +795,15 @@ async function importTaskToMyDashboard() {
                 throw new Error(data.message || 'Task not found in Infinity');
             }
         } else {
+            const errorData = await response.json().catch(() => ({}));
+            console.error('❌ Task retrieval error:', errorData);
+            
             // If API fails, allow manual entry
             showManualTaskEntry(masterBoardId, companyBoardId);
         }
     } catch (error) {
         console.error('Error importing task from Infinity:', error);
+        showToast(`Import failed: ${error.message}`, 'error');
         // Allow manual entry if API fails
         showManualTaskEntry(masterBoardId, companyBoardId);
     }
@@ -1930,14 +1938,20 @@ async function syncTaskWithInfinity(taskId) {
             updated_by: currentEmployee || 'Unknown User'
         };
         
+        console.log('🔄 Syncing task to Infinity:', updateData);
+        
         const response = await fetch(CONFIG.taskUpdateUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(updateData)
         });
         
+        console.log('📡 Sync response status:', response.status);
+        
         if (response.ok) {
             const result = await response.json();
+            console.log('✅ Sync result:', result);
+            
             if (result.success) {
                 // Update sync status and timestamp
                 await updateTaskSyncStatus(taskId, 'synced');
@@ -1955,7 +1969,8 @@ async function syncTaskWithInfinity(taskId) {
                 throw new Error(result.message || 'Sync failed');
             }
         } else {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `HTTP error ${response.status}`);
         }
         
     } catch (error) {
