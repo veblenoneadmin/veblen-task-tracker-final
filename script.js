@@ -1,10 +1,10 @@
 // Configuration - SIMPLIFIED VERSION
 const CONFIG = {
-    taskIntakeUrl: '/api/task-action',
-    taskUpdateUrl: '/api/task-action',  // ✅ Use unified endpoint
+    taskIntakeUrl: '/api/task-intake',
+    taskUpdateUrl: '/api/task-update',      // ✅ FIXED - Point to correct update endpoint
     timeLoggerUrl: '/api/task-action',
     reportLoggerUrl: '/api/task-action', 
-    taskRetrievalUrl: '/api/task-action', // ✅ Use unified endpoint
+    taskRetrievalUrl: '/api/get-tasks',     // ✅ FIXED - Point to correct retrieval endpoint
     imgbbApiKey: '679bd601ac49c50cae877fb240620cfe'
 };
 
