@@ -1204,25 +1204,20 @@ async function updateTaskInInfinity() {
         return;
     }
     
-    // ✅ FIXED - Get values from the actual modal field IDs
+    // Get field values - check if they exist first
     const taskNameField = document.getElementById('editTaskName');
-    const progressField = document.getElementById('editTaskProgress'); 
+    const progressField = document.getElementById('editTaskProgress');
     const statusField = document.getElementById('editTaskStatus');
     const descriptionField = document.getElementById('editTaskDescription');
     const notesField = document.getElementById('editTaskNotes');
     
-    // ✅ Check if fields exist before reading values
-    if (!taskNameField) {
-        console.error('❌ Task name field not found');
-        showToast('Task form fields not found - please refresh and try again', 'error');
-        return;
-    }
+    // Get values from the modal form
+    const taskName = taskNameField ? taskNameField.value.trim() : window.currentEditingTask.name;
+    const progress = progressField ? parseInt(progressField.value) : window.currentEditingTask.progress;
+    const status = statusField ? statusField.value : window.currentEditingTask.status;
+    const description = descriptionField ? descriptionField.value : window.currentEditingTask.description;
+    const notes = notesField ? notesField.value : window.currentEditingTask.notes;
     
-    const taskName = taskNameField.value.trim();
-    const progress = progressField ? parseInt(progressField.value) : 0;
-    const status = statusField ? statusField.value : 'Project';
-    const description = descriptionField ? descriptionField.value : '';
-    const notes = notesField ? notesField.value : '';
     const masterBoardId = window.currentEditingTask.masterBoardId;
     const companyBoardId = window.currentEditingTask.companyBoardId;
     
@@ -1230,13 +1225,6 @@ async function updateTaskInInfinity() {
         showToast('Please enter a task name', 'warning');
         return;
     }
-    
-    console.log('🔄 Updating task with data:');
-    console.log('- Task Name:', taskName);
-    console.log('- Progress:', progress);
-    console.log('- Status:', status);
-    console.log('- Master ID:', masterBoardId);
-    console.log('- Company ID:', companyBoardId);
     
     const updateData = {
         action: 'update_task',
@@ -1254,21 +1242,17 @@ async function updateTaskInInfinity() {
     try {
         showToast('🔄 Updating task in Infinity...', 'info');
         
-        // Update in Infinity
         const response = await fetch(CONFIG.taskUpdateUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(updateData)
         });
         
-        console.log('📡 Response status:', response.status);
-        
         if (response.ok) {
             const result = await response.json();
-            console.log('✅ Update result:', result);
             
             if (result.success) {
-                // Update local dashboard if you have that function
+                // Update local dashboard
                 if (typeof updateTaskInMyDashboard === 'function') {
                     await updateTaskInMyDashboard(masterBoardId, companyBoardId, {
                         name: taskName,
@@ -1282,7 +1266,6 @@ async function updateTaskInInfinity() {
                 showToast('✅ Task updated successfully in Infinity!', 'success');
                 closeTaskEditorModal();
                 
-                // Refresh assigned tasks list if function exists
                 if (typeof loadAssignedTasks === 'function') {
                     await loadAssignedTasks();
                 }
@@ -1290,8 +1273,6 @@ async function updateTaskInInfinity() {
                 throw new Error(result.message || 'Update failed in Infinity');
             }
         } else {
-            const errorText = await response.text();
-            console.error('❌ HTTP Error:', response.status, errorText);
             throw new Error(`HTTP error! status: ${response.status}`);
         }
     } catch (error) {
