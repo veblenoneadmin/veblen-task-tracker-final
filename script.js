@@ -2123,7 +2123,92 @@ async function removeImportedTask(taskId) {
         showToast('Error removing task', 'error');
     }
 }
-
+// Daily Report Handler - ADD THIS TO YOUR SCRIPT.JS
+async function handleDailyReport(e) {
+    e.preventDefault();
+    
+    if (!currentEmployee) {
+        showToast('Please select an employee first', 'warning');
+        return;
+    }
+    
+    const form = e.target;
+    const formData = new FormData(form);
+    
+    try {
+        showToast('📊 Submitting daily report...', 'info');
+        
+        // Handle photo upload (required)
+        const photoFile = formData.get('reportPhoto');
+        if (!photoFile || photoFile.size === 0) {
+            showToast('Please select a photo for your daily report', 'warning');
+            return;
+        }
+        
+        console.log('📸 Uploading photo to ImgBB...');
+        
+        const imgbbFormData = new FormData();
+        imgbbFormData.append('image', photoFile);
+        
+        const imgbbResponse = await fetch(`https://api.imgbb.com/1/upload?key=${CONFIG.imgbbApiKey}`, {
+            method: 'POST',
+            body: imgbbFormData
+        });
+        
+        if (!imgbbResponse.ok) {
+            throw new Error('Failed to upload photo');
+        }
+        
+        const imgbbData = await imgbbResponse.json();
+        console.log('✅ Photo uploaded successfully');
+        
+        // Build report data with EXACT field names from n8n workflow
+        const reportData = {
+            action: 'daily_report',
+            'Name': currentEmployee,
+            'Company': formData.get('reportCompany'),
+            'Project Name': formData.get('projectName'),
+            'Number of Revisions': formData.get('numRevisions'),
+            'Total Time Spent on Project': formData.get('totalTimeSpent'),
+            'Notes': formData.get('reportNotes'),
+            'Links': formData.get('reportLinks') || '',
+            'Date': formData.get('reportDate'),
+            'Photo for report': imgbbData.data.url,
+            'Feedback or Requests': formData.get('feedbackRequests') || '',
+            'Timestamp': new Date().toISOString()
+        };
+        
+        console.log('📤 Sending report data:', reportData);
+        
+        const response = await fetch(CONFIG.reportLoggerUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(reportData)
+        });
+        
+        console.log('📡 Report response status:', response.status);
+        
+        if (response.ok) {
+            const result = await response.json();
+            console.log('✅ Daily report submitted successfully:', result);
+            showToast('✅ Daily report submitted successfully!', 'success');
+            form.reset();
+            
+            // Clear photo preview
+            const photoPreview = document.getElementById('reportPhotoPreview');
+            if (photoPreview) photoPreview.innerHTML = '';
+            
+        } else {
+            const errorData = await response.json().catch(() => ({}));
+            console.error('❌ Report submission error:', errorData);
+            throw new Error(`HTTP ${response.status}: ${errorData.error || response.statusText}`);
+        }
+        
+    } catch (error) {
+        console.error('❌ Daily report error:', error);
+        showToast(`Failed to submit daily report: ${error.message}`, 'error');
+    }
+}
 // Stub implementations for form handlers
 async function handleTaskIntake(e) {
     e.preventDefault();
