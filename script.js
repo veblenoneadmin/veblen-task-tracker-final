@@ -1928,37 +1928,18 @@ ${tasks.map(task => {
             </div>
             
             <!-- ✅ SIMPLIFIED Action Buttons - Just Edit & Sync -->
-            <div style="display: flex; gap: 0.75rem;">
-                <button class="btn btn-primary" style="
-                    flex: 1; 
-                    font-size: 0.9rem; 
-                    padding: 0.75rem 1rem;
-                    background: var(--primary-gradient);
-                    border: none;
-                    border-radius: var(--radius-md);
-                    color: white;
-                    font-weight: 600;
-                    cursor: pointer;
-                    transition: all 0.3s ease;
-                " onclick="editImportedTask('${task.id}')">
-                    ✏️ Edit Task
-                </button>
-                
-                <button class="btn btn-success" style="
-                    flex: 1; 
-                    font-size: 0.9rem; 
-                    padding: 0.75rem 1rem;
-                    background: linear-gradient(135deg, #10B981, #059669);
-                    border: none;
-                    border-radius: var(--radius-md);
-                    color: white;
-                    font-weight: 600;
-                    cursor: pointer;
-                    transition: all 0.3s ease;
-                " onclick="syncTaskToInfinity('${task.id}')">
-                    🔄 Sync to Infinity
-                </button>
-            </div>
+           <!-- ✅ CLEAN 3 BUTTONS -->
+<div style="display: flex; gap: 0.5rem;">
+    <button onclick="editImportedTask('${task.id}')">
+        ✏️ Edit
+    </button>
+    <button onclick="syncTaskToInfinity('${task.id}')">
+        🔄 Sync  
+    </button>
+    <button onclick="removeTaskFromDashboard('${task.id}')">
+        🗑️ Remove
+    </button>
+</div>
         </div>
     `;
 }).join('')}
