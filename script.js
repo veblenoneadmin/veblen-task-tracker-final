@@ -1832,6 +1832,7 @@ function renderMyImportedTasks(tasks) {
             <p style="color: var(--text-secondary);">${tasks.length} imported task${tasks.length === 1 ? '' : 's'} • Click any task to edit inline</p>
         </div>
         <div class="tasks-grid">
+// ✅ CLEAN TASK CARD - Just Edit & Sync buttons
 ${tasks.map(task => {
     // Calculate progress bar color based on real progress
     const progressColor = task.progress >= 80 ? '#10B981' : 
@@ -1926,19 +1927,36 @@ ${tasks.map(task => {
                 </div>
             </div>
             
-            <!-- ✅ Action Buttons -->
-            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                <button class="btn btn-primary" style="flex: 1; min-width: 0; font-size: 0.8rem; padding: 0.5rem 0.75rem;" 
-                        onclick="startWorkingOnTask('${task.id}', '${task.name?.replace(/'/g, "\\'")}')">
-                    ▶️ Start Work
+            <!-- ✅ SIMPLIFIED Action Buttons - Just Edit & Sync -->
+            <div style="display: flex; gap: 0.75rem;">
+                <button class="btn btn-primary" style="
+                    flex: 1; 
+                    font-size: 0.9rem; 
+                    padding: 0.75rem 1rem;
+                    background: var(--primary-gradient);
+                    border: none;
+                    border-radius: var(--radius-md);
+                    color: white;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                " onclick="editImportedTask('${task.id}')">
+                    ✏️ Edit Task
                 </button>
-                <button class="btn btn-secondary" style="flex: 1; min-width: 0; font-size: 0.8rem; padding: 0.5rem 0.75rem;" 
-                        onclick="editImportedTask('${task.id}')">
-                    ✏️ Edit
-                </button>
-                <button class="btn btn-info" style="flex: 1; min-width: 0; font-size: 0.8rem; padding: 0.5rem 0.75rem;" 
-                        onclick="refreshTask('${task.masterBoardId}', '${task.companyBoardId}')">
-                    🔄 Refresh
+                
+                <button class="btn btn-success" style="
+                    flex: 1; 
+                    font-size: 0.9rem; 
+                    padding: 0.75rem 1rem;
+                    background: linear-gradient(135deg, #10B981, #059669);
+                    border: none;
+                    border-radius: var(--radius-md);
+                    color: white;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                " onclick="syncTaskToInfinity('${task.id}')">
+                    🔄 Sync to Infinity
                 </button>
             </div>
         </div>
