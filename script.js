@@ -1874,7 +1874,24 @@ async function loadAssignedTasks() {
     }
 }
 
-// Enhanced dashboard rendering with edit capabilities
+// ✅ ADD THESE MISSING FUNCTIONS TO YOUR script.js
+
+function getSyncStatusIcon(status) {
+    switch (status) {
+        case 'synced': return '✅ Synced';
+        case 'pending': return '⏳ Pending';
+        case 'syncing': return '🔄 Syncing';
+        case 'error': return '❌ Error';
+        default: return '📥 Imported';
+    }
+}
+
+function attachTaskEventListeners(taskId) {
+    // Placeholder for task event listeners
+    console.log('Event listeners attached for task:', taskId);
+}
+
+// ✅ COMPLETE renderMyImportedTasks function
 function renderMyImportedTasks(tasks) {
     const tasksList = document.getElementById('assignedTasksList');
     
@@ -1923,7 +1940,7 @@ ${tasks.map(task => {
             transition: all 0.3s ease;
             margin-bottom: var(--spacing-lg);
         ">
-            <!-- ✅ Task Header with Real Data -->
+            <!-- Task Header with Real Data -->
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; gap: 1rem;">
                 <h3 style="
                     font-size: 1.1rem;
@@ -1948,12 +1965,12 @@ ${tasks.map(task => {
                 </span>
             </div>
             
-            <!-- ✅ Company Info -->
+            <!-- Company Info -->
             <div style="margin-bottom: 0.75rem; opacity: 0.8;">
                 <small>🏢 ${task.company || 'No Company'}</small>
             </div>
             
-            <!-- ✅ Real Description -->
+            <!-- Real Description -->
             <div style="
                 color: var(--text-secondary);
                 font-size: 0.9rem;
@@ -1964,7 +1981,7 @@ ${tasks.map(task => {
                 ${shortDescription}
             </div>
             
-            <!-- ✅ Real Progress Bar -->
+            <!-- Real Progress Bar -->
             <div style="margin-bottom: 1rem;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                     <span>Progress</span>
@@ -1981,7 +1998,7 @@ ${tasks.map(task => {
                 </div>
             </div>
             
-            <!-- ✅ Task Metadata -->
+            <!-- Task Metadata -->
             <div style="margin-bottom: 1rem; font-size: 0.8rem; color: var(--text-secondary);">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
                     <small>🆔 Master: ${task.masterBoardId?.substring(0, 8)}...</small>
@@ -1993,54 +2010,53 @@ ${tasks.map(task => {
                 </div>
             </div>
             
-            <!-- ✅ SIMPLIFIED Action Buttons - Just Edit & Sync -->
-          <!-- ✅ CLEAN 3-BUTTON SETUP -->
-<div style="display: flex; gap: 0.5rem;">
-    <button class="btn btn-primary" style="
-        flex: 1; 
-        font-size: 0.85rem; 
-        padding: 0.6rem 0.8rem;
-        background: var(--primary-gradient);
-        border: none;
-        border-radius: var(--radius-md);
-        color: white;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s ease;
-    " onclick="editImportedTask('${task.id}')">
-        ✏️ Edit
-    </button>
-    
-    <button class="btn btn-success" style="
-        flex: 1; 
-        font-size: 0.85rem; 
-        padding: 0.6rem 0.8rem;
-        background: linear-gradient(135deg, #10B981, #059669);
-        border: none;
-        border-radius: var(--radius-md);
-        color: white;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s ease;
-    " onclick="syncTaskToInfinity('${task.id}')">
-        🔄 Sync
-    </button>
-    
-    <button class="btn btn-danger" style="
-        flex: 0.8; 
-        font-size: 0.85rem; 
-        padding: 0.6rem 0.8rem;
-        background: linear-gradient(135deg, #EF4444, #DC2626);
-        border: none;
-        border-radius: var(--radius-md);
-        color: white;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s ease;
-    " onclick="removeTaskFromDashboard('${task.id}')">
-        🗑️ Remove
-    </button>
-</div>
+            <!-- Action Buttons -->
+            <div style="display: flex; gap: 0.5rem;">
+                <button class="btn btn-primary" style="
+                    flex: 1; 
+                    font-size: 0.85rem; 
+                    padding: 0.6rem 0.8rem;
+                    background: var(--primary-gradient);
+                    border: none;
+                    border-radius: var(--radius-md);
+                    color: white;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                " onclick="editImportedTask('${task.id}')">
+                    ✏️ Edit
+                </button>
+                
+                <button class="btn btn-success" style="
+                    flex: 1; 
+                    font-size: 0.85rem; 
+                    padding: 0.6rem 0.8rem;
+                    background: linear-gradient(135deg, #10B981, #059669);
+                    border: none;
+                    border-radius: var(--radius-md);
+                    color: white;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                " onclick="syncTaskToInfinity('${task.id}')">
+                    🔄 Sync
+                </button>
+                
+                <button class="btn btn-danger" style="
+                    flex: 0.8; 
+                    font-size: 0.85rem; 
+                    padding: 0.6rem 0.8rem;
+                    background: linear-gradient(135deg, #EF4444, #DC2626);
+                    border: none;
+                    border-radius: var(--radius-md);
+                    color: white;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                " onclick="removeTaskFromDashboard('${task.id}')">
+                    🗑️ Remove
+                </button>
+            </div>
         </div>
     `;
 }).join('')}
@@ -2052,6 +2068,7 @@ ${tasks.map(task => {
         attachTaskEventListeners(task.id);
     });
 }
+    
 // ✅ FIXED - Sync function with proper variable scope
 // ✅ ENHANCED - Bi-directional sync (pull FROM Infinity, then push TO Infinity)
 async function syncTaskToInfinity(taskId) {
