@@ -234,8 +234,8 @@ function createBrisbaneClockDisplay() {
                 <div class="shift-reset-display">
                     <div class="reset-label">Next Shift Reset</div>
                     <div class="reset-countdown" id="resetCountdown">--:--:--</div>
-                    <div class="reset-time" id="nextResetTime">Tomorrow at 9:00 AM</div>
-                    <div class="work-start-notice" id="workStartNotice">🔴 Work starts at 9:00 AM your time</div>
+                    <div class="reset-time" id="nextResetTime">Tomorrow at 7:00 AM</div>
+                    <div class="work-start-notice" id="workStartNotice">🔴 Calculating work start time...</div>
                 </div>
             </div>
         </div>
