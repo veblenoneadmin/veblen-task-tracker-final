@@ -2128,20 +2128,296 @@ async function removeImportedTask(taskId) {
 // Stub implementations for form handlers
 async function handleTaskIntake(e) {
     e.preventDefault();
-    showToast('Task intake feature available in full version', 'info');
+    
+    if (!currentEmployee) {
+        showToast('Please select an employee first', 'warning');
+        return;
+    }
+    
+    const form = e.target;
+    const formData = new FormData(form);
+    
+    try {
+        showToast('📝 Creating new task...', 'info');
+        
+        // Build task data
+        const taskData = {
+            action: 'task_intake',
+            'Task Name': formData.get('taskName'),
+            'Description': formData.get('taskDescription'),
+            'Company': formData.get('taskCompany'),
+            'Is this project a priority?': formData.get('taskPriority') === 'yes' ? 'Yes' : 'No',
+            'Assigned': formData.getAll('taskAssigned'),
+            'Due Date': formData.get('taskDueDate'),
+            'Links': formData.get('taskLinks'),
+            'Employee Name': currentEmployee,
+            'Timestamp': new Date().toISOString()
+        };
+        
+        // Handle image upload if present
+        const imageFile = formData.get('taskImage');
+        if (imageFile && imageFile.size > 0) {
+            console.log('📸 Uploading image to ImgBB...');
+            
+            const imgbbFormData = new FormData();
+            imgbbFormData.append('image', imageFile);
+            
+            const imgbbResponse = await fetch(`https://api.imgbb.com/1/upload?key=${CONFIG.imgbbApiKey}`, {
+                method: 'POST',
+                body: imgbbFormData
+            });
+            
+            if (imgbbResponse.ok) {
+                const imgbbData = await imgbbResponse.json();
+                taskData.Image_URL = imgbbData.data.url;
+                console.log('✅ Image uploaded successfully');
+            } else {
+                console.warn('⚠️ Image upload failed, proceeding without image');
+            }
+        }
+        
+        // Send to n8n webhook
+        const response = await fetch(CONFIG.n8nWebhookUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(taskData)
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            showToast('✅ Task created successfully!', 'success');
+            form.reset();
+            console.log('Task created:', result);
+        } else {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+    } catch (error) {
+        console.error('❌ Task intake error:', error);
+        showToast('Failed to create task. Please try again.', 'error');
+    }
 }
 
 async function handleDailyReport(e) {
     e.preventDefault();
-    showToast('Daily report feature available in full version', 'info');
+    
+    if (!currentEmployee) {
+        showToast('Please select an employee first', 'warning');
+        return;
+    }
+    
+    const form = e.target;
+    const formData = new FormData(form);
+    
+    try {
+        showToast('📊 Submitting daily report...', 'info');
+        
+        // Build report data
+        const reportData = {
+            action: 'daily_report',
+            'Employee Name': currentEmployee,
+            'Company': formData.get('reportCompany'),
+            'Project Name': formData.get('reportProject'),
+            'Revisions': formData.get('reportRevisions'),
+            'Total Time Spent': formData.get('reportTotalTime'),
+            'Today Time Spent': formData.get('reportTodayTime'),
+            'Notes': formData.get('reportNotes'),
+            'Links': formData.get('reportLinks'),
+            'Date': new Date().toISOString().split('T')[0], // YYYY-MM-DD format
+            'Timestamp': new Date().toISOString()
+        };
+        
+        // Handle photo upload (required for daily reports)
+        const photoFile = formData.get('reportPhoto');
+        if (!photoFile || photoFile.size === 0) {
+            showToast('Please select a photo for your daily report', 'warning');
+            return;
+        }
+        
+        console.log('📸 Uploading photo to ImgBB...');
+        
+        const imgbbFormData = new FormData();
+        imgbbFormData.append('image', photoFile);
+        
+        const imgbbResponse = await fetch(`https://api.imgbb.com/1/upload?key=${CONFIG.imgbbApiKey}`, {
+            method: 'POST',
+            body: imgbbFormData
+        });
+        
+        if (imgbbResponse.ok) {
+            const imgbbData = await imgbbResponse.json();
+            reportData.Photo_URL = imgbbData.data.url;
+            console.log('✅ Photo uploaded successfully');
+        } else {
+            throw new Error('Failed to upload photo');
+        }
+        
+        // Send to n8n webhook
+        const response = await fetch(CONFIG.n8nWebhookUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(reportData)
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            showToast('✅ Daily report submitted successfully!', 'success');
+            form.reset();
+            console.log('Daily report submitted:', result);
+        } else {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+    } catch (error) {
+        console.error('❌ Daily report error:', error);
+        showToast('Failed to submit daily report. Please try again.', 'error');
+    }
 }
 
 function handleTaskImagePreview(e) {
-    console.log('📸 Image preview');
+    const file = e.target.files[0];
+    const previewContainer = document.getElementById('taskImagePreview');
+    
+    // Clear previous preview
+    previewContainer.innerHTML = '';
+    
+    if (!file) {
+        console.log('📸 No file selected for task image');
+        return;
+    }
+    
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp'];
+    if (!allowedTypes.includes(file.type.toLowerCase())) {
+        showToast('❌ Please select a valid image file (JPEG, PNG, GIF, BMP, WebP)', 'error');
+        e.target.value = ''; // Clear the input
+        return;
+    }
+    
+    // Validate file size (32MB limit for ImgBB)
+    const maxSize = 32 * 1024 * 1024; // 32MB in bytes
+    if (file.size > maxSize) {
+        showToast('❌ Image too large. Please select an image under 32MB', 'error');
+        e.target.value = ''; // Clear the input
+        return;
+    }
+    
+    // Create file reader
+    const reader = new FileReader();
+    
+    reader.onload = function(event) {
+        console.log('📸 Task image preview loaded:', file.name, `(${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+        
+        // Create preview HTML
+        const previewHTML = `
+            <div style="margin-top: var(--spacing-md); padding: var(--spacing-md); background: rgba(0, 0, 0, 0.2); border-radius: var(--radius-md); border: 1px solid rgba(255, 255, 255, 0.1);">
+                <div style="display: flex; align-items: center; gap: var(--spacing-md); margin-bottom: var(--spacing-sm);">
+                    <span style="color: var(--text-primary); font-weight: 600;">📸 Image Preview:</span>
+                    <span style="color: var(--text-secondary); font-size: 0.875rem;">${file.name}</span>
+                    <span style="color: var(--text-secondary); font-size: 0.75rem; background: rgba(102, 126, 234, 0.2); padding: 2px 8px; border-radius: 12px;">${(file.size / 1024 / 1024).toFixed(2)}MB</span>
+                </div>
+                <div style="text-align: center;">
+                    <img src="${event.target.result}" 
+                         alt="Task Image Preview" 
+                         style="max-width: 300px; max-height: 200px; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); border: 2px solid var(--border); object-fit: cover;">
+                </div>
+                <button type="button" 
+                        onclick="clearTaskImagePreview()" 
+                        style="margin-top: var(--spacing-sm); padding: var(--spacing-xs) var(--spacing-sm); background: rgba(252, 129, 129, 0.2); color: #fc8181; border: 1px solid rgba(252, 129, 129, 0.3); border-radius: var(--radius-sm); font-size: 0.75rem; cursor: pointer; transition: all 0.3s ease;"
+                        onmouseover="this.style.background='rgba(252, 129, 129, 0.3)'"
+                        onmouseout="this.style.background='rgba(252, 129, 129, 0.2)'">
+                    🗑️ Remove Image
+                </button>
+            </div>
+        `;
+        
+        previewContainer.innerHTML = previewHTML;
+        showToast('✅ Task image loaded successfully', 'success');
+    };
+    
+    reader.onerror = function() {
+        console.error('❌ Error reading task image file');
+        showToast('❌ Error reading image file', 'error');
+        previewContainer.innerHTML = '';
+    };
+    
+    // Read the file as data URL
+    reader.readAsDataURL(file);
 }
 
 function handleReportPhotoPreview(e) {
-    console.log('📸 Photo preview');
+    const file = e.target.files[0];
+    const previewContainer = document.getElementById('reportPhotoPreview');
+    
+    // Clear previous preview
+    previewContainer.innerHTML = '';
+    
+    if (!file) {
+        console.log('📸 No file selected for report photo');
+        return;
+    }
+    
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp'];
+    if (!allowedTypes.includes(file.type.toLowerCase())) {
+        showToast('❌ Please select a valid image file (JPEG, PNG, GIF, BMP, WebP)', 'error');
+        e.target.value = ''; // Clear the input
+        return;
+    }
+    
+    // Validate file size (32MB limit for ImgBB)
+    const maxSize = 32 * 1024 * 1024; // 32MB in bytes
+    if (file.size > maxSize) {
+        showToast('❌ Image too large. Please select an image under 32MB', 'error');
+        e.target.value = ''; // Clear the input
+        return;
+    }
+    
+    // Create file reader
+    const reader = new FileReader();
+    
+    reader.onload = function(event) {
+        console.log('📸 Report photo preview loaded:', file.name, `(${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+        
+        // Create preview HTML
+        const previewHTML = `
+            <div style="margin-top: var(--spacing-md); padding: var(--spacing-md); background: rgba(0, 0, 0, 0.2); border-radius: var(--radius-md); border: 1px solid rgba(255, 255, 255, 0.1);">
+                <div style="display: flex; align-items: center; gap: var(--spacing-md); margin-bottom: var(--spacing-sm);">
+                    <span style="color: var(--text-primary); font-weight: 600;">📷 Report Photo:</span>
+                    <span style="color: var(--text-secondary); font-size: 0.875rem;">${file.name}</span>
+                    <span style="color: var(--text-secondary); font-size: 0.75rem; background: rgba(72, 187, 120, 0.2); padding: 2px 8px; border-radius: 12px;">${(file.size / 1024 / 1024).toFixed(2)}MB</span>
+                </div>
+                <div style="text-align: center;">
+                    <img src="${event.target.result}" 
+                         alt="Report Photo Preview" 
+                         style="max-width: 300px; max-height: 200px; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); border: 2px solid var(--border); object-fit: cover;">
+                </div>
+                <button type="button" 
+                        onclick="clearReportPhotoPreview()" 
+                        style="margin-top: var(--spacing-sm); padding: var(--spacing-xs) var(--spacing-sm); background: rgba(252, 129, 129, 0.2); color: #fc8181; border: 1px solid rgba(252, 129, 129, 0.3); border-radius: var(--radius-sm); font-size: 0.75rem; cursor: pointer; transition: all 0.3s ease;"
+                        onmouseover="this.style.background='rgba(252, 129, 129, 0.3)'"
+                        onmouseout="this.style.background='rgba(252, 129, 129, 0.2)'">
+                    🗑️ Remove Photo
+                </button>
+            </div>
+        `;
+        
+        previewContainer.innerHTML = previewHTML;
+        showToast('✅ Report photo loaded successfully', 'success');
+    };
+    
+    reader.onerror = function() {
+        console.error('❌ Error reading report photo file');
+        showToast('❌ Error reading photo file', 'error');
+        previewContainer.innerHTML = '';
+    };
+    
+    // Read the file as data URL
+    reader.readAsDataURL(file);
 }
 
 // Modal close on outside click
