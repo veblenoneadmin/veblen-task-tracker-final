@@ -210,6 +210,7 @@ function initializeBrisbaneClock() {
     brisbaneClockInterval = setInterval(updateBrisbaneClock, 1000);
 }
 
+
 function createBrisbaneClockDisplay() {
     const header = document.querySelector('.header');
     if (!header) {
