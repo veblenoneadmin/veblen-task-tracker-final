@@ -248,28 +248,27 @@ function createBrisbaneClockDisplay() {
 function updateBrisbaneClock() {
     const now = new Date();
     
-    // ✅ FIXED: Get Brisbane time correctly
-    const brisbaneTimeStr = now.toLocaleTimeString('en-AU', {
-        timeZone: 'Australia/Brisbane',
+    // ✅ FIXED: Calculate Brisbane time using direct UTC math
+    // Get current UTC timestamp
+    const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
+    
+    // Brisbane is UTC+10 (no daylight saving in July)
+    const brisbaneOffset = 10 * 60 * 60 * 1000; // 10 hours in milliseconds
+    const brisbaneTime = new Date(utcTime + brisbaneOffset);
+    
+    // ✅ Format Brisbane time properly
+    const brisbaneTimeStr = brisbaneTime.toLocaleTimeString('en-AU', {
         hour: '2-digit',
         minute: '2-digit', 
         second: '2-digit',
         hour12: true
     });
     
-    const brisbaneDateStr = now.toLocaleDateString('en-AU', {
-        timeZone: 'Australia/Brisbane',
+    const brisbaneDateStr = brisbaneTime.toLocaleDateString('en-AU', {
         weekday: 'short',
         month: 'short',
         day: 'numeric'
     });
-    
-    // ✅ FIXED: Create Brisbane Date object properly
-    // Get Brisbane time as milliseconds since epoch
-    const brisbaneOffsetMs = 10 * 60 * 60 * 1000; // UTC+10 in milliseconds
-    const utcMs = now.getTime() + (now.getTimezoneOffset() * 60 * 1000); // Convert to UTC
-    const brisbaneMs = utcMs + brisbaneOffsetMs; // Add Brisbane offset
-    const brisbaneNow = new Date(brisbaneMs);
     
     // Update local time display
     updateLocalTime(now);
@@ -281,8 +280,8 @@ function updateBrisbaneClock() {
     if (brisbaneTimeEl) brisbaneTimeEl.textContent = brisbaneTimeStr;
     if (brisbaneDateEl) brisbaneDateEl.textContent = brisbaneDateStr;
     
-    // ✅ FIXED: Use the corrected Brisbane time for shift reset calculation
-    updateShiftResetCountdown(brisbaneNow, now);
+    // ✅ Use the correctly calculated Brisbane time for shift reset
+    updateShiftResetCountdown(brisbaneTime, now);
 }
 
 function updateLocalTime(localNow) {
@@ -350,19 +349,21 @@ function updateShiftResetCountdown(brisbaneNow, localNow) {
     
     // ✅ Format reset time display
     const resetTimeStr = next9AM.toLocaleDateString('en-AU', {
-        timeZone: 'Australia/Brisbane',
         weekday: 'short',
         month: 'short',
         day: 'numeric'
     }) + ' at 9:00 AM';
     
-    // ✅ FIXED: Convert Brisbane 9 AM to user's local time
-    const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const localResetTimeStr = next9AM.toLocaleTimeString('en-US', {
+    // ✅ FIXED: Convert Brisbane 9 AM to user's local time correctly
+    // Calculate what time 9 AM Brisbane is in user's timezone
+    const localOffset = localNow.getTimezoneOffset() * 60000; // User's timezone offset in ms
+    const utcTime = next9AM.getTime() - (10 * 60 * 60 * 1000); // Convert Brisbane back to UTC
+    const localTime = new Date(utcTime - localOffset); // Convert UTC to user's local time
+    
+    const localResetTimeStr = localTime.toLocaleTimeString('en-US', {
         hour: '2-digit',
         minute: '2-digit',
-        hour12: true,
-        timeZone: userTimezone
+        hour12: true
     });
     
     // Update display elements
@@ -389,6 +390,29 @@ function checkForShiftReset(brisbaneNow) {
         localStorage.setItem('lastShiftResetCheck', brisbaneNow.toISOString());
     }
 }
+window.debugTimezones = function() {
+    const now = new Date();
+    
+    // Your current calculation
+    const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
+    const brisbaneTime = new Date(utcTime + (10 * 60 * 60 * 1000));
+    
+    console.log('🕐 DEBUG TIMEZONE INFO:');
+    console.log('- Local time:', now.toString());
+    console.log('- Local timezone offset (minutes):', now.getTimezoneOffset());
+    console.log('- UTC time:', new Date(utcTime).toISOString());
+    console.log('- Calculated Brisbane time:', brisbaneTime.toString());
+    console.log('- Brisbane should be 10 hours ahead of UTC');
+    console.log('- Local is GMT+8, Brisbane is GMT+10, so Brisbane should be 2 hours ahead of local');
+    
+    return {
+        local: now,
+        utc: new Date(utcTime),
+        brisbane: brisbaneTime,
+        localOffset: now.getTimezoneOffset(),
+        expectedBrisbaneAhead: 2 // hours ahead of GMT+8
+    };
+};
 
 function performShiftReset() {
     console.log('🔄 Performing automatic shift reset at 9 AM Brisbane time');
