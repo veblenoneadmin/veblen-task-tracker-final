@@ -4091,6 +4091,47 @@ section h2 {
     }
 }
 
+/* ✅ ADD TO style.css - Image Modal Animations */
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+/* Image hover effects in task cards */
+.task-card img {
+    transition: all 0.3s ease;
+}
+
+.task-card img:hover {
+    transform: scale(1.05);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+/* Close button hover effect */
+.modal-header .close:hover {
+    background: rgba(102, 126, 234, 0.2);
+    color: var(--primary-color);
+    transform: rotate(90deg);
+}
+
+/* Image modal responsive */
+@media (max-width: 768px) {
+    .modal-content {
+        width: 95%;
+        margin: 5% auto;
+    }
+    
+    #imageModalImg {
+        max-height: 60vh;
+    }
+}
+
 /* ============================================
    END OF STYLESHEET
    ============================================ */
