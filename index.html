@@ -633,13 +633,12 @@
             filter: grayscale(0.8) !important;
         }
     </style>
-    </style>
 </head>
 <body>
     <div class="container">
         <!-- Header -->
         <header class="header">
-        <h1><img src="https://i.ibb.co/50CN8P5/fe71a9da-24a6-46cf-8eda-df73bff35fc8.png" alt="VEBLEN" class="logo"> Task & Time Tracker</h1>
+            <h1><img src="https://i.ibb.co/50CN8P5/fe71a9da-24a6-46cf-8eda-df73bff35fc8.png" alt="VEBLEN" class="logo"> Task & Time Tracker</h1>
             <div class="employee-selector">
                 <label for="employeeSelect">Employee:</label>
                 <select id="employeeSelect">
@@ -662,15 +661,15 @@
         <!-- Brisbane Clock will be inserted here by JavaScript -->
 
         <!-- Time Clock Section -->
-<section class="time-clock-section">
-    <!-- Bypass Button -->
-    <div class="bypass-container">
-        <button class="bypass-btn" onclick="openPasswordModal()">
-            🔓 Bypass
-        </button>
-    </div>
+        <section class="time-clock-section">
+            <!-- Bypass Button -->
+            <div class="bypass-container">
+                <button class="bypass-btn" onclick="openPasswordModal()">
+                    🔓 Bypass
+                </button>
+            </div>
 
-    <h2>🕐 Time Clock</h2>
+            <h2>🕐 Time Clock</h2>
             
             <!-- Real-time Work Clock Display -->
             <div id="workClockDisplay" class="work-clock-display" style="display: none;">
@@ -723,334 +722,247 @@
             </div>
         </section>
 
-<!-- Task Intake Logger Section - Add this to your index.html -->
-<section id="taskIntakeSection">
-    <h2>📝 Task Intake Logger</h2>
-    <p>Create new tasks and assign them to team members across different companies.</p>
-    
-    <form id="taskIntakeForm" class="task-intake-form">
-        <div class="form-row">
-            <div class="form-group">
-                <label for="intakeEmployee">Employee *</label>
-                <select id="intakeEmployee" required>
-                    <option value="">Select Employee</option>
-                    <option value="Tony Herrera">Tony Herrera</option>
-                    <option value="Alex">Alex</option>
-                    <option value="Social Media Manager">Social Media Manager</option>
-                    <option value="Zac Macanally">Zac Macanally</option>
-                    <option value="Ridho">Ridho</option>
-                    <option value="Jevahn">Jevahn</option>
-                    <option value="Risna">Risna</option>
-                    <option value="Pran Setiawan">Pran Setiawan</option>
-                    <option value="Wayan Arfian (Konsep Kreatif)">Wayan Arfian (Konsep Kreatif)</option>
-                    <option value="Hanif (Konsep Kreatif)">Hanif (Konsep Kreatif)</option>
-                    <option value="Eden">Eden</option>
-                </select>
+        <!-- Assigned Tasks Section -->
+        <section id="assignedTasksSection">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-lg);">
+                <h2>📋 My Tasks Dashboard</h2>
+                <button id="refreshTasksBtn" class="btn btn-secondary">
+                    🔄 Refresh Tasks
+                </button>
+            </div>
+            <p>Import tasks from Infinity to manage and sync your progress.</p>
+            
+            <div style="margin-bottom: var(--spacing-xl);">
+                <button class="btn btn-primary" onclick="openTaskEditorModal()">
+                    📥 Import Task from Infinity
+                </button>
             </div>
             
-            <div class="form-group">
-                <label for="intakeCompany">Company *</label>
-                <select id="intakeCompany" required>
-                    <option value="">Select Company</option>
-                    <option value="CROWN REALITY">CROWN REALITY</option>
-                    <option value="LCMB GROUP">LCMB GROUP</option>
-                    <option value="NEWTECH TRAILERS">NEWTECH TRAILERS</option>
-                    <option value="VEBLEN (Internal)">VEBLEN (Internal)</option>
-                    <option value="FLECK GROUP">FLECK GROUP</option>
-                </select>
+            <div id="assignedTasksList" class="assigned-tasks-list">
+                <p class="loading">Select an employee to view assigned tasks...</p>
             </div>
-        </div>
-        
-        <div class="form-group">
-            <label for="intakeTaskName">Task Name *</label>
-            <input type="text" id="intakeTaskName" placeholder="Enter task name" required>
-        </div>
-        
-        <div class="form-group">
-            <label for="intakeDescription">Task Description</label>
-            <textarea id="intakeDescription" placeholder="Describe the task in detail" rows="4"></textarea>
-        </div>
-        
-        <div class="form-row">
-            <div class="form-group">
-                <label for="intakePriority">Priority</label>
-                <select id="intakePriority">
-                    <option value="Low">Low</option>
-                    <option value="Medium" selected>Medium</option>
-                    <option value="High">High</option>
-                    <option value="Urgent">Urgent</option>
-                </select>
-            </div>
+        </section>
+
+        <!-- Task Intake Logger Section -->
+        <section id="taskIntakeSection">
+            <h2>📝 Task Intake Logger</h2>
+            <p>Create new tasks and assign them to team members across different companies.</p>
             
-            <div class="form-group">
-                <label for="intakeTaskType">Task Type</label>
-                <select id="intakeTaskType">
-                    <option value="General Task" selected>General Task</option>
-                    <option value="Development">Development</option>
-                    <option value="Design">Design</option>
-                    <option value="Research">Research</option>
-                    <option value="Meeting">Meeting</option>
-                    <option value="Documentation">Documentation</option>
-                    <option value="Testing">Testing</option>
-                    <option value="Bug Fix">Bug Fix</option>
-                    <option value="Feature Request">Feature Request</option>
-                </select>
-            </div>
-        </div>
-        
-        <div class="form-row">
-            <div class="form-group">
-                <label for="intakeDueDate">Due Date</label>
-                <input type="date" id="intakeDueDate">
-            </div>
+            <form id="taskIntakeForm" class="task-intake-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="intakeEmployee">Employee *</label>
+                        <select id="intakeEmployee" name="employee" required>
+                            <option value="">Select Employee</option>
+                            <option value="Tony Herrera">Tony Herrera</option>
+                            <option value="Alex">Alex</option>
+                            <option value="Social Media Manager">Social Media Manager</option>
+                            <option value="Zac Macanally">Zac Macanally</option>
+                            <option value="Ridho">Ridho</option>
+                            <option value="Jevahn">Jevahn</option>
+                            <option value="Risna">Risna</option>
+                            <option value="Pran Setiawan">Pran Setiawan</option>
+                            <option value="Wayan Arfian (Konsep Kreatif)">Wayan Arfian (Konsep Kreatif)</option>
+                            <option value="Hanif (Konsep Kreatif)">Hanif (Konsep Kreatif)</option>
+                            <option value="Eden">Eden</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="intakeCompany">Company *</label>
+                        <select id="intakeCompany" name="company" required>
+                            <option value="">Select Company</option>
+                            <option value="CROWN REALITY">CROWN REALITY</option>
+                            <option value="LCMB GROUP">LCMB GROUP</option>
+                            <option value="NEWTECH TRAILERS">NEWTECH TRAILERS</option>
+                            <option value="VEBLEN (Internal)">VEBLEN (Internal)</option>
+                            <option value="FLECK GROUP">FLECK GROUP</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="intakeTaskName">Task Name *</label>
+                    <input type="text" id="intakeTaskName" name="taskName" placeholder="Enter task name" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="intakeDescription">Task Description</label>
+                    <textarea id="intakeDescription" name="description" placeholder="Describe the task in detail" rows="4"></textarea>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="intakePriority">Priority</label>
+                        <select id="intakePriority" name="priority">
+                            <option value="Low">Low</option>
+                            <option value="Medium" selected>Medium</option>
+                            <option value="High">High</option>
+                            <option value="Urgent">Urgent</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="intakeTaskType">Task Type</label>
+                        <select id="intakeTaskType" name="taskType">
+                            <option value="General Task" selected>General Task</option>
+                            <option value="Development">Development</option>
+                            <option value="Design">Design</option>
+                            <option value="Research">Research</option>
+                            <option value="Meeting">Meeting</option>
+                            <option value="Documentation">Documentation</option>
+                            <option value="Testing">Testing</option>
+                            <option value="Bug Fix">Bug Fix</option>
+                            <option value="Feature Request">Feature Request</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="intakeDueDate">Due Date</label>
+                        <input type="date" id="intakeDueDate" name="dueDate">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="intakeEstimatedHours">Estimated Hours</label>
+                        <input type="number" id="intakeEstimatedHours" name="estimatedHours" min="0" step="0.5" placeholder="0">
+                    </div>
+                </div>
+                
+                <!-- Task Image Upload -->
+                <div class="form-group photo-upload-group">
+                    <label for="taskImage">Task Image * <span class="required-indicator">●</span></label>
+                    <input type="file" id="taskImage" name="taskImage" accept="image/*" required>
+                    <small class="form-help">
+                        📸 Upload an image for the task (Required) - Accepted: JPEG, PNG, GIF, WebP
+                    </small>
+                    <div id="taskImagePreview" class="photo-preview"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="intakeNotes">Additional Notes</label>
+                    <textarea id="intakeNotes" name="notes" placeholder="Any additional information" rows="3"></textarea>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary" id="submitTaskIntake">
+                        <span class="btn-icon">📝</span>
+                        Create Task
+                    </button>
+                    <button type="button" class="btn btn-secondary" id="clearTaskIntake">
+                        <span class="btn-icon">🗑️</span>
+                        Clear Form
+                    </button>
+                </div>
+            </form>
             
-            <div class="form-group">
-                <label for="intakeEstimatedHours">Estimated Hours</label>
-                <input type="number" id="intakeEstimatedHours" min="0" step="0.5" placeholder="0">
-            </div>
-        </div>
-        
-        <div class="form-group">
-            <label for="intakeNotes">Additional Notes</label>
-            <textarea id="intakeNotes" placeholder="Any additional information" rows="3"></textarea>
-        </div>
-        
-        <div class="form-actions">
-            <button type="submit" class="btn btn-primary" id="submitTaskIntake">
-                <span class="btn-icon">📝</span>
-                Create Task
-            </button>
-            <button type="button" class="btn btn-secondary" id="clearTaskIntake">
-                <span class="btn-icon">🗑️</span>
-                Clear Form
-            </button>
-        </div>
-    </form>
-    
-    <!-- Success/Error Messages -->
-    <div id="taskIntakeMessages" class="message-container hidden"></div>
-</section>
+            <!-- Success/Error Messages -->
+            <div id="taskIntakeMessages" class="message-container hidden"></div>
+        </section>
 
-<!-- Add this CSS for the form styling -->
-<style>
-.task-intake-form {
-    max-width: 800px;
-    margin: 0 auto;
-}
-
-.form-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--spacing-lg);
-    margin-bottom: var(--spacing-lg);
-}
-
-@media (max-width: 768px) {
-    .form-row {
-        grid-template-columns: 1fr;
-    }
-}
-
-.form-actions {
-    display: flex;
-    gap: var(--spacing-md);
-    justify-content: center;
-    margin-top: var(--spacing-xl);
-}
-
-.message-container {
-    margin-top: var(--spacing-lg);
-    padding: var(--spacing-md);
-    border-radius: var(--radius-md);
-    text-align: center;
-    font-weight: 500;
-}
-
-.message-container.success {
-    background: rgba(72, 187, 120, 0.1);
-    border: 1px solid rgba(72, 187, 120, 0.3);
-    color: #48bb78;
-}
-
-.message-container.error {
-    background: rgba(252, 129, 129, 0.1);
-    border: 1px solid rgba(252, 129, 129, 0.3);
-    color: #fc8181;
-}
-</style>
-
-<!-- Report Logger Section - Add this to your index.html -->
-<section id="reportLoggerSection">
-    <h2>📊 Daily Report Logger</h2>
-    <p>Submit your daily work report with photo documentation and project details.</p>
-    
-    <form id="reportLoggerForm" class="report-logger-form">
-        <div class="form-row">
-            <div class="form-group">
-                <label for="reportEmployee">Employee Name *</label>
-                <select id="reportEmployee" required>
-                    <option value="">Select Employee</option>
-                    <option value="Tony Herrera">Tony Herrera</option>
-                    <option value="Alex">Alex</option>
-                    <option value="Social Media Manager">Social Media Manager</option>
-                    <option value="Zac Macanally">Zac Macanally</option>
-                    <option value="Ridho">Ridho</option>
-                    <option value="Jevahn">Jevahn</option>
-                    <option value="Risna">Risna</option>
-                    <option value="Pran Setiawan">Pran Setiawan</option>
-                    <option value="Wayan Arfian (Konsep Kreatif)">Wayan Arfian (Konsep Kreatif)</option>
-                    <option value="Hanif (Konsep Kreatif)">Hanif (Konsep Kreatif)</option>
-                    <option value="Eden">Eden</option>
-                </select>
-            </div>
+        <!-- Report Logger Section -->
+        <section id="reportLoggerSection">
+            <h2>📊 Daily Report Logger</h2>
+            <p>Submit your daily work report with photo documentation and project details.</p>
             
-            <div class="form-group">
-                <label for="reportCompanySelect">Company *</label>
-                <select id="reportCompanySelect" required>
-                    <option value="">Select Company</option>
-                    <option value="CROWN REALITY">CROWN REALITY</option>
-                    <option value="LCMB GROUP">LCMB GROUP</option>
-                    <option value="NEWTECH TRAILERS">NEWTECH TRAILERS</option>
-                    <option value="VEBLEN (Internal)">VEBLEN (Internal)</option>
-                    <option value="FLECK GROUP">FLECK GROUP</option>
-                </select>
-            </div>
-        </div>
-        
-        <div class="form-row">
-            <div class="form-group">
-                <label for="reportDate">Date *</label>
-                <input type="date" id="reportDate" required>
-            </div>
+            <form id="reportLoggerForm" class="report-logger-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="reportEmployee">Employee Name *</label>
+                        <select id="reportEmployee" name="name" required>
+                            <option value="">Select Employee</option>
+                            <option value="Tony Herrera">Tony Herrera</option>
+                            <option value="Alex">Alex</option>
+                            <option value="Social Media Manager">Social Media Manager</option>
+                            <option value="Zac Macanally">Zac Macanally</option>
+                            <option value="Ridho">Ridho</option>
+                            <option value="Jevahn">Jevahn</option>
+                            <option value="Risna">Risna</option>
+                            <option value="Pran Setiawan">Pran Setiawan</option>
+                            <option value="Wayan Arfian (Konsep Kreatif)">Wayan Arfian (Konsep Kreatif)</option>
+                            <option value="Hanif (Konsep Kreatif)">Hanif (Konsep Kreatif)</option>
+                            <option value="Eden">Eden</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="reportCompanySelect">Company *</label>
+                        <select id="reportCompanySelect" name="reportCompany" required>
+                            <option value="">Select Company</option>
+                            <option value="CROWN REALITY">CROWN REALITY</option>
+                            <option value="LCMB GROUP">LCMB GROUP</option>
+                            <option value="NEWTECH TRAILERS">NEWTECH TRAILERS</option>
+                            <option value="VEBLEN (Internal)">VEBLEN (Internal)</option>
+                            <option value="FLECK GROUP">FLECK GROUP</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="reportDate">Date *</label>
+                        <input type="date" id="reportDate" name="reportDate" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="reportProjectName">Project Name *</label>
+                        <input type="text" id="reportProjectName" name="projectName" placeholder="Enter project name" required>
+                    </div>
+                </div>
+                
+                <!-- Photo Upload - REQUIRED -->
+                <div class="form-group photo-upload-group">
+                    <label for="reportPhoto">Daily Report Photo * <span class="required-indicator">●</span></label>
+                    <input type="file" id="reportPhoto" name="reportPhoto" accept="image/*" required>
+                    <small class="form-help">
+                        📸 Upload a photo of your work progress (Required) - Accepted: JPEG, PNG, GIF, WebP
+                    </small>
+                    <div id="reportPhotoPreview" class="photo-preview"></div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="reportRevisions">Number of Revisions</label>
+                        <input type="number" id="reportRevisions" name="numRevisions" min="0" placeholder="0" value="0">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="reportTimeSpent">Total Time Spent on Project</label>
+                        <input type="text" id="reportTimeSpent" name="totalTimeSpent" placeholder="e.g., 4 hours, 2.5 hours" value="0 hours">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="reportNotes">Notes</label>
+                    <textarea id="reportNotes" name="reportNotes" rows="4" placeholder="Describe your work progress, achievements, and any important details..."></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="reportLinks">Links</label>
+                    <textarea id="reportLinks" name="reportLinks" rows="3" placeholder="Add any relevant links (one per line)&#10;https://example.com/project&#10;https://figma.com/design"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="reportFeedback">Feedback or Requests</label>
+                    <textarea id="reportFeedback" name="feedbackRequests" rows="3" placeholder="Any feedback for the team or special requests..."></textarea>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary" id="submitReport">
+                        <span class="btn-icon">📊</span>
+                        Submit Daily Report
+                    </button>
+                    <button type="button" class="btn btn-secondary" id="clearReport">
+                        <span class="btn-icon">🗑️</span>
+                        Clear Form
+                    </button>
+                </div>
+            </form>
             
-            <div class="form-group">
-                <label for="reportProjectName">Project Name *</label>
-                <input type="text" id="reportProjectName" placeholder="Enter project name" required>
-            </div>
-        </div>
-        
-        <!-- Photo Upload - REQUIRED -->
-        <div class="form-group photo-upload-group">
-            <label for="reportPhoto">Daily Report Photo * <span class="required-indicator">●</span></label>
-            <input type="file" id="reportPhoto" accept="image/*" required>
-            <small class="form-help">
-                📸 Upload a photo of your work progress (Required) - Accepted: JPEG, PNG, GIF, WebP
-            </small>
-            <div id="reportPhotoPreview" class="photo-preview"></div>
-        </div>
-        
-        <div class="form-row">
-            <div class="form-group">
-                <label for="reportRevisions">Number of Revisions</label>
-                <input type="number" id="reportRevisions" min="0" placeholder="0" value="0">
-            </div>
-            
-            <div class="form-group">
-                <label for="reportTimeSpent">Total Time Spent on Project</label>
-                <input type="text" id="reportTimeSpent" placeholder="e.g., 4 hours, 2.5 hours" value="0 hours">
-            </div>
-        </div>
-        
-        <div class="form-group">
-            <label for="reportNotes">Notes</label>
-            <textarea id="reportNotes" rows="4" placeholder="Describe your work progress, achievements, and any important details..."></textarea>
-        </div>
-        
-        <div class="form-group">
-            <label for="reportLinks">Links</label>
-            <textarea id="reportLinks" rows="3" placeholder="Add any relevant links (one per line)&#10;https://example.com/project&#10;https://figma.com/design"></textarea>
-        </div>
-        
-        <div class="form-group">
-            <label for="reportFeedback">Feedback or Requests</label>
-            <textarea id="reportFeedback" rows="3" placeholder="Any feedback for the team or special requests..."></textarea>
-        </div>
-        
-        <div class="form-actions">
-            <button type="submit" class="btn btn-primary" id="submitReport">
-                <span class="btn-icon">📊</span>
-                Submit Daily Report
-            </button>
-            <button type="button" class="btn btn-secondary" id="clearReport">
-                <span class="btn-icon">🗑️</span>
-                Clear Form
-            </button>
-        </div>
-    </form>
-    
-    <!-- Success/Error Messages -->
-    <div id="reportLoggerMessages" class="message-container hidden"></div>
-</section>
-
-<!-- Additional CSS for Report Logger -->
-<style>
-.report-logger-form {
-    max-width: 900px;
-    margin: 0 auto;
-}
-
-.photo-upload-group {
-    border: 2px dashed var(--border);
-    border-radius: var(--radius-lg);
-    padding: var(--spacing-lg);
-    background: rgba(102, 126, 234, 0.05);
-    transition: all 0.3s ease;
-    margin-bottom: var(--spacing-lg);
-}
-
-.photo-upload-group:hover {
-    border-color: var(--primary-color);
-    background: rgba(102, 126, 234, 0.1);
-}
-
-.photo-upload-group input[type="file"] {
-    margin-bottom: var(--spacing-sm);
-}
-
-.required-indicator {
-    color: #f56565;
-    font-weight: bold;
-    margin-left: 4px;
-}
-
-.form-help {
-    color: var(--text-secondary);
-    font-size: 0.75rem;
-    font-style: italic;
-    display: block;
-    margin-top: 0.5rem;
-}
-
-.photo-preview {
-    margin-top: var(--spacing-md);
-    text-align: center;
-}
-
-.photo-preview img {
-    max-width: 300px;
-    max-height: 200px;
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-md);
-    border: 2px solid var(--border);
-}
-
-.photo-preview .preview-info {
-    margin-top: var(--spacing-sm);
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-}
-
-/* Loading spinner for button */
-.btn-spinner {
-    display: inline-block;
-    animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-</style>
+            <!-- Success/Error Messages -->
+            <div id="reportLoggerMessages" class="message-container hidden"></div>
+        </section>
     </div>
 
     <!-- Toast Notification Container -->
@@ -1079,35 +991,36 @@
             .then(data => console.log('API Health:', data))
             .catch(err => console.error('API not responding:', err));
     </script>
-<!-- Password Modal -->
-<div id="passwordModal" class="password-modal">
-    <div class="password-modal-content">
-        <h3>🔐 Admin Bypass</h3>
-        <div class="password-input-group">
-            <input type="password" 
-                   id="passwordInput" 
-                   class="password-input" 
-                   placeholder="Enter password"
-                   maxlength="20">
-            <div id="passwordError" class="password-error">
-                ❌ Incorrect password. Please try again.
+
+    <!-- Password Modal -->
+    <div id="passwordModal" class="password-modal">
+        <div class="password-modal-content">
+            <h3>🔐 Admin Bypass</h3>
+            <div class="password-input-group">
+                <input type="password" 
+                       id="passwordInput" 
+                       class="password-input" 
+                       placeholder="Enter password"
+                       maxlength="20">
+                <div id="passwordError" class="password-error">
+                    ❌ Incorrect password. Please try again.
+                </div>
+                <div id="passwordSuccess" class="password-success">
+                    ✅ Access granted! Resetting shift...
+                </div>
             </div>
-            <div id="passwordSuccess" class="password-success">
-                ✅ Access granted! Resetting shift...
+            <div class="password-buttons">
+                <button class="password-btn password-btn-cancel" onclick="closePasswordModal()">
+                    Cancel
+                </button>
+                <button class="password-btn password-btn-confirm" onclick="validatePassword()">
+                    Reset Shift
+                </button>
             </div>
-        </div>
-        <div class="password-buttons">
-            <button class="password-btn password-btn-cancel" onclick="closePasswordModal()">
-                Cancel
-            </button>
-            <button class="password-btn password-btn-confirm" onclick="validatePassword()">
-                Reset Shift
-            </button>
         </div>
     </div>
-</div>
 
-<!-- Toast Notification Container -->
-<div id="toastContainer" class="toast-container"></div>
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="toast-container"></div>
 </body>
 </html>
