@@ -2126,7 +2126,8 @@ async function removeImportedTask(taskId) {
 }
 
 // Stub implementations for form handlers
-async function handleTaskIntake(e) {
+// Daily Report Handler - ADD THIS TO YOUR SCRIPT.JS
+async function handleDailyReport(e) {
     e.preventDefault();
     
     if (!currentEmployee) {
@@ -2138,83 +2139,80 @@ async function handleTaskIntake(e) {
     const formData = new FormData(form);
     
     try {
-        showToast('📝 Creating new task...', 'info');
+        showToast('📊 Submitting daily report...', 'info');
         
-        // Handle image upload first
-        const imageFile = formData.get('taskImage');
-        let imageUrl = '';
-        
-        if (imageFile && imageFile.size > 0) {
-            console.log('📸 Uploading image to ImgBB...');
-            
-            const imgbbFormData = new FormData();
-            imgbbFormData.append('image', imageFile);
-            
-            const imgbbResponse = await fetch(`https://api.imgbb.com/1/upload?key=${CONFIG.imgbbApiKey}`, {
-                method: 'POST',
-                body: imgbbFormData
-            });
-            
-            if (imgbbResponse.ok) {
-                const imgbbData = await imgbbResponse.json();
-                imageUrl = imgbbData.data.url;
-                console.log('✅ Image uploaded successfully:', imageUrl);
-            } else {
-                console.warn('⚠️ Image upload failed, proceeding without image');
-            }
+        // Handle photo upload (required)
+        const photoFile = formData.get('reportPhoto');
+        if (!photoFile || photoFile.size === 0) {
+            showToast('Please select a photo for your daily report', 'warning');
+            return;
         }
         
-        // Get assigned users (multiple select)
-        const assignedElements = form.querySelectorAll('#taskAssigned option:checked');
-        const assignedArray = Array.from(assignedElements).map(option => option.value);
+        console.log('📸 Uploading photo to ImgBB...');
         
-        // Build task data with CORRECT field names matching your HTML
-        const taskData = {
-            action: 'task_intake',
-            'Project Title': formData.get('taskTitle') || '',           // ✅ Fixed
-            'Description': formData.get('taskDescription') || '',       // ✅ Fixed
-            'Company': formData.get('taskCompany') || '',               // ✅ Fixed
-            'Is this project a priority?': formData.get('taskPriority') || 'No', // ✅ Fixed
-            'Due Date': formData.get('taskDueDate') || '',              // ✅ Fixed
-            'Links': formData.get('taskLinks') || '',                   // ✅ Fixed
+        const imgbbFormData = new FormData();
+        imgbbFormData.append('image', photoFile);
+        
+        const imgbbResponse = await fetch(`https://api.imgbb.com/1/upload?key=${CONFIG.imgbbApiKey}`, {
+            method: 'POST',
+            body: imgbbFormData
+        });
+        
+        if (!imgbbResponse.ok) {
+            throw new Error('Failed to upload photo');
+        }
+        
+        const imgbbData = await imgbbResponse.json();
+        console.log('✅ Photo uploaded successfully');
+        
+        // Build report data with EXACT field names from n8n workflow
+        const reportData = {
+            action: 'daily_report',
             'Name': currentEmployee,
-            'Assigned': assignedArray,                                  // ✅ Fixed
-            'Image_URL': imageUrl,
-            'Employee Name': currentEmployee,
+            'Company': formData.get('reportCompany'),
+            'Project Name': formData.get('projectName'),
+            'Number of Revisions': formData.get('numRevisions'),
+            'Total Time Spent on Project': formData.get('totalTimeSpent'),
+            'Notes': formData.get('reportNotes'),
+            'Links': formData.get('reportLinks') || '',
+            'Date': formData.get('reportDate'),
+            'Photo for report': imgbbData.data.url,
+            'Feedback or Requests': formData.get('feedbackRequests') || '',
             'Timestamp': new Date().toISOString()
         };
         
-        console.log('📤 Sending task data:', taskData);
+        console.log('📤 Sending report data:', reportData);
         
-        const response = await fetch(CONFIG.taskIntakeUrl, {
+        const response = await fetch(CONFIG.reportLoggerUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(taskData)
+            body: JSON.stringify(reportData)
         });
         
-        console.log('📡 Response status:', response.status);
+        console.log('📡 Report response status:', response.status);
         
         if (response.ok) {
             const result = await response.json();
-            console.log('✅ Task created successfully:', result);
-            showToast('✅ Task created successfully!', 'success');
+            console.log('✅ Daily report submitted successfully:', result);
+            showToast('✅ Daily report submitted successfully!', 'success');
             form.reset();
             
-            // Clear image preview
-            const imagePreview = document.getElementById('taskImagePreview');
-            if (imagePreview) imagePreview.innerHTML = '';
+            // Clear photo preview
+            const photoPreview = document.getElementById('reportPhotoPreview');
+            if (photoPreview) photoPreview.innerHTML = '';
             
         } else {
             const errorData = await response.json().catch(() => ({}));
-            console.error('❌ Server error:', errorData);
+            console.error('❌ Report submission error:', errorData);
             throw new Error(`HTTP ${response.status}: ${errorData.error || response.statusText}`);
         }
         
     } catch (error) {
-        console.error('❌ Task intake error:', error);
-        showToast(`Failed to create task: ${error.message}`, 'error');
+        console.error('❌ Daily report error:', error);
+        showToast(`Failed to submit daily report: ${error.message}`, 'error');
     }
 }
+
 async function handleDailyReport(e) {
     e.preventDefault();
     
