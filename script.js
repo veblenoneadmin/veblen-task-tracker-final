@@ -1061,7 +1061,7 @@ async function saveTaskToMyDashboard(task, masterBoardId, companyBoardId) {
     console.log('💾 Task saved to dashboard:', taskForDashboard.id);
 }
 
-// ✅ UPDATED - Display real task data in editor
+// ✅ ENHANCED - Display real task data in editor with task name editing
 function displayTaskForEditing(task, masterBoardId, companyBoardId) {
     document.getElementById('taskEditorContent').innerHTML = `
         <div class="task-editor-form">
@@ -1077,7 +1077,7 @@ function displayTaskForEditing(task, masterBoardId, companyBoardId) {
                 border: 1px solid rgba(102, 126, 234, 0.3);
             ">
                 <h3 style="margin: 0; color: var(--text-primary);">
-                    ✅ ${task.name || 'Imported Task'}
+                    ✅ Task Editor
                 </h3>
                 <span class="task-company-badge" style="
                     padding: 0.25rem 0.75rem;
@@ -1091,9 +1091,27 @@ function displayTaskForEditing(task, masterBoardId, companyBoardId) {
                 </span>
             </div>
             
+            <!-- ✅ ADDED: Task Name Editing -->
+            <div class="form-group">
+                <label for="editTaskName">Task Name</label>
+                <input type="text" 
+                       id="editTaskName" 
+                       value="${task.name || ''}"
+                       placeholder="Enter task name"
+                       style="
+                           width: 100%;
+                           padding: var(--spacing-md);
+                           background: rgba(0, 0, 0, 0.2);
+                           border: 1px solid var(--border);
+                           border-radius: var(--radius-md);
+                           color: var(--text-primary);
+                           font-size: 0.9rem;
+                       ">
+            </div>
+            
             <!-- ✅ Real Progress Display -->
             <div class="form-group">
-                <label for="editTaskProgress">Progress: ${task.progress || 0}%</label>
+                <label for="editTaskProgress">Progress: <span id="progressDisplay">${task.progress || 0}%</span></label>
                 <div style="display: flex; align-items: center; gap: var(--spacing-md);">
                     <input type="range" 
                            id="editTaskProgress" 
@@ -1101,11 +1119,6 @@ function displayTaskForEditing(task, masterBoardId, companyBoardId) {
                            max="100" 
                            value="${task.progress || 0}"
                            style="flex: 1;">
-                    <span id="progressDisplay" style="
-                        font-weight: 700;
-                        color: var(--primary-color);
-                        min-width: 50px;
-                    ">${task.progress || 0}%</span>
                 </div>
                 <div style="height: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; margin-top: 0.5rem;">
                     <div id="progressBar" style="
@@ -1121,7 +1134,14 @@ function displayTaskForEditing(task, masterBoardId, companyBoardId) {
             <!-- ✅ Real Status Selection -->
             <div class="form-group">
                 <label for="editTaskStatus">Status</label>
-                <select id="editTaskStatus" class="form-control">
+                <select id="editTaskStatus" class="form-control" style="
+                    width: 100%;
+                    padding: var(--spacing-md);
+                    background: rgba(0, 0, 0, 0.2);
+                    border: 1px solid var(--border);
+                    border-radius: var(--radius-md);
+                    color: var(--text-primary);
+                ">
                     <option value="Project" ${task.status === 'Project' ? 'selected' : ''}>Project</option>
                     <option value="Priority Project" ${task.status === 'Priority Project' ? 'selected' : ''}>Priority Project</option>
                     <option value="Current Project" ${task.status === 'Current Project' ? 'selected' : ''}>Current Project</option>
@@ -1138,7 +1158,16 @@ function displayTaskForEditing(task, masterBoardId, companyBoardId) {
                 <textarea id="editTaskDescription" 
                           rows="3" 
                           placeholder="Enter task description"
-                          style="min-height: 80px;">${task.description || ''}</textarea>
+                          style="
+                              width: 100%;
+                              min-height: 80px;
+                              padding: var(--spacing-md);
+                              background: rgba(0, 0, 0, 0.2);
+                              border: 1px solid var(--border);
+                              border-radius: var(--radius-md);
+                              color: var(--text-primary);
+                              resize: vertical;
+                          ">${task.description || ''}</textarea>
             </div>
             
             <!-- ✅ Notes Section -->
@@ -1146,7 +1175,17 @@ function displayTaskForEditing(task, masterBoardId, companyBoardId) {
                 <label for="editTaskNotes">Notes</label>
                 <textarea id="editTaskNotes" 
                           rows="4" 
-                          placeholder="Add any notes or updates...">${task.notes || ''}</textarea>
+                          placeholder="Add any notes or updates..."
+                          style="
+                              width: 100%;
+                              min-height: 100px;
+                              padding: var(--spacing-md);
+                              background: rgba(0, 0, 0, 0.2);
+                              border: 1px solid var(--border);
+                              border-radius: var(--radius-md);
+                              color: var(--text-primary);
+                              resize: vertical;
+                          ">${task.notes || ''}</textarea>
             </div>
             
             <!-- ✅ Task Metadata Display -->
@@ -1204,6 +1243,7 @@ async function updateTaskInInfinity() {
         return;
     }
     
+    // ✅ FIXED: Use the correct element IDs that exist in the modal
     const taskName = document.getElementById('editTaskName').value.trim();
     const progress = parseInt(document.getElementById('editTaskProgress').value);
     const status = document.getElementById('editTaskStatus').value;
@@ -1221,6 +1261,7 @@ async function updateTaskInInfinity() {
         action: 'update_task',
         master_board_id: masterBoardId,
         company_board_id: companyBoardId,
+        company: window.currentEditingTask.company || 'VEBLEN (Internal)',
         task_name: taskName,
         progress: progress,
         status: status,
@@ -1233,8 +1274,8 @@ async function updateTaskInInfinity() {
     try {
         showToast('🔄 Updating task in Infinity...', 'info');
         
-        // Update in Infinity
-        const response = await fetch(CONFIG.taskUpdateUrl, {
+        // Update in Infinity using the unified API endpoint
+        const response = await fetch('/api/task-action', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(updateData)
