@@ -735,22 +735,6 @@ async function handleEndWork() {
     showShiftSummary();
     showToast('Shift completed! Great work today! 🎯', 'success');
 }
-// ============= SIMPLIFIED TASK IMPORT & MANAGEMENT =============
-
-function openTaskEditorModal() {
-    // Create modal if it doesn't exist
-    if (!document.getElementById('taskEditorModal')) {
-        createTaskEditorModal();
-    }
-    
-    // Reset form
-    document.getElementById('masterBoardId').value = '';
-    document.getElementById('companyBoardId').value = '';
-    document.getElementById('taskEditorContent').innerHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 2rem;">Enter both IDs above and click "Import Task" to add it to your dashboard</p>';
-    
-    // Show modal
-    document.getElementById('taskEditorModal').style.display = 'block';
-}
 
 // ============= TASK IMPORT & MANAGEMENT FUNCTIONS =============
 
