@@ -73,20 +73,104 @@ app.post('/api/task-intake', async (req, res) => {
     try {
         console.log('Task intake request received:', req.body);
         
-        // The frontend sends the data in the format your n8n webhook expects
-        const result = await callN8nWebhook(WEBHOOKS.taskIntake, req.body);
+        // Validate required fields
+        const requiredFields = ['employee', 'company', 'taskName'];
+        const missingFields = requiredFields.filter(field => !req.body[field]);
+        
+        if (missingFields.length > 0) {
+            return res.status(400).json({
+                success: false,
+                error: `Missing required fields: ${missingFields.join(', ')}`
+            });
+        }
+
+        // Structure the data for your n8n workflow
+        const taskIntakeData = {
+            employee: req.body.employee,
+            company: req.body.company,
+            taskName: req.body.taskName,
+            description: req.body.description || '',
+            priority: req.body.priority || 'Medium',
+            dueDate: req.body.dueDate || '',
+            taskType: req.body.taskType || 'General Task',
+            estimatedHours: req.body.estimatedHours || 0,
+            notes: req.body.notes || '',
+            timestamp: new Date().toISOString(),
+            // Add any additional fields your n8n workflow expects
+            action: 'create_task'
+        };
+        
+        console.log('Formatted task intake data:', taskIntakeData);
+        
+        // Call your n8n webhook
+        const result = await callN8nWebhook(WEBHOOKS.taskIntake, taskIntakeData);
         
         res.json({
             success: true,
             message: 'Task created successfully',
-            data: result
+            data: result,
+            taskId: result?.task_id || null
         });
         
     } catch (error) {
         console.error('Task intake error:', error);
         res.status(500).json({
             success: false,
-            error: error.message || 'Failed to create task'
+            error: error.message || 'Failed to create task',
+            details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
+    }
+});
+
+// ============= TASK INTAKE FORM ENDPOINT =============
+// Endpoint to get form configuration
+app.get('/api/task-intake/config', (req, res) => {
+    try {
+        const config = {
+            companies: [
+                'CROWN REALITY',
+                'LCMB GROUP', 
+                'NEWTECH TRAILERS',
+                'VEBLEN (Internal)',
+                'FLECK GROUP'
+            ],
+            priorities: ['Low', 'Medium', 'High', 'Urgent'],
+            taskTypes: [
+                'General Task',
+                'Development',
+                'Design',
+                'Research',
+                'Meeting',
+                'Documentation',
+                'Testing',
+                'Bug Fix',
+                'Feature Request'
+            ],
+            employees: [
+                'Tony Herrera',
+                'Alex', 
+                'Social Media Manager',
+                'Zac Macanally',
+                'Ridho',
+                'Jevahn',
+                'Risna',
+                'Pran Setiawan',
+                'Wayan Arfian (Konsep Kreatif)',
+                'Hanif (Konsep Kreatif)',
+                'Eden'
+            ]
+        };
+        
+        res.json({
+            success: true,
+            data: config
+        });
+        
+    } catch (error) {
+        console.error('Config fetch error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch configuration'
         });
     }
 });
@@ -140,17 +224,46 @@ app.post('/api/time-logger', async (req, res) => {
 });
 
 // ============= REPORT LOGGER API =============
-// This proxies to your working report logger webhook
+// This proxies to your working report logging webhook
 app.post('/api/report-logger', async (req, res) => {
     try {
         console.log('Report logger request received:', req.body);
         
-        // The frontend sends the data in the format your n8n webhook expects
-        const result = await callN8nWebhook(WEBHOOKS.reportLogger, req.body);
+        // Validate required fields based on your n8n workflow
+        const requiredFields = ['Name', 'Company', 'Project Name', 'Photo for report'];
+        const missingFields = requiredFields.filter(field => !req.body[field]);
+        
+        if (missingFields.length > 0) {
+            return res.status(400).json({
+                success: false,
+                error: `Missing required fields: ${missingFields.join(', ')}`
+            });
+        }
+
+        // Structure the data EXACTLY as your n8n workflow expects
+        const reportData = {
+            // Using exact field names from your workflow
+            'Name': req.body['Name'] || req.body.name,
+            'Company': req.body['Company'] || req.body.company,
+            'Project Name': req.body['Project Name'] || req.body.projectName,
+            'Number of Revisions': req.body['Number of Revisions'] || req.body.numRevisions || '0',
+            'Total Time Spent on Project': req.body['Total Time Spent on Project'] || req.body.totalTimeSpent || '0 hours',
+            'Notes': req.body['Notes'] || req.body.notes || '',
+            'Links': req.body['Links'] || req.body.links || '',
+            'Date': req.body['Date'] || req.body.date || new Date().toISOString().split('T')[0],
+            'Photo for report': req.body['Photo for report'] || req.body.photoUrl,
+            'Feedback or Requests': req.body['Feedback or Requests'] || req.body.feedbackRequests || '',
+            'Timestamp': new Date().toISOString()
+        };
+        
+        console.log('Formatted report data:', reportData);
+        
+        // Call your n8n webhook
+        const result = await callN8nWebhook(WEBHOOKS.reportLogger, reportData);
         
         res.json({
             success: true,
-            message: 'Report submitted successfully',
+            message: 'Daily report submitted successfully',
             data: result
         });
         
@@ -158,7 +271,53 @@ app.post('/api/report-logger', async (req, res) => {
         console.error('Report logger error:', error);
         res.status(500).json({
             success: false,
-            error: error.message || 'Failed to submit report'
+            error: error.message || 'Failed to submit daily report',
+            details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
+    }
+});
+
+// ============= IMGBB PHOTO UPLOAD PROXY =============
+// Helper endpoint to upload photos to ImgBB
+app.post('/api/upload-photo', async (req, res) => {
+    try {
+        const { imageData } = req.body;
+        
+        if (!imageData) {
+            return res.status(400).json({
+                success: false,
+                error: 'No image data provided'
+            });
+        }
+
+        // ImgBB API key (same as in your frontend)
+        const IMGBB_API_KEY = '679bd601ac49c50cae877fb240620cfe';
+        
+        const formData = new FormData();
+        formData.append('image', imageData);
+        
+        const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to upload photo to ImgBB');
+        }
+        
+        const result = await response.json();
+        
+        res.json({
+            success: true,
+            data: result.data,
+            url: result.data.url
+        });
+        
+    } catch (error) {
+        console.error('Photo upload error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Failed to upload photo'
         });
     }
 });
