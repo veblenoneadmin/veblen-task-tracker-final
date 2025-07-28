@@ -1193,10 +1193,6 @@ function displayTaskForEditing(task, masterBoardId, companyBoardId) {
     document.getElementById('taskEditorFooter').style.display = 'flex';
 }
 
-function updateProgressDisplay(value) {
-    document.getElementById('progressDisplay').textContent = value + '%';
-    document.getElementById('editProgressBar').style.width = value + '%';
-}
 
 async function updateTaskInInfinity() {
     if (!window.currentEditingTask) {
@@ -1833,6 +1829,7 @@ async function loadAssignedTasks() {
 }
 
 // Enhanced dashboard rendering with edit capabilities
+
 function renderMyImportedTasks(tasks) {
     const tasksList = document.getElementById('assignedTasksList');
     
@@ -1854,156 +1851,162 @@ function renderMyImportedTasks(tasks) {
     tasksList.innerHTML = `
         <div style="margin-bottom: var(--spacing-xl); text-align: center;">
             <h3 style="color: var(--text-primary); margin-bottom: var(--spacing-sm);">📋 Your Personal Task Dashboard</h3>
-            <p style="color: var(--text-secondary);">${tasks.length} imported task${tasks.length === 1 ? '' : 's'} • Click any task to edit inline</p>
+            <p style="color: var(--text-secondary);">${tasks.length} imported task${tasks.length === 1 ? '' : 's'} • Click Edit to modify, then Sync to update StartInfinity</p>
         </div>
         <div class="tasks-grid">
 ${tasks.map(task => {
-    // Calculate progress bar color based on real progress
+    // Calculate progress bar color
     const progressColor = task.progress >= 80 ? '#10B981' : 
                         task.progress >= 50 ? '#F59E0B' : '#EF4444';
     
-    // Status badge styling with real status
+    // Status badge styling
     const statusClass = getStatusClass(task.status);
     
-    // Truncate description if too long
+    // Truncate description
     const shortDescription = task.description ? 
         (task.description.length > 120 ? 
             task.description.substring(0, 120) + '...' : 
             task.description) 
         : 'No description available';
     
+    // Check if task has pending changes
+    const hasPendingChanges = task.hasPendingChanges || false;
+    const isInEditMode = task.isInEditMode || false;
+    
+    // Sync status icon
+    const syncIcon = hasPendingChanges ? '⚡' : '';
+    const syncText = hasPendingChanges ? 'Sync ⚡' : 'Sync';
+    
     return `
-        <div class="task-card" data-task-id="${task.id}" style="
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 12px;
-            padding: 1.5rem;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            transition: all 0.3s ease;
-            margin-bottom: var(--spacing-lg);
-        ">
-            <!-- ✅ Task Header with Real Data -->
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; gap: 1rem;">
-                <h3 style="
-                    font-size: 1.1rem;
-                    font-weight: 600;
-                    color: var(--text-primary);
-                    margin: 0;
-                    flex: 1;
-                    line-height: 1.4;
-                " title="${task.name}">
+        <div class="task-card ${hasPendingChanges ? 'has-pending-changes' : ''}" data-task-id="${task.id}">
+            <!-- Pending Changes Badge -->
+            ${hasPendingChanges ? `
+                <div class="pending-sync-badge">
+                    ⏳ Pending Sync
+                </div>
+            ` : ''}
+            
+            <!-- Task Header -->
+            <div class="task-header">
+                <h3 class="task-title ${isInEditMode ? 'hidden' : ''}" data-field="name">
                     ${task.name || 'Untitled Task'}
                 </h3>
-                <span class="task-status ${statusClass}" style="
-                    padding: 0.25rem 0.75rem;
-                    border-radius: 12px;
-                    font-size: 0.75rem;
-                    font-weight: 600;
-                    text-transform: uppercase;
-                    letter-spacing: 0.05em;
-                    white-space: nowrap;
-                ">
+                <input type="text" 
+                       class="task-title-edit ${isInEditMode ? '' : 'hidden'}" 
+                       value="${task.name || ''}" 
+                       data-field="name"
+                       placeholder="Task name...">
+                       
+                <span class="task-status ${statusClass}">
                     ${task.status || 'Unknown'}
                 </span>
             </div>
             
-            <!-- ✅ Company Info -->
-            <div style="margin-bottom: 0.75rem; opacity: 0.8;">
-                <small>🏢 ${task.company || 'No Company'}</small>
+            <!-- Company Info -->
+            <div class="task-company">
+                🏢 ${task.company || 'No Company'}
             </div>
             
-            <!-- ✅ Real Description -->
-            <div style="
-                color: var(--text-secondary);
-                font-size: 0.9rem;
-                line-height: 1.5;
-                margin-bottom: 1rem;
-                min-height: 2.7rem;
-            ">
-                ${shortDescription}
-            </div>
-            
-            <!-- ✅ Real Progress Bar -->
-            <div style="margin-bottom: 1rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                    <span>Progress</span>
-                    <span style="font-weight: 700; color: ${progressColor};">${task.progress || 0}%</span>
+            <!-- Description -->
+            <div class="task-description">
+                <div class="task-desc-display ${isInEditMode ? 'hidden' : ''}">
+                    ${shortDescription}
                 </div>
-                <div style="height: 8px; background: rgba(0, 0, 0, 0.3); border-radius: 4px; overflow: hidden;">
-                    <div style="
-                        height: 100%;
-                        border-radius: 4px;
-                        transition: width 0.5s ease;
-                        background-color: ${progressColor};
-                        width: ${task.progress || 0}%;
-                    "></div>
-                </div>
+                <textarea class="task-desc-edit ${isInEditMode ? '' : 'hidden'}" 
+                          data-field="description" 
+                          placeholder="Task description..."
+                          rows="3">${task.description || ''}</textarea>
             </div>
             
-            <!-- ✅ Task Metadata -->
-            <div style="margin-bottom: 1rem; font-size: 0.8rem; color: var(--text-secondary);">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+            <!-- Progress Section -->
+            <div class="task-progress-section">
+                <div class="progress-header">
+                    <span class="progress-label">Progress</span>
+                    <span class="progress-value" style="color: ${progressColor};">${task.progress || 0}%</span>
+                </div>
+                
+                <!-- Progress Bar -->
+                <div class="progress-bar-container">
+                    <div class="progress-bar" style="background-color: ${progressColor}; width: ${task.progress || 0}%;"></div>
+                </div>
+                
+                <!-- Progress Slider (only in edit mode) -->
+                <input type="range" 
+                       class="task-progress-slider ${isInEditMode ? '' : 'hidden'}"
+                       data-field="progress"
+                       min="0" 
+                       max="100" 
+                       value="${task.progress || 0}">
+            </div>
+            
+            <!-- Status Dropdown (only in edit mode) -->
+            <div class="task-status-section ${isInEditMode ? '' : 'hidden'}">
+                <label>Status:</label>
+                <select class="task-status-select" data-field="status">
+                    <option value="Project" ${task.status === 'Project' ? 'selected' : ''}>Project</option>
+                    <option value="Priority Project" ${task.status === 'Priority Project' ? 'selected' : ''}>Priority Project</option>
+                    <option value="Current Project" ${task.status === 'Current Project' ? 'selected' : ''}>Current Project</option>
+                    <option value="Revision" ${task.status === 'Revision' ? 'selected' : ''}>Revision</option>
+                    <option value="Waiting Approval" ${task.status === 'Waiting Approval' ? 'selected' : ''}>Waiting Approval</option>
+                    <option value="Project Finished" ${task.status === 'Project Finished' ? 'selected' : ''}>Project Finished</option>
+                    <option value="Rejected" ${task.status === 'Rejected' ? 'selected' : ''}>Rejected</option>
+                </select>
+            </div>
+            
+            <!-- Notes Section (only in edit mode) -->
+            <div class="task-notes-section ${isInEditMode ? '' : 'hidden'}">
+                <label>Notes:</label>
+                <textarea class="task-notes-edit" 
+                          data-field="notes" 
+                          placeholder="Add notes..."
+                          rows="2">${task.notes || ''}</textarea>
+            </div>
+            
+            <!-- Task Metadata -->
+            <div class="task-metadata">
+                <div class="meta-row">
                     <small>🆔 Master: ${task.masterBoardId?.substring(0, 8)}...</small>
                     <small>🏢 Company: ${task.companyBoardId?.substring(0, 8)}...</small>
                 </div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                <div class="meta-row">
                     <small>📅 Updated: ${formatDate(task.lastUpdated)}</small>
                     <small>${getSyncStatusIcon(task.syncStatus || 'synced')}</small>
                 </div>
             </div>
             
-            <!-- ✅ SIMPLIFIED Action Buttons - Just Edit & Sync -->
-          <!-- ✅ CLEAN 3-BUTTON SETUP -->
-<div style="display: flex; gap: 0.5rem;">
-    <button class="btn btn-primary" style="
-        flex: 1; 
-        font-size: 0.85rem; 
-        padding: 0.6rem 0.8rem;
-        background: var(--primary-gradient);
-        border: none;
-        border-radius: var(--radius-md);
-        color: white;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s ease;
-    " onclick="editImportedTask('${task.id}')">
-        ✏️ Edit
-    </button>
-    
-    <button class="btn btn-success" style="
-        flex: 1; 
-        font-size: 0.85rem; 
-        padding: 0.6rem 0.8rem;
-        background: linear-gradient(135deg, #10B981, #059669);
-        border: none;
-        border-radius: var(--radius-md);
-        color: white;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s ease;
-    " onclick="syncTaskToInfinity('${task.id}')">
-        🔄 Sync
-    </button>
-    
-    <button class="btn btn-danger" style="
-        flex: 0.8; 
-        font-size: 0.85rem; 
-        padding: 0.6rem 0.8rem;
-        background: linear-gradient(135deg, #EF4444, #DC2626);
-        border: none;
-        border-radius: var(--radius-md);
-        color: white;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s ease;
-    " onclick="removeTaskFromDashboard('${task.id}')">
-        🗑️ Remove
-    </button>
-</div>
+            <!-- Action Buttons -->
+            <div class="task-actions">
+                <!-- Normal Mode Buttons -->
+                <div class="normal-mode-buttons ${isInEditMode ? 'hidden' : ''}">
+                    <button class="btn btn-primary btn-edit" onclick="enterEditMode('${task.id}')">
+                        ✏️ Edit
+                    </button>
+                    <button class="btn btn-success btn-sync ${hasPendingChanges ? 'pending' : ''}" 
+                            onclick="syncTaskToInfinity('${task.id}')"
+                            ${hasPendingChanges ? 'title="This task has unsaved changes to sync"' : ''}>
+                        ${syncText}
+                    </button>
+                    <button class="btn btn-danger btn-remove" onclick="removeTaskFromDashboard('${task.id}')">
+                        🗑️ Remove
+                    </button>
+                </div>
+                
+                <!-- Edit Mode Buttons -->
+                <div class="edit-mode-buttons ${isInEditMode ? '' : 'hidden'}">
+                    <button class="btn btn-success btn-save" onclick="saveTaskChanges('${task.id}')">
+                        💾 Save Changes
+                    </button>
+                    <button class="btn btn-secondary btn-cancel" onclick="cancelEditMode('${task.id}')">
+                        ❌ Cancel
+                    </button>
+                </div>
+            </div>
         </div>
     `;
 }).join('')}
         </div>
     `;
+}
     
     // Add event listeners for inline editing
     tasks.forEach(task => {
@@ -2195,18 +2198,7 @@ function createTaskCard(task) {
     `;
 }
 
-// Attach event listeners for inline editing
-function attachTaskEventListeners(taskId) {
-    const taskCard = document.querySelector(`[data-task-id="${taskId}"]`);
-    if (!taskCard) return;
-    
-    const editableFields = taskCard.querySelectorAll('.task-name-edit, .task-description-edit, .task-status-edit, .task-progress-edit, .task-notes-edit');
-    
-    editableFields.forEach(field => {
-        field.addEventListener('input', () => handleTaskFieldChange(taskId, field));
-        field.addEventListener('change', () => handleTaskFieldChange(taskId, field));
-    });
-}
+
 // ✅ NEW - Refresh task from StartInfinity
 async function refreshTask(masterBoardId, companyBoardId) {
     try {
@@ -2492,28 +2484,7 @@ function getStatusClass(status) {
     return statusClasses[status] || 'status-project';
 }
 
-async function editImportedTask(taskId) {
-    const task = availableTasks.find(t => t.id === taskId);
-    if (!task) {
-        showToast('Task not found', 'error');
-        return;
-    }
-    
-    // Open task editor modal
-    if (!document.getElementById('taskEditorModal')) {
-        createTaskEditorModal();
-    }
-    
-    // Pre-fill the IDs
-    document.getElementById('masterBoardId').value = task.masterBoardId;
-    document.getElementById('companyBoardId').value = task.companyBoardId;
-    
-    // Display task for editing
-    displayTaskForEditing(task, task.masterBoardId, task.companyBoardId);
-    
-    // Show modal
-    document.getElementById('taskEditorModal').style.display = 'block';
-}
+
 
 async function removeImportedTask(taskId) {
     if (!confirm('Are you sure you want to remove this task from your dashboard?\n\nThis will not affect the task in Infinity, only remove it from your personal dashboard.')) {
@@ -2907,5 +2878,276 @@ window.debugStartButton = function() {
         return 'START button element not found!';
     }
 };
+// ============= NEW EDIT MODE FUNCTIONS =============
 
+function enterEditMode(taskId) {
+    const task = availableTasks.find(t => t.id === taskId);
+    if (!task) return;
+    
+    // Set edit mode flag
+    task.isInEditMode = true;
+    
+    // Store original values for cancel functionality
+    task.originalValues = {
+        name: task.name,
+        description: task.description,
+        progress: task.progress,
+        status: task.status,
+        notes: task.notes
+    };
+    
+    // Re-render tasks to show edit mode
+    renderMyImportedTasks(availableTasks);
+    
+    // Add event listeners for real-time updates
+    attachEditModeListeners(taskId);
+    
+    console.log('✏️ Entered edit mode for task:', task.name);
+}
+
+function attachEditModeListeners(taskId) {
+    const taskCard = document.querySelector(`[data-task-id="${taskId}"]`);
+    if (!taskCard) return;
+    
+    // Progress slider real-time update
+    const progressSlider = taskCard.querySelector('.task-progress-slider');
+    if (progressSlider) {
+        progressSlider.addEventListener('input', function() {
+            const value = this.value;
+            const progressValue = taskCard.querySelector('.progress-value');
+            const progressBar = taskCard.querySelector('.progress-bar');
+            
+            if (progressValue) progressValue.textContent = value + '%';
+            if (progressBar) {
+                progressBar.style.width = value + '%';
+                // Update color based on progress
+                const color = value >= 80 ? '#10B981' : value >= 50 ? '#F59E0B' : '#EF4444';
+                progressBar.style.backgroundColor = color;
+                progressValue.style.color = color;
+            }
+        });
+    }
+    
+    // Status change real-time update
+    const statusSelect = taskCard.querySelector('.task-status-select');
+    if (statusSelect) {
+        statusSelect.addEventListener('change', function() {
+            const statusBadge = taskCard.querySelector('.task-status');
+            statusBadge.textContent = this.value;
+            statusBadge.className = `task-status ${getStatusClass(this.value)}`;
+        });
+    }
+}
+
+function saveTaskChanges(taskId) {
+    const task = availableTasks.find(t => t.id === taskId);
+    if (!task) {
+        showToast('Task not found', 'error');
+        return;
+    }
+    
+    const taskCard = document.querySelector(`[data-task-id="${taskId}"]`);
+    if (!taskCard) {
+        showToast('Task card not found', 'error');
+        return;
+    }
+    
+    // Collect all edited values
+    const newValues = {
+        name: taskCard.querySelector('.task-title-edit')?.value?.trim() || task.name,
+        description: taskCard.querySelector('.task-desc-edit')?.value?.trim() || task.description,
+        progress: parseInt(taskCard.querySelector('.task-progress-slider')?.value || task.progress),
+        status: taskCard.querySelector('.task-status-select')?.value || task.status,
+        notes: taskCard.querySelector('.task-notes-edit')?.value?.trim() || task.notes
+    };
+    
+    // Validate required fields
+    if (!newValues.name) {
+        showToast('Task name is required', 'warning');
+        return;
+    }
+    
+    // Check if anything actually changed
+    const hasChanges = Object.keys(newValues).some(key => 
+        newValues[key] !== task.originalValues[key]
+    );
+    
+    if (!hasChanges) {
+        // No changes, just exit edit mode
+        exitEditMode(taskId, false);
+        showToast('No changes detected', 'info');
+        return;
+    }
+    
+    // Update task with new values
+    Object.assign(task, newValues);
+    task.lastUpdated = new Date().toISOString();
+    task.hasPendingChanges = true;
+    task.syncStatus = 'pending';
+    
+    // Exit edit mode
+    exitEditMode(taskId, false);
+    
+    // Save to localStorage
+    updateTaskInMyDashboard(taskId, newValues);
+    
+    // Re-render to show pending changes badge
+    renderMyImportedTasks(availableTasks);
+    
+    showToast('💾 Changes saved locally! Click "Sync" to update StartInfinity.', 'success');
+    
+    console.log('💾 Saved changes for task:', task.name);
+}
+
+function cancelEditMode(taskId) {
+    const task = availableTasks.find(t => t.id === taskId);
+    if (!task) return;
+    
+    // Restore original values
+    if (task.originalValues) {
+        Object.assign(task, task.originalValues);
+        delete task.originalValues;
+    }
+    
+    exitEditMode(taskId, true);
+    showToast('Edit cancelled', 'info');
+}
+
+function exitEditMode(taskId, cancelled = false) {
+    const task = availableTasks.find(t => t.id === taskId);
+    if (!task) return;
+    
+    // Clear edit mode flags
+    task.isInEditMode = false;
+    if (cancelled) {
+        delete task.originalValues;
+    }
+    
+    // Re-render tasks to show normal mode
+    renderMyImportedTasks(availableTasks);
+    
+    console.log('🚪 Exited edit mode for task:', task.name);
+}
+
+// ============= UPDATED SYNC FUNCTION =============
+
+async function syncTaskToInfinity(taskId) {
+    const task = availableTasks.find(t => t.id === taskId);
+    if (!task) {
+        showToast('Task not found', 'error');
+        return;
+    }
+    
+    // Show syncing state
+    const syncBtn = document.querySelector(`[onclick="syncTaskToInfinity('${taskId}')"]`);
+    if (!syncBtn) {
+        console.error('Sync button not found');
+        return;
+    }
+    
+    const originalText = syncBtn.innerHTML;
+    syncBtn.innerHTML = '🔄 Syncing...';
+    syncBtn.disabled = true;
+    
+    try {
+        console.log('🔄 Syncing task to StartInfinity:', task.name);
+        
+        // Call your UPDATE n8n workflow
+        const response = await fetch('/api/task-action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'update_task',
+                master_board_id: task.masterBoardId,
+                company_board_id: task.companyBoardId,
+                company: task.company || 'VEBLEN (Internal)',
+                task_name: task.name,
+                description: task.description || '',
+                progress: task.progress || 0,
+                status: task.status || 'Project',
+                notes: task.notes || ''
+            })
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            console.log('✅ Sync response:', result);
+            
+            if (result.success) {
+                // Clear pending changes
+                task.hasPendingChanges = false;
+                task.syncStatus = 'synced';
+                task.lastSyncedAt = new Date().toISOString();
+                task.lastUpdated = new Date().toISOString();
+                
+                // Save updated task
+                await saveTaskToMyDashboard(task, task.masterBoardId, task.companyBoardId);
+                
+                // Refresh display
+                await loadAssignedTasks();
+                
+                showToast(`✅ "${task.name}" synced to StartInfinity!`, 'success');
+            } else {
+                throw new Error(result.error || 'Sync failed');
+            }
+        } else {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `HTTP ${response.status}: Failed to sync`);
+        }
+        
+    } catch (error) {
+        console.error('❌ Sync failed:', error);
+        showToast(`❌ Sync failed: ${error.message}`, 'error');
+        
+        // Mark as sync error
+        if (task) {
+            task.syncStatus = 'error';
+            await saveTaskToMyDashboard(task, task.masterBoardId, task.companyBoardId);
+            await loadAssignedTasks();
+        }
+        
+    } finally {
+        // Restore button
+        const syncBtn = document.querySelector(`[onclick="syncTaskToInfinity('${taskId}')"]`);
+        if (syncBtn) {
+            syncBtn.innerHTML = originalText;
+            syncBtn.disabled = false;
+        }
+    }
+}
+
+// ============= HELPER FUNCTION FOR UPDATING LOCAL STORAGE =============
+
+async function updateTaskInMyDashboard(taskId, updates) {
+    if (!currentEmployee) return;
+    
+    const tasksKey = `myTasks_${currentEmployee}`;
+    let myTasks = [];
+    
+    try {
+        const saved = localStorage.getItem(tasksKey);
+        if (saved) {
+            myTasks = JSON.parse(saved);
+        }
+    } catch (error) {
+        console.error('Error loading tasks for update:', error);
+        return;
+    }
+    
+    const taskIndex = myTasks.findIndex(t => t.id === taskId);
+    
+    if (taskIndex >= 0) {
+        // Update existing task
+        myTasks[taskIndex] = {
+            ...myTasks[taskIndex],
+            ...updates,
+            lastUpdated: new Date().toISOString()
+        };
+        
+        localStorage.setItem(tasksKey, JSON.stringify(myTasks));
+        availableTasks = myTasks;
+        
+        console.log('💾 Task updated in localStorage:', taskId);
+    }
+}
 console.log('🚀 Simplified VEBLEN Task Tracker loaded!');
