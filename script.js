@@ -3,12 +3,15 @@
 // Replace your existing CONFIG object with this updated version
 
 const CONFIG = {
-    n8nWebhookUrl: '/api/task-action',
-    imgbbApiKey: '679bd601ac49c50cae877fb240620cfe',
     // Updated URLs to match your server endpoints
     taskIntakeUrl: '/api/task-intake',
     reportLoggerUrl: '/api/report-logger', 
-    timeLoggerUrl: '/api/time-logger'
+    timeLoggerUrl: '/api/time-logger',
+    taskUpdateUrl: '/api/task-update',
+    taskRetrievalUrl: '/api/get-tasks',
+    
+    // ImgBB API key for image uploads
+    imgbbApiKey: '679bd601ac49c50cae877fb240620cfe'
 };
 
 // WORKFLOW STATES - SIMPLIFIED
@@ -58,6 +61,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+// FIXED INITIALIZATION FUNCTION
 function initializeApp() {
     console.log('🚀 Initializing VEBLEN Task Tracker...');
     
@@ -67,30 +71,89 @@ function initializeApp() {
     // Load saved employee
     const savedEmployee = localStorage.getItem('selectedEmployee');
     if (savedEmployee) {
-        document.getElementById('employeeSelect').value = savedEmployee;
-        currentEmployee = savedEmployee;
-        console.log('🔄 Loaded saved employee:', currentEmployee);
-        loadEmployeeData();
+        const employeeSelect = document.getElementById('employeeSelect');
+        if (employeeSelect) {
+            employeeSelect.value = savedEmployee;
+            currentEmployee = savedEmployee;
+            console.log('🔄 Loaded saved employee:', currentEmployee);
+            loadEmployeeData();
+        }
     }
 
-    // Set up event listeners
-    document.getElementById('employeeSelect').addEventListener('change', handleEmployeeChange);
-    document.getElementById('taskIntakeForm').addEventListener('submit', handleTaskIntake);
-    document.getElementById('refreshTasksBtn').addEventListener('click', loadAssignedTasks);
-    document.getElementById('dailyReportForm').addEventListener('submit', handleDailyReport);
-    
-    // SIMPLIFIED TIME CLOCK BUTTONS - PURE TIMER
-    document.getElementById('startWorkBtn').addEventListener('click', handleStartWork);
-    document.getElementById('breakBtn').addEventListener('click', handleBreak);
-    document.getElementById('backToWorkBtn').addEventListener('click', handleResumeWork);
-    document.getElementById('endWorkBtn').addEventListener('click', handleEndWork);
+    // Set up event listeners - WITH NULL CHECKS
+    const employeeSelect = document.getElementById('employeeSelect');
+    if (employeeSelect) {
+        employeeSelect.addEventListener('change', handleEmployeeChange);
+    } else {
+        console.warn('⚠️ Employee select not found');
+    }
 
-    // Image upload previews
-    document.getElementById('taskImage').addEventListener('change', handleTaskImagePreview);
-    document.getElementById('reportPhoto').addEventListener('change', handleReportPhotoPreview);
+    const taskIntakeForm = document.getElementById('taskIntakeForm');
+    if (taskIntakeForm) {
+        taskIntakeForm.addEventListener('submit', handleTaskIntake);
+    } else {
+        console.warn('⚠️ Task intake form not found');
+    }
+
+    const refreshTasksBtn = document.getElementById('refreshTasksBtn');
+    if (refreshTasksBtn) {
+        refreshTasksBtn.addEventListener('click', loadAssignedTasks);
+    } else {
+        console.warn('⚠️ Refresh tasks button not found');
+    }
+
+    const reportLoggerForm = document.getElementById('reportLoggerForm');
+    if (reportLoggerForm) {
+        reportLoggerForm.addEventListener('submit', handleDailyReport);
+    } else {
+        console.warn('⚠️ Report logger form not found');
+    }
+    
+    // TIME CLOCK BUTTONS - WITH NULL CHECKS
+    const startWorkBtn = document.getElementById('startWorkBtn');
+    if (startWorkBtn) {
+        startWorkBtn.addEventListener('click', handleStartWork);
+    } else {
+        console.warn('⚠️ Start work button not found');
+    }
+
+    const breakBtn = document.getElementById('breakBtn');
+    if (breakBtn) {
+        breakBtn.addEventListener('click', handleBreak);
+    } else {
+        console.warn('⚠️ Break button not found');
+    }
+
+    const backToWorkBtn = document.getElementById('backToWorkBtn');
+    if (backToWorkBtn) {
+        backToWorkBtn.addEventListener('click', handleResumeWork);
+    } else {
+        console.warn('⚠️ Back to work button not found');
+    }
+
+    const endWorkBtn = document.getElementById('endWorkBtn');
+    if (endWorkBtn) {
+        endWorkBtn.addEventListener('click', handleEndWork);
+    } else {
+        console.warn('⚠️ End work button not found');
+    }
+
+    // Image upload previews - WITH NULL CHECKS
+    const taskImage = document.getElementById('taskImage');
+    if (taskImage) {
+        taskImage.addEventListener('change', handleTaskImagePreview);
+    }
+
+    const reportPhoto = document.getElementById('reportPhoto');
+    if (reportPhoto) {
+        reportPhoto.addEventListener('change', handleReportPhotoPreview);
+    }
 
     // Set default date to today for report
-    document.getElementById('reportDate').valueAsDate = new Date();
+    const reportDate = document.getElementById('reportDate');
+    if (reportDate) {
+        reportDate.valueAsDate = new Date();
+    }
     
     // Initialize workflow state
     console.log('🔄 Initializing workflow state...');
@@ -670,7 +733,6 @@ async function handleEndWork() {
     showShiftSummary();
     showToast('Shift completed! Great work today! 🎯', 'success');
 }
-
 // ============= SIMPLIFIED TASK IMPORT & MANAGEMENT =============
 
 function openTaskEditorModal() {
@@ -754,8 +816,8 @@ async function importTaskToMyDashboard() {
     try {
         showToast('📥 Importing task from Infinity...', 'info');
         
-        // Fetch task data from Infinity
-        const response = await fetch(CONFIG.taskRetrievalUrl, {
+        // Fetch task data from Infinity using get-tasks endpoint
+        const response = await fetch('/api/get-tasks', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -977,77 +1039,6 @@ async function saveTaskToMyDashboard(task, masterBoardId, companyBoardId) {
     availableTasks = myTasks;
 }
 
-function displayTaskForEditing(task, masterBoardId, companyBoardId) {
-    const content = document.getElementById('taskEditorContent');
-    
-    content.innerHTML = `
-        <div class="task-editor-form">
-            <div class="task-info-header">
-                <h3>${task.name || 'Imported Task'}</h3>
-                <span class="task-company-badge">${task.company || 'Unknown Company'}</span>
-            </div>
-            
-            <div class="form-group">
-                <label for="editTaskName">Task Name*</label>
-                <input type="text" id="editTaskName" value="${task.name || ''}" placeholder="Enter task name" required>
-            </div>
-            
-            <div class="form-group">
-                <label for="editTaskProgress">Progress (%)</label>
-                <div class="progress-input-container">
-                    <input type="range" id="editTaskProgress" min="0" max="100" value="${task.progress || 0}" 
-                           oninput="updateProgressDisplay(this.value)">
-                    <span id="progressDisplay">${task.progress || 0}%</span>
-                </div>
-                <div class="progress-bar-container">
-                    <div class="progress-bar" id="editProgressBar" style="width: ${task.progress || 0}%"></div>
-                </div>
-            </div>
-            
-            <div class="form-group">
-                <label for="editTaskStatus">Status</label>
-                <select id="editTaskStatus">
-                    <option value="Project" ${task.status === 'Project' ? 'selected' : ''}>Project</option>
-                    <option value="Priority Project" ${task.status === 'Priority Project' ? 'selected' : ''}>Priority Project</option>
-                    <option value="Current Project" ${task.status === 'Current Project' ? 'selected' : ''}>Current Project</option>
-                    <option value="Revision" ${task.status === 'Revision' ? 'selected' : ''}>Revision</option>
-                    <option value="Waiting Approval" ${task.status === 'Waiting Approval' ? 'selected' : ''}>Waiting Approval</option>
-                    <option value="Project Finished" ${task.status === 'Project Finished' ? 'selected' : ''}>Project Finished</option>
-                    <option value="Rejected" ${task.status === 'Rejected' ? 'selected' : ''}>Rejected</option>
-                </select>
-            </div>
-            
-            <div class="form-group">
-                <label for="editTaskDescription">Description</label>
-                <textarea id="editTaskDescription" rows="3" placeholder="Enter task description">${task.description || ''}</textarea>
-            </div>
-            
-            <div class="form-group">
-                <label for="editTaskNotes">Notes</label>
-                <textarea id="editTaskNotes" rows="4" placeholder="Add any notes or updates...">${task.notes || ''}</textarea>
-            </div>
-            
-            <div class="task-meta-info">
-                <p><strong>Master Board ID:</strong> ${masterBoardId}</p>
-                <p><strong>Company Board ID:</strong> ${companyBoardId}</p>
-                <p><strong>Task ID:</strong> ${task.id || `${masterBoardId}_${companyBoardId}`}</p>
-                <p><strong>Due Date:</strong> ${task.dueDate || 'Not set'}</p>
-                <p><strong>Imported:</strong> ${new Date().toLocaleString()}</p>
-            </div>
-        </div>
-    `;
-    
-    // Store current task data for saving
-    window.currentEditingTask = {
-        ...task,
-        masterBoardId: masterBoardId,
-        companyBoardId: companyBoardId
-    };
-    
-    // Show footer buttons
-    document.getElementById('taskEditorFooter').style.display = 'flex';
-}
-
 function updateProgressDisplay(value) {
     document.getElementById('progressDisplay').textContent = value + '%';
     document.getElementById('editProgressBar').style.width = value + '%';
@@ -1088,8 +1079,8 @@ async function updateTaskInInfinity() {
     try {
         showToast('🔄 Updating task in Infinity...', 'info');
         
-        // Update in Infinity
-        const response = await fetch(CONFIG.taskUpdateUrl, {
+        // Update in Infinity using task-update endpoint
+        const response = await fetch('/api/task-update', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(updateData)
@@ -1199,7 +1190,10 @@ async function loadEmployeeData() {
 }
 
 function clearEmployeeData() {
-    document.getElementById('assignedTasksList').innerHTML = '<p class="loading">Select an employee to view assigned tasks...</p>';
+    const assignedTasksList = document.getElementById('assignedTasksList');
+    if (assignedTasksList) {
+        assignedTasksList.innerHTML = '<p class="loading">Select an employee to view assigned tasks...</p>';
+    }
     clearWorkClockState();
     availableTasks = [];
     currentWorkflowState = WORKFLOW_STATES.NOT_STARTED;
@@ -1216,7 +1210,7 @@ async function handleTimeClock(action) {
     }
     
     try {
-        const response = await fetch(CONFIG.timeLoggerUrl, {
+        const response = await fetch('/api/time-logger', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1346,8 +1340,11 @@ function startWorkClock() {
     if (workClockInterval) clearInterval(workClockInterval);
     if (breakClockInterval) clearInterval(breakClockInterval);
     
-    document.getElementById('breakClockDisplay').style.display = 'none';
-    document.getElementById('workClockDisplay').style.display = 'block';
+    const workDisplay = document.getElementById('workClockDisplay');
+    const breakDisplay = document.getElementById('breakClockDisplay');
+    
+    if (breakDisplay) breakDisplay.style.display = 'none';
+    if (workDisplay) workDisplay.style.display = 'block';
     
     updateWorkTimer();
     
@@ -1362,8 +1359,11 @@ function startBreakClock() {
     if (workClockInterval) clearInterval(workClockInterval);
     if (breakClockInterval) clearInterval(breakClockInterval);
     
-    document.getElementById('workClockDisplay').style.display = 'none';
-    document.getElementById('breakClockDisplay').style.display = 'block';
+    const workDisplay = document.getElementById('workClockDisplay');
+    const breakDisplay = document.getElementById('breakClockDisplay');
+    
+    if (workDisplay) workDisplay.style.display = 'none';
+    if (breakDisplay) breakDisplay.style.display = 'block';
     
     updateBreakTimer();
     
@@ -1648,7 +1648,10 @@ function stopAllClocks() {
 async function loadAssignedTasks() {
     console.log('📋 Loading your imported tasks...');
     if (!currentEmployee) {
-        document.getElementById('assignedTasksList').innerHTML = '<p class="loading">Select an employee to view assigned tasks...</p>';
+        const assignedTasksList = document.getElementById('assignedTasksList');
+        if (assignedTasksList) {
+            assignedTasksList.innerHTML = '<p class="loading">Select an employee to view assigned tasks...</p>';
+        }
         return;
     }
     
@@ -1664,16 +1667,19 @@ async function loadAssignedTasks() {
         }
         
         if (myTasks.length === 0) {
-            document.getElementById('assignedTasksList').innerHTML = `
-                <p class="loading">No tasks imported yet.</p>
-                <div style="background: rgba(102, 126, 234, 0.1); border: 2px solid rgba(102, 126, 234, 0.3); border-radius: var(--radius-md); padding: var(--spacing-lg); margin-top: var(--spacing-md);">
-                    <h4 style="color: var(--text-primary); margin-bottom: var(--spacing-sm);">📥 Import Your First Task:</h4>
-                    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">1. Click "📥 Import Task from Infinity" button above</p>
-                    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">2. Enter your Master Board Item ID and Company Board Item ID</p>
-                    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">3. Click "Import Task" to add it to your personal dashboard</p>
-                    <p style="color: var(--text-secondary);">4. Edit progress, status, and sync changes back to Infinity</p>
-                </div>
-            `;
+            const assignedTasksList = document.getElementById('assignedTasksList');
+            if (assignedTasksList) {
+                assignedTasksList.innerHTML = `
+                    <p class="loading">No tasks imported yet.</p>
+                    <div style="background: rgba(102, 126, 234, 0.1); border: 2px solid rgba(102, 126, 234, 0.3); border-radius: var(--radius-md); padding: var(--spacing-lg); margin-top: var(--spacing-md);">
+                        <h4 style="color: var(--text-primary); margin-bottom: var(--spacing-sm);">📥 Import Your First Task:</h4>
+                        <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">1. Click "📥 Import Task from Infinity" button above</p>
+                        <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">2. Enter your Master Board Item ID and Company Board Item ID</p>
+                        <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">3. Click "Import Task" to add it to your personal dashboard</p>
+                        <p style="color: var(--text-secondary);">4. Edit progress, status, and sync changes back to Infinity</p>
+                    </div>
+                `;
+            }
             return;
         }
         
@@ -1683,7 +1689,10 @@ async function loadAssignedTasks() {
         
     } catch (error) {
         console.error('Error loading imported tasks:', error);
-        document.getElementById('assignedTasksList').innerHTML = '<p class="loading" style="color: var(--text-error);">Error loading your tasks. Please try refreshing.</p>';
+        const assignedTasksList = document.getElementById('assignedTasksList');
+        if (assignedTasksList) {
+            assignedTasksList.innerHTML = '<p class="loading" style="color: var(--text-error);">Error loading your tasks. Please try refreshing.</p>';
+        }
         showToast('Error loading your imported tasks', 'error');
     }
 }
@@ -1691,6 +1700,11 @@ async function loadAssignedTasks() {
 // Enhanced dashboard rendering with edit capabilities
 function renderMyImportedTasks(tasks) {
     const tasksList = document.getElementById('assignedTasksList');
+    
+    if (!tasksList) {
+        console.error('❌ assignedTasksList element not found');
+        return;
+    }
     
     if (tasks.length === 0) {
         tasksList.innerHTML = `
@@ -1722,6 +1736,7 @@ function renderMyImportedTasks(tasks) {
         attachTaskEventListeners(task.id);
     });
 }
+
 // Create enhanced task card with inline editing
 function createTaskCard(task) {
     const syncStatusIcon = getSyncStatusIcon(task.syncStatus);
@@ -1934,7 +1949,7 @@ async function syncTaskWithInfinity(taskId) {
             updated_by: currentEmployee || 'Unknown User'
         };
         
-        const response = await fetch(CONFIG.taskUpdateUrl, {
+        const response = await fetch('/api/task-update', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(updateData)
@@ -1971,38 +1986,6 @@ async function syncTaskWithInfinity(taskId) {
         // Restore button
         syncBtn.innerHTML = originalText;
         syncBtn.disabled = false;
-    }
-}
-
-// Update task in dashboard storage
-async function updateTaskInMyDashboard(taskId, updates) {
-    if (!currentEmployee) return;
-    
-    const tasksKey = `myTasks_${currentEmployee}`;
-    let myTasks = [];
-    
-    try {
-        const saved = localStorage.getItem(tasksKey);
-        if (saved) {
-            myTasks = JSON.parse(saved);
-        }
-    } catch (error) {
-        console.error('Error loading tasks for update:', error);
-        return;
-    }
-    
-    const taskIndex = myTasks.findIndex(t => t.id === taskId);
-    
-    if (taskIndex >= 0) {
-        // Update existing task
-        myTasks[taskIndex] = {
-            ...myTasks[taskIndex],
-            ...updates,
-            lastUpdated: new Date().toISOString()
-        };
-        
-        localStorage.setItem(tasksKey, JSON.stringify(myTasks));
-        availableTasks = myTasks;
     }
 }
 
@@ -2058,41 +2041,6 @@ function formatDate(dateString) {
         return 'Invalid date';
     }
 }
-function getStatusClass(status) {
-    const statusClasses = {
-        'Project': 'status-project',
-        'Priority Project': 'status-priority',
-        'Current Project': 'status-current',
-        'Revision': 'status-revision',
-        'Waiting Approval': 'status-waiting',
-        'Project Finished': 'status-finished',
-        'Rejected': 'status-rejected'
-    };
-    return statusClasses[status] || 'status-project';
-}
-
-async function editImportedTask(taskId) {
-    const task = availableTasks.find(t => t.id === taskId);
-    if (!task) {
-        showToast('Task not found', 'error');
-        return;
-    }
-    
-    // Open task editor modal
-    if (!document.getElementById('taskEditorModal')) {
-        createTaskEditorModal();
-    }
-    
-    // Pre-fill the IDs
-    document.getElementById('masterBoardId').value = task.masterBoardId;
-    document.getElementById('companyBoardId').value = task.companyBoardId;
-    
-    // Display task for editing
-    displayTaskForEditing(task, task.masterBoardId, task.companyBoardId);
-    
-    // Show modal
-    document.getElementById('taskEditorModal').style.display = 'block';
-}
 
 async function removeImportedTask(taskId) {
     if (!confirm('Are you sure you want to remove this task from your dashboard?\n\nThis will not affect the task in Infinity, only remove it from your personal dashboard.')) {
@@ -2128,101 +2076,7 @@ async function removeImportedTask(taskId) {
     }
 }
 
-// Stub implementations for form handlers
-
-// ============= UPDATED DAILY REPORT FUNCTION =============
-// Replace your existing handleDailyReport function with this
-async function handleDailyReport(e) {
-    e.preventDefault();
-    
-    if (!currentEmployee) {
-        showToast('Please select an employee first', 'warning');
-        return;
-    }
-    
-    const form = e.target;
-    const formData = new FormData(form);
-    
-    try {
-        showToast('📊 Submitting daily report...', 'info');
-        
-        // Handle photo upload (required)
-        const photoFile = formData.get('reportPhoto');
-        if (!photoFile || photoFile.size === 0) {
-            showToast('Please select a photo for your daily report', 'warning');
-            return;
-        }
-        
-        console.log('📸 Uploading photo to ImgBB...');
-        
-        const imgbbFormData = new FormData();
-        imgbbFormData.append('image', photoFile);
-        
-        const imgbbResponse = await fetch(`https://api.imgbb.com/1/upload?key=${CONFIG.imgbbApiKey}`, {
-            method: 'POST',
-            body: imgbbFormData
-        });
-        
-        if (!imgbbResponse.ok) {
-            throw new Error('Failed to upload photo');
-        }
-        
-        const imgbbData = await imgbbResponse.json();
-        console.log('✅ Photo uploaded successfully');
-        
-        // Build report data with EXACT field names from n8n workflow
-        const reportData = {
-            'Name': currentEmployee,
-            'Company': formData.get('reportCompany'),
-            'Project Name': formData.get('projectName'),
-            'Number of Revisions': formData.get('numRevisions') || '0',
-            'Total Time Spent on Project': formData.get('totalTimeSpent') || '0 hours',
-            'Notes': formData.get('reportNotes') || '',
-            'Links': formData.get('reportLinks') || '',
-            'Date': formData.get('reportDate'),
-            'Photo for report': imgbbData.data.url,
-            'Feedback or Requests': formData.get('feedbackRequests') || '',
-            'Timestamp': new Date().toISOString()
-        };
-        
-        console.log('📤 Sending report data:', reportData);
-        
-        // Use the correct API endpoint
-        const response = await fetch('/api/report-logger', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(reportData)
-        });
-        
-        console.log('📡 Report response status:', response.status);
-        
-        if (response.ok) {
-            const result = await response.json();
-            console.log('✅ Daily report submitted successfully:', result);
-            showToast('✅ Daily report submitted successfully!', 'success');
-            form.reset();
-            
-            // Clear photo preview
-            const photoPreview = document.getElementById('reportPhotoPreview');
-            if (photoPreview) photoPreview.innerHTML = '';
-            
-            // Reset date to today
-            document.getElementById('reportDate').valueAsDate = new Date();
-            
-        } else {
-            const errorData = await response.json().catch(() => ({}));
-            console.error('❌ Report submission error:', errorData);
-            throw new Error(`HTTP ${response.status}: ${errorData.error || response.statusText}`);
-        }
-        
-    } catch (error) {
-        console.error('❌ Daily report error:', error);
-        showToast(`Failed to submit daily report: ${error.message}`, 'error');
-    }
-}
-
-// ============= TASK INTAKE LOGGER FUNCTIONS =============
-// ADD THESE NEW FUNCTIONS TO YOUR SCRIPT.JS (don't replace anything)
+// ============= TASK INTAKE & DAILY REPORT FUNCTIONS =============
 
 // Handle task intake form submission
 async function handleTaskIntake(e) {
@@ -2263,21 +2117,22 @@ async function handleTaskIntake(e) {
         const imgbbData = await imgbbResponse.json();
         console.log('✅ Task image uploaded successfully');
         
-        // Build task data with exact field names from n8n workflow
+        // Build task data with exact field names expected by n8n workflow
         const taskData = {
-            'TaskType': formData.get('taskType'),
-            'TaskName': formData.get('taskName'),
-            'TaskImage': imgbbData.data.url,
+            'Name': formData.get('employee'),
             'Company': formData.get('company'),
-            'Assigned': formData.get('assigned'),
-            'TaskDescription': formData.get('taskDescription') || '',
-            'Links': formData.get('taskLinks') || '',
+            'Project Title': formData.get('taskName'),
+            'Description': formData.get('description') || '',
+            'Assigned': formData.get('employee'), // Use the same employee as assignee
+            'Is this project a priority?': formData.get('priority') === 'High' || formData.get('priority') === 'Urgent' ? 'Yes' : 'No',
+            'Due Date': formData.get('dueDate') || '',
+            'Links': '', // No links field in current form
+            'Image_URL': imgbbData.data.url,
             'Timestamp': new Date().toISOString()
         };
         
         console.log('📤 Sending task data:', taskData);
         
-        // Use the correct API endpoint
         const response = await fetch('/api/task-intake', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -2308,74 +2163,103 @@ async function handleTaskIntake(e) {
     }
 }
 
-// Enhanced task image preview (replaces your existing handleTaskImagePreview if you have one)
-function handleTaskImagePreview(e) {
-    const file = e.target.files[0];
-    const previewContainer = document.getElementById('taskImagePreview');
+// Handle daily report form submission
+async function handleDailyReport(e) {
+    e.preventDefault();
     
-    // Clear previous preview
-    previewContainer.innerHTML = '';
-    
-    if (!file) {
-        console.log('📸 No file selected for task image');
+    if (!currentEmployee) {
+        showToast('Please select an employee first', 'warning');
         return;
     }
     
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp'];
-    if (!allowedTypes.includes(file.type.toLowerCase())) {
-        showToast('❌ Please select a valid image file (JPEG, PNG, GIF, BMP, WebP)', 'error');
-        e.target.value = ''; // Clear the input
-        return;
-    }
+    const form = e.target;
+    const formData = new FormData(form);
     
-    // Validate file size (32MB limit for ImgBB)
-    const maxSize = 32 * 1024 * 1024; // 32MB in bytes
-    if (file.size > maxSize) {
-        showToast('❌ Image too large. Please select an image under 32MB', 'error');
-        e.target.value = ''; // Clear the input
-        return;
-    }
-    
-    // Create file reader
-    const reader = new FileReader();
-    
-    reader.onload = function(event) {
-        console.log('📸 Task image preview loaded:', file.name, `(${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+    try {
+        showToast('📊 Submitting daily report...', 'info');
         
-        // Create enhanced preview HTML
-        const previewHTML = `
-            <div style="margin-top: var(--spacing-md); padding: var(--spacing-md); background: rgba(102, 126, 234, 0.1); border-radius: var(--radius-md); border: 1px solid rgba(102, 126, 234, 0.3);">
-                <div style="display: flex; align-items: center; gap: var(--spacing-md); margin-bottom: var(--spacing-sm);">
-                    <span style="color: var(--text-primary); font-weight: 600;">📸 Task Image Preview:</span>
-                    <span style="color: var(--text-secondary); font-size: 0.875rem;">${file.name}</span>
-                    <span style="color: var(--primary-color); font-size: 0.75rem; background: rgba(102, 126, 234, 0.2); padding: 2px 8px; border-radius: 12px;">${(file.size / 1024 / 1024).toFixed(2)}MB</span>
-                </div>
-                <img src="${event.target.result}" alt="Task preview" style="max-width: 100%; max-height: 200px; border-radius: var(--radius-md); box-shadow: var(--shadow-md); border: 2px solid rgba(102, 126, 234, 0.3);">
-                <div style="margin-top: var(--spacing-sm); color: var(--text-success); font-size: 0.875rem; font-weight: 500;">
-                    ✅ Image ready for upload
-                </div>
-            </div>
-        `;
+        // Handle photo upload (required)
+        const photoFile = formData.get('reportPhoto');
+        if (!photoFile || photoFile.size === 0) {
+            showToast('Please select a photo for your daily report', 'warning');
+            return;
+        }
         
-        previewContainer.innerHTML = previewHTML;
-    };
-    
-    reader.onerror = function() {
-        console.error('❌ Error reading task image file');
-        showToast('❌ Error reading image file', 'error');
-        e.target.value = ''; // Clear the input
-    };
-    
-    reader.readAsDataURL(file);
+        console.log('📸 Uploading photo to ImgBB...');
+        
+        const imgbbFormData = new FormData();
+        imgbbFormData.append('image', photoFile);
+        
+        const imgbbResponse = await fetch(`https://api.imgbb.com/1/upload?key=${CONFIG.imgbbApiKey}`, {
+            method: 'POST',
+            body: imgbbFormData
+        });
+        
+        if (!imgbbResponse.ok) {
+            throw new Error('Failed to upload photo');
+        }
+        
+        const imgbbData = await imgbbResponse.json();
+        console.log('✅ Photo uploaded successfully');
+        
+        // Build report data with EXACT field names from n8n workflow
+        const reportData = {
+            'Name': formData.get('name'),
+            'Company': formData.get('reportCompany'),
+            'Project Name': formData.get('projectName'),
+            'Number of Revisions': formData.get('numRevisions') || '0',
+            'Total Time Spent on Project': formData.get('totalTimeSpent') || '0 hours',
+            'Notes': formData.get('reportNotes') || '',
+            'Links': formData.get('reportLinks') || '',
+            'Date': formData.get('reportDate'),
+            'Photo for report': imgbbData.data.url,
+            'Feedback or Requests': formData.get('feedbackRequests') || '',
+            'Timestamp': new Date().toISOString()
+        };
+        
+        console.log('📤 Sending report data:', reportData);
+        
+        const response = await fetch('/api/report-logger', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(reportData)
+        });
+        
+        console.log('📡 Report response status:', response.status);
+        
+        if (response.ok) {
+            const result = await response.json();
+            console.log('✅ Daily report submitted successfully:', result);
+            showToast('✅ Daily report submitted successfully!', 'success');
+            form.reset();
+            
+            // Clear photo preview
+            const photoPreview = document.getElementById('reportPhotoPreview');
+            if (photoPreview) photoPreview.innerHTML = '';
+            
+            // Reset date to today
+            const reportDate = document.getElementById('reportDate');
+            if (reportDate) reportDate.valueAsDate = new Date();
+            
+        } else {
+            const errorData = await response.json().catch(() => ({}));
+            console.error('❌ Report submission error:', errorData);
+            throw new Error(`HTTP ${response.status}: ${errorData.error || response.statusText}`);
+        }
+        
+    } catch (error) {
+        console.error('❌ Daily report error:', error);
+        showToast(`Failed to submit daily report: ${error.message}`, 'error');
+    }
 }
 
+// Enhanced task image preview
 function handleTaskImagePreview(e) {
     const file = e.target.files[0];
     const previewContainer = document.getElementById('taskImagePreview');
     
     // Clear previous preview
-    previewContainer.innerHTML = '';
+    if (previewContainer) previewContainer.innerHTML = '';
     
     if (!file) {
         console.log('📸 No file selected for task image');
@@ -2404,37 +2288,39 @@ function handleTaskImagePreview(e) {
     reader.onload = function(event) {
         console.log('📸 Task image preview loaded:', file.name, `(${(file.size / 1024 / 1024).toFixed(2)}MB)`);
         
-        // Create preview HTML
-        const previewHTML = `
-            <div style="margin-top: var(--spacing-md); padding: var(--spacing-md); background: rgba(0, 0, 0, 0.2); border-radius: var(--radius-md); border: 1px solid rgba(255, 255, 255, 0.1);">
-                <div style="display: flex; align-items: center; gap: var(--spacing-md); margin-bottom: var(--spacing-sm);">
-                    <span style="color: var(--text-primary); font-weight: 600;">📸 Image Preview:</span>
-                    <span style="color: var(--text-secondary); font-size: 0.875rem;">${file.name}</span>
-                    <span style="color: var(--text-secondary); font-size: 0.75rem; background: rgba(102, 126, 234, 0.2); padding: 2px 8px; border-radius: 12px;">${(file.size / 1024 / 1024).toFixed(2)}MB</span>
+        if (previewContainer) {
+            // Create preview HTML
+            const previewHTML = `
+                <div style="margin-top: var(--spacing-md); padding: var(--spacing-md); background: rgba(0, 0, 0, 0.2); border-radius: var(--radius-md); border: 1px solid rgba(255, 255, 255, 0.1);">
+                    <div style="display: flex; align-items: center; gap: var(--spacing-md); margin-bottom: var(--spacing-sm);">
+                        <span style="color: var(--text-primary); font-weight: 600;">📸 Image Preview:</span>
+                        <span style="color: var(--text-secondary); font-size: 0.875rem;">${file.name}</span>
+                        <span style="color: var(--text-secondary); font-size: 0.75rem; background: rgba(102, 126, 234, 0.2); padding: 2px 8px; border-radius: 12px;">${(file.size / 1024 / 1024).toFixed(2)}MB</span>
+                    </div>
+                    <div style="text-align: center;">
+                        <img src="${event.target.result}" 
+                             alt="Task Image Preview" 
+                             style="max-width: 300px; max-height: 200px; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); border: 2px solid var(--border); object-fit: cover;">
+                    </div>
+                    <button type="button" 
+                            onclick="clearTaskImagePreview()" 
+                            style="margin-top: var(--spacing-sm); padding: var(--spacing-xs) var(--spacing-sm); background: rgba(252, 129, 129, 0.2); color: #fc8181; border: 1px solid rgba(252, 129, 129, 0.3); border-radius: var(--radius-sm); font-size: 0.75rem; cursor: pointer; transition: all 0.3s ease;"
+                            onmouseover="this.style.background='rgba(252, 129, 129, 0.3)'"
+                            onmouseout="this.style.background='rgba(252, 129, 129, 0.2)'">
+                        🗑️ Remove Image
+                    </button>
                 </div>
-                <div style="text-align: center;">
-                    <img src="${event.target.result}" 
-                         alt="Task Image Preview" 
-                         style="max-width: 300px; max-height: 200px; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); border: 2px solid var(--border); object-fit: cover;">
-                </div>
-                <button type="button" 
-                        onclick="clearTaskImagePreview()" 
-                        style="margin-top: var(--spacing-sm); padding: var(--spacing-xs) var(--spacing-sm); background: rgba(252, 129, 129, 0.2); color: #fc8181; border: 1px solid rgba(252, 129, 129, 0.3); border-radius: var(--radius-sm); font-size: 0.75rem; cursor: pointer; transition: all 0.3s ease;"
-                        onmouseover="this.style.background='rgba(252, 129, 129, 0.3)'"
-                        onmouseout="this.style.background='rgba(252, 129, 129, 0.2)'">
-                    🗑️ Remove Image
-                </button>
-            </div>
-        `;
-        
-        previewContainer.innerHTML = previewHTML;
-        showToast('✅ Task image loaded successfully', 'success');
+            `;
+            
+            previewContainer.innerHTML = previewHTML;
+            showToast('✅ Task image loaded successfully', 'success');
+        }
     };
     
     reader.onerror = function() {
         console.error('❌ Error reading task image file');
         showToast('❌ Error reading image file', 'error');
-        previewContainer.innerHTML = '';
+        if (previewContainer) previewContainer.innerHTML = '';
     };
     
     // Read the file as data URL
@@ -2446,7 +2332,7 @@ function handleReportPhotoPreview(e) {
     const previewContainer = document.getElementById('reportPhotoPreview');
     
     // Clear previous preview
-    previewContainer.innerHTML = '';
+    if (previewContainer) previewContainer.innerHTML = '';
     
     if (!file) {
         console.log('📸 No file selected for report photo');
@@ -2475,41 +2361,64 @@ function handleReportPhotoPreview(e) {
     reader.onload = function(event) {
         console.log('📸 Report photo preview loaded:', file.name, `(${(file.size / 1024 / 1024).toFixed(2)}MB)`);
         
-        // Create preview HTML
-        const previewHTML = `
-            <div style="margin-top: var(--spacing-md); padding: var(--spacing-md); background: rgba(0, 0, 0, 0.2); border-radius: var(--radius-md); border: 1px solid rgba(255, 255, 255, 0.1);">
-                <div style="display: flex; align-items: center; gap: var(--spacing-md); margin-bottom: var(--spacing-sm);">
-                    <span style="color: var(--text-primary); font-weight: 600;">📷 Report Photo:</span>
-                    <span style="color: var(--text-secondary); font-size: 0.875rem;">${file.name}</span>
-                    <span style="color: var(--text-secondary); font-size: 0.75rem; background: rgba(72, 187, 120, 0.2); padding: 2px 8px; border-radius: 12px;">${(file.size / 1024 / 1024).toFixed(2)}MB</span>
+        if (previewContainer) {
+            // Create preview HTML
+            const previewHTML = `
+                <div style="margin-top: var(--spacing-md); padding: var(--spacing-md); background: rgba(0, 0, 0, 0.2); border-radius: var(--radius-md); border: 1px solid rgba(255, 255, 255, 0.1);">
+                    <div style="display: flex; align-items: center; gap: var(--spacing-md); margin-bottom: var(--spacing-sm);">
+                        <span style="color: var(--text-primary); font-weight: 600;">📷 Report Photo:</span>
+                        <span style="color: var(--text-secondary); font-size: 0.875rem;">${file.name}</span>
+                        <span style="color: var(--text-secondary); font-size: 0.75rem; background: rgba(72, 187, 120, 0.2); padding: 2px 8px; border-radius: 12px;">${(file.size / 1024 / 1024).toFixed(2)}MB</span>
+                    </div>
+                    <div style="text-align: center;">
+                        <img src="${event.target.result}" 
+                             alt="Report Photo Preview" 
+                             style="max-width: 300px; max-height: 200px; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); border: 2px solid var(--border); object-fit: cover;">
+                    </div>
+                    <button type="button" 
+                            onclick="clearReportPhotoPreview()" 
+                            style="margin-top: var(--spacing-sm); padding: var(--spacing-xs) var(--spacing-sm); background: rgba(252, 129, 129, 0.2); color: #fc8181; border: 1px solid rgba(252, 129, 129, 0.3); border-radius: var(--radius-sm); font-size: 0.75rem; cursor: pointer; transition: all 0.3s ease;"
+                            onmouseover="this.style.background='rgba(252, 129, 129, 0.3)'"
+                            onmouseout="this.style.background='rgba(252, 129, 129, 0.2)'">
+                        🗑️ Remove Photo
+                    </button>
                 </div>
-                <div style="text-align: center;">
-                    <img src="${event.target.result}" 
-                         alt="Report Photo Preview" 
-                         style="max-width: 300px; max-height: 200px; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); border: 2px solid var(--border); object-fit: cover;">
-                </div>
-                <button type="button" 
-                        onclick="clearReportPhotoPreview()" 
-                        style="margin-top: var(--spacing-sm); padding: var(--spacing-xs) var(--spacing-sm); background: rgba(252, 129, 129, 0.2); color: #fc8181; border: 1px solid rgba(252, 129, 129, 0.3); border-radius: var(--radius-sm); font-size: 0.75rem; cursor: pointer; transition: all 0.3s ease;"
-                        onmouseover="this.style.background='rgba(252, 129, 129, 0.3)'"
-                        onmouseout="this.style.background='rgba(252, 129, 129, 0.2)'">
-                    🗑️ Remove Photo
-                </button>
-            </div>
-        `;
-        
-        previewContainer.innerHTML = previewHTML;
-        showToast('✅ Report photo loaded successfully', 'success');
+            `;
+            
+            previewContainer.innerHTML = previewHTML;
+            showToast('✅ Report photo loaded successfully', 'success');
+        }
     };
     
     reader.onerror = function() {
         console.error('❌ Error reading report photo file');
         showToast('❌ Error reading photo file', 'error');
-        previewContainer.innerHTML = '';
+        if (previewContainer) previewContainer.innerHTML = '';
     };
     
     // Read the file as data URL
     reader.readAsDataURL(file);
+}
+
+// Clear image preview functions
+function clearTaskImagePreview() {
+    const fileInput = document.getElementById('taskImage');
+    const previewContainer = document.getElementById('taskImagePreview');
+    
+    if (fileInput) fileInput.value = '';
+    if (previewContainer) previewContainer.innerHTML = '';
+    
+    showToast('🗑️ Task image removed', 'info');
+}
+
+function clearReportPhotoPreview() {
+    const fileInput = document.getElementById('reportPhoto');
+    const previewContainer = document.getElementById('reportPhotoPreview');
+    
+    if (fileInput) fileInput.value = '';
+    if (previewContainer) previewContainer.innerHTML = '';
+    
+    showToast('🗑️ Report photo removed', 'info');
 }
 
 // Modal close on outside click
@@ -2526,7 +2435,7 @@ window.addEventListener('click', function(event) {
     }
 });
 
-// Debug function
+// Debug function for testing
 window.debugStartButton = function() {
     console.log('🔧 DEBUGGING START BUTTON...');
     
@@ -2541,8 +2450,9 @@ window.debugStartButton = function() {
         currentEmployee = currentEmployee || 'Tony Herrera';
         currentWorkflowState = WORKFLOW_STATES.NOT_STARTED;
         
-        if (!document.getElementById('employeeSelect').value) {
-            document.getElementById('employeeSelect').value = 'Tony Herrera';
+        const employeeSelect = document.getElementById('employeeSelect');
+        if (employeeSelect && !employeeSelect.value) {
+            employeeSelect.value = 'Tony Herrera';
         }
         
         console.log('✅ START button force-enabled!');
@@ -2553,4 +2463,11 @@ window.debugStartButton = function() {
     }
 };
 
-console.log('🚀 Simplified VEBLEN Task Tracker loaded!');
+// Global error handler
+window.addEventListener('error', function(e) {
+    console.error('Global error:', e.error);
+    showToast('Connection error. Please refresh the page.', 'error');
+});
+
+// Console log for successful load
+console.log('🚀 VEBLEN Task Tracker loaded successfully!');
