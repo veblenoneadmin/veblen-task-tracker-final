@@ -723,7 +723,7 @@
             </div>
         </section>
 
-        <!-- Task Intake Section - UPDATED WITH REQUIRED FIELDS -->
+<!-- Updated Task Intake Section with Optional Photos -->
 <section class="task-intake-section">
     <h2>📝 Create New Task</h2>
     <form id="taskIntakeForm">
@@ -786,12 +786,12 @@
             </select>
         </div>
 
-        <!-- Image Upload -->
+        <!-- ✅ UPDATED: Image Upload - Now Optional -->
         <div class="form-group">
-            <label for="taskImage">Attach Image* <span style="color: #f56565;">●</span></label>
-            <input type="file" id="taskImage" name="taskImage" accept=".jpg,.jpeg,.png,.gif,.bmp,.webp" required>
+            <label for="taskImage">Attach Image (optional)</label>
+            <input type="file" id="taskImage" name="taskImage" accept=".jpg,.jpeg,.png,.gif,.bmp,.webp">
             <small style="color: var(--text-secondary); font-size: 0.75rem; display: block; margin-top: 0.5rem;">
-                📸 Accepted: JPEG, PNG, GIF, BMP, WebP (max 32MB)
+                📸 Optional: JPEG, PNG, GIF, BMP, WebP (max 32MB)
             </small>
             <div id="taskImagePreview"></div>
         </div>
