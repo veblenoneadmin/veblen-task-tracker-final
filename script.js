@@ -760,7 +760,7 @@ async function importTaskToMyDashboard() {
         console.log('- Master ID:', masterBoardId);
         console.log('- Company ID:', companyBoardId);
         
-        // ✅ Call your working n8n workflow (the one we just fixed!)
+        // ✅ Call your working n8n workflow
         const response = await fetch('/api/task-action', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -778,49 +778,113 @@ async function importTaskToMyDashboard() {
         const result = await response.json();
         console.log('📊 n8n Response:', result);
         
-        // ✅ Handle the n8n response format
-        if (result.success && result.task) {
-            const importedTask = result.task;
-            
-            console.log('✅ Real task data imported from StartInfinity:');
-            console.log('- Name:', importedTask.name);
-            console.log('- Progress:', importedTask.progress + '%');
-            console.log('- Status:', importedTask.status);
-            console.log('- Company:', importedTask.company);
-            console.log('- Description length:', importedTask.description?.length || 0);
-            
-            // ✅ Save to your existing dashboard system
-            await saveTaskToMyDashboard(importedTask, masterBoardId, companyBoardId);
-            
-            // ✅ Show the imported task for editing in the modal
-            displayTaskForEditing(importedTask, masterBoardId, companyBoardId);
-            
-            // ✅ Refresh your task list to show the new task
-            await loadAssignedTasks();
-            
-            // ✅ Show success message with real data
-            showToast(`✅ "${importedTask.name}" imported successfully! (${importedTask.progress}% complete, ${importedTask.status})`, 'success');
-            
-            // ✅ Auto-scroll to see the new task
-            setTimeout(() => {
-                const taskCards = document.querySelectorAll('.task-card');
-                if (taskCards.length > 0) {
-                    taskCards[taskCards.length - 1].scrollIntoView({ 
-                        behavior: 'smooth', 
-                        block: 'center' 
-                    });
-                }
-            }, 500);
-            
-        } else {
-            throw new Error(result.error || 'Failed to import task - invalid response format');
+        // ✅ FIXED - Handle multiple possible response formats
+        let importedTask = null;
+        
+        // Format 1: Direct task object
+        if (result.task) {
+            importedTask = result.task;
+        }
+        // Format 2: Success wrapper
+        else if (result.success && result.data && result.data.task) {
+            importedTask = result.data.task;
+        }
+        // Format 3: Array response (first item)
+        else if (Array.isArray(result) && result[0] && result[0].task) {
+            importedTask = result[0].task;
+        }
+        // Format 4: Direct object (no wrapper)
+        else if (result.name || result.id) {
+            importedTask = result;
+        }
+        // Format 5: Check for common task properties
+        else if (result.masterBoardId || result.companyBoardId) {
+            importedTask = result;
         }
         
+        // ✅ Validate we got a valid task
+        if (!importedTask) {
+            console.error('❌ No valid task found in response:', result);
+            throw new Error('No valid task data found in response. Please check the IDs and try again.');
+        }
+        
+        // ✅ Ensure required fields exist
+        if (!importedTask.name && !importedTask.task_name && !importedTask.title) {
+            console.error('❌ Task missing name field:', importedTask);
+            throw new Error('Task data is missing required name field');
+        }
+        
+        // ✅ Normalize task data structure
+        const normalizedTask = {
+            // Core identifiers
+            id: importedTask.id || `${masterBoardId}_${companyBoardId}`,
+            masterBoardId: masterBoardId,
+            companyBoardId: companyBoardId,
+            
+            // Task properties (handle multiple possible field names)
+            name: importedTask.name || importedTask.task_name || importedTask.title || 'Imported Task',
+            description: importedTask.description || importedTask.desc || '',
+            progress: importedTask.progress || 0,
+            status: importedTask.status || 'Project',
+            company: importedTask.company || 'Unknown Company',
+            
+            // Optional fields
+            dueDate: importedTask.dueDate || importedTask.due_date || 'Not set',
+            dueDateRaw: importedTask.dueDateRaw || importedTask.due_date_raw || '',
+            links: importedTask.links || '',
+            imageUrl: importedTask.imageUrl || importedTask.image_url || importedTask.Image_URL || '',
+            
+            // Metadata
+            createdDate: importedTask.createdDate || new Date().toLocaleDateString(),
+            updatedDate: importedTask.updatedDate || new Date().toLocaleDateString(),
+            importedBy: currentEmployee,
+            importedAt: new Date().toISOString(),
+            lastUpdated: new Date().toISOString(),
+            syncStatus: 'synced',
+            isEditable: true
+        };
+        
+        console.log('✅ Normalized task data:');
+        console.log('- Name:', normalizedTask.name);
+        console.log('- Progress:', normalizedTask.progress + '%');
+        console.log('- Status:', normalizedTask.status);
+        console.log('- Company:', normalizedTask.company);
+        
+        // ✅ Save to dashboard
+        await saveTaskToMyDashboard(normalizedTask, masterBoardId, companyBoardId);
+        
+        // ✅ Show in editor
+        displayTaskForEditing(normalizedTask, masterBoardId, companyBoardId);
+        
+        // ✅ Refresh task list
+        await loadAssignedTasks();
+        
+        // ✅ Success message
+        showToast(`✅ "${normalizedTask.name}" imported successfully! (${normalizedTask.progress}% complete, ${normalizedTask.status})`, 'success');
+        
+        // ✅ Auto-scroll to see new task
+        setTimeout(() => {
+            const taskCards = document.querySelectorAll('.task-card');
+            if (taskCards.length > 0) {
+                taskCards[taskCards.length - 1].scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'center' 
+                });
+            }
+        }, 500);
+        
     } catch (error) {
-        console.error('❌ n8n import failed:', error);
+        console.error('❌ Import failed:', error);
         showToast(`❌ Import failed: ${error.message}`, 'error');
         
-        // ✅ Fall back to manual entry if n8n fails
+        // ✅ Enhanced error logging for debugging
+        console.log('🔍 Debug info for failed import:');
+        console.log('- Master Board ID:', masterBoardId);
+        console.log('- Company Board ID:', companyBoardId);
+        console.log('- Current Employee:', currentEmployee);
+        console.log('- Error details:', error);
+        
+        // ✅ Fallback to manual entry
         console.log('🔄 Falling back to manual entry...');
         showManualTaskEntry(masterBoardId, companyBoardId);
         
@@ -828,7 +892,7 @@ async function importTaskToMyDashboard() {
         // Restore button
         const importBtn = document.querySelector('button[onclick="importTaskToMyDashboard()"]');
         if (importBtn) {
-            importBtn.innerHTML = originalText;
+            importBtn.innerHTML = '📥 Import Task to My Dashboard';
             importBtn.disabled = false;
         }
     }
@@ -2280,7 +2344,10 @@ function closeImageModal() {
 
 // ✅ UPDATE - Enhanced saveTaskToMyDashboard to preserve image URLs
 async function saveTaskToMyDashboard(task, masterBoardId, companyBoardId) {
-    if (!currentEmployee) return;
+    if (!currentEmployee) {
+        console.error('❌ No current employee set');
+        return;
+    }
     
     // Get user's personal task list
     const tasksKey = `myTasks_${currentEmployee}`;
@@ -2296,54 +2363,46 @@ async function saveTaskToMyDashboard(task, masterBoardId, companyBoardId) {
         myTasks = [];
     }
     
-    // ✅ Enhanced task with image URL preservation
+    // ✅ Ensure task has required fields
     const taskForDashboard = {
         // Core identifiers
-        id: `${masterBoardId}_${companyBoardId}`,
+        id: task.id || `${masterBoardId}_${companyBoardId}`,
         masterBoardId: masterBoardId,
         companyBoardId: companyBoardId,
         
-        // Task data with image URL support
+        // Required fields with fallbacks
         name: task.name || 'Imported Task',
         description: task.description || '',
-        notes: task.notes || '',
-        progress: task.progress || 0,
-        status: task.status || 'Current Project',
+        progress: Math.max(0, Math.min(100, parseInt(task.progress) || 0)),
+        status: task.status || 'Project',
         company: task.company || 'Unknown Company',
-        company_display_name: task.company_display_name || task.company,
         
-        // ✅ NEW - Image URL preservation (multiple possible field names)
-        imageUrl: task.imageUrl || task.image_url || task.Image_URL || task.attachment_url || null,
-        
-        // Date information
+        // Optional fields
         dueDate: task.dueDate || 'Not set',
-        dueDateRaw: task.dueDateRaw,
+        dueDateRaw: task.dueDateRaw || '',
+        links: task.links || '',
+        imageUrl: task.imageUrl || '',
+        
+        // Metadata
         createdDate: task.createdDate || new Date().toLocaleDateString(),
         updatedDate: task.updatedDate || new Date().toLocaleDateString(),
-        
-        // Import metadata
         importedBy: currentEmployee,
-        importedAt: new Date().toISOString(),
+        importedAt: task.importedAt || new Date().toISOString(),
         lastUpdated: new Date().toISOString(),
-        lastSyncedAt: task.lastSyncedAt || new Date().toISOString(),
-        syncStatus: task.syncStatus || 'synced',
-        
-        // UI flags
-        isHighPriority: task.isHighPriority || false,
-        isCurrentProject: task.isCurrentProject || false,
-        isComplete: task.isComplete || false,
+        lastSyncedAt: new Date().toISOString(),
+        syncStatus: 'synced',
         isEditable: true,
         
-        // Links and additional data
-        links: task.links || '',
-        assignedTo: task.assignedTo || [],
+        // UI flags
+        isHighPriority: task.status === 'Priority Project',
+        isCurrentProject: task.status === 'Current Project',
+        isComplete: task.status === 'Project Finished' || task.progress >= 100,
         
         // Debug info
         debug: {
             importSource: 'n8n_workflow',
-            extractedFromInfinity: true,
-            originalTaskData: task.debug || null,
-            hasImage: !!(task.imageUrl || task.image_url || task.Image_URL)
+            importTimestamp: new Date().toISOString(),
+            originalTaskData: task
         }
     };
     
@@ -2351,7 +2410,7 @@ async function saveTaskToMyDashboard(task, masterBoardId, companyBoardId) {
     const existingIndex = myTasks.findIndex(t => t.id === taskForDashboard.id);
     
     if (existingIndex >= 0) {
-        // Update existing task with new data
+        // Update existing task
         myTasks[existingIndex] = {
             ...myTasks[existingIndex], // Keep existing metadata
             ...taskForDashboard,       // Override with fresh data
@@ -2366,10 +2425,14 @@ async function saveTaskToMyDashboard(task, masterBoardId, companyBoardId) {
     }
     
     // Save to localStorage
-    localStorage.setItem(tasksKey, JSON.stringify(myTasks));
-    availableTasks = myTasks;
-    
-    console.log('💾 Task saved to dashboard:', taskForDashboard.id, 'Has image:', !!taskForDashboard.imageUrl);
+    try {
+        localStorage.setItem(tasksKey, JSON.stringify(myTasks));
+        availableTasks = myTasks;
+        console.log('💾 Task saved to dashboard:', taskForDashboard.id);
+    } catch (error) {
+        console.error('❌ Failed to save task to localStorage:', error);
+        throw new Error('Failed to save task to local storage');
+    }
 }
     
 // ✅ FIXED - Sync function with proper variable scope
@@ -3242,5 +3305,69 @@ window.debugStartButton = function() {
         return 'START button element not found!';
     }
 };
+
+// ✅ Add this debug function to your script.js to check n8n responses
+window.debugN8nResponse = async function() {
+    const masterBoardId = document.getElementById('masterBoardId').value.trim();
+    const companyBoardId = document.getElementById('companyBoardId').value.trim();
+    
+    if (!masterBoardId || !companyBoardId) {
+        console.log('❌ Please enter both IDs first');
+        return;
+    }
+    
+    try {
+        console.log('🔍 DEBUGGING N8N RESPONSE...');
+        console.log('📤 Sending request with IDs:');
+        console.log('- Master:', masterBoardId);
+        console.log('- Company:', companyBoardId);
+        
+        const response = await fetch('/api/task-action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'get_task_by_ids',
+                master_board_id: masterBoardId,
+                company_board_id: companyBoardId
+            })
+        });
+        
+        console.log('📡 Response status:', response.status);
+        console.log('📡 Response headers:', [...response.headers.entries()]);
+        
+        const responseText = await response.text();
+        console.log('📄 Raw response text:', responseText);
+        
+        try {
+            const jsonData = JSON.parse(responseText);
+            console.log('📊 Parsed JSON data:', jsonData);
+            console.log('📊 JSON structure:');
+            console.log('- Type:', typeof jsonData);
+            console.log('- Is Array:', Array.isArray(jsonData));
+            console.log('- Keys:', Object.keys(jsonData));
+            console.log('- Has success:', 'success' in jsonData);
+            console.log('- Has task:', 'task' in jsonData);
+            console.log('- Has data:', 'data' in jsonData);
+            
+            if (jsonData.task) {
+                console.log('✅ Found task object:', jsonData.task);
+            } else if (jsonData.data && jsonData.data.task) {
+                console.log('✅ Found nested task object:', jsonData.data.task);
+            } else {
+                console.log('❌ No task object found in expected locations');
+            }
+            
+        } catch (parseError) {
+            console.error('❌ Failed to parse JSON:', parseError);
+            console.log('📄 Response is not valid JSON');
+        }
+        
+    } catch (error) {
+        console.error('❌ Debug request failed:', error);
+    }
+};
+
+// ✅ Call this in browser console: debugN8nResponse()
+console.log('🔧 Debug function available: Call debugN8nResponse() in console after entering IDs');
 
 console.log('🚀 Simplified VEBLEN Task Tracker loaded!');
