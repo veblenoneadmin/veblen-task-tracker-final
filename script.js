@@ -2052,6 +2052,7 @@ ${tasks.map(task => {
     });
 }
 // ✅ FIXED - Sync function with proper variable scope
+// ✅ ENHANCED - Bi-directional sync (pull FROM Infinity, then push TO Infinity)
 async function syncTaskToInfinity(taskId) {
     const task = availableTasks.find(t => t.id === taskId);
     if (!task) {
@@ -2059,9 +2060,8 @@ async function syncTaskToInfinity(taskId) {
         return;
     }
     
-    // ✅ FIXED: Declare variables in proper scope
     const syncBtn = document.querySelector(`[onclick="syncTaskToInfinity('${taskId}')"]`);
-    let originalText = '🔄 Sync'; // Default fallback
+    let originalText = '🔄 Sync';
     
     if (!syncBtn) {
         console.error('Sync button not found for task:', taskId);
@@ -2069,227 +2069,167 @@ async function syncTaskToInfinity(taskId) {
         return;
     }
     
-    // Store original button text
     originalText = syncBtn.innerHTML;
     
     try {
-        // Show syncing state
-        syncBtn.innerHTML = '🔄 Syncing...';
+        // ✅ STEP 1: PULL latest data FROM Infinity first
+        syncBtn.innerHTML = '📥 Fetching latest...';
         syncBtn.disabled = true;
         
-        console.log('🔄 Syncing task to StartInfinity:', task.name);
-        console.log('- Master ID:', task.masterBoardId);
-        console.log('- Company ID:', task.companyBoardId);
-        console.log('- Progress:', task.progress + '%');
-        console.log('- Status:', task.status);
+        console.log('🔄 Starting bi-directional sync for:', task.name);
+        console.log('📥 Step 1: Pulling latest data FROM StartInfinity...');
         
-        // ✅ Call your UPDATE n8n workflow via unified API
-        const response = await fetch('/api/task-action', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'update_task',
-                master_board_id: task.masterBoardId,
-                company_board_id: task.companyBoardId,
-                company: task.company || 'VEBLEN (Internal)',
-                task_name: task.name,
-                description: task.description || '',
-                progress: task.progress || 0,
-                status: task.status || 'Project',
-                notes: task.notes || ''
-            })
-        });
-        
-        if (response.ok) {
-            const result = await response.json();
-            console.log('✅ Update response:', result);
-            
-            if (result.success) {
-                // Update local sync status
-                task.syncStatus = 'synced';
-                task.lastSyncedAt = new Date().toISOString();
-                task.lastUpdated = new Date().toISOString();
-                
-                // Save updated task
-                await saveTaskToMyDashboard(task, task.masterBoardId, task.companyBoardId);
-                
-                // Refresh display
-                await loadAssignedTasks();
-                
-                showToast(`✅ "${task.name}" synced to StartInfinity!`, 'success');
-            } else {
-                throw new Error(result.error || 'Sync failed');
-            }
-        } else {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || `HTTP ${response.status}: Failed to sync`);
-        }
-        
-    } catch (error) {
-        console.error('❌ Sync failed:', error);
-        showToast(`❌ Sync failed: ${error.message}`, 'error');
-        
-        // Mark as sync error
-        if (task) {
-            task.syncStatus = 'error';
-            await saveTaskToMyDashboard(task, task.masterBoardId, task.companyBoardId);
-            await loadAssignedTasks();
-        }
-        
-    } finally {
-        // ✅ FIXED: Restore button state (originalText is now in scope)
-        if (syncBtn) {
-            syncBtn.innerHTML = originalText;
-            syncBtn.disabled = false;
-        }
-    }
-}
-// Create enhanced task card with inline editing
-function createTaskCard(task) {
-    const syncStatusIcon = getSyncStatusIcon(task.syncStatus);
-    const statusClass = getStatusClass(task.status);
-    
-    return `
-        <div class="task-card enhanced-task-card" data-task-id="${task.id}">
-            <div class="task-card-header">
-                <div class="task-title-section">
-                    <input type="text" 
-                           class="task-name-edit" 
-                           value="${task.name}" 
-                           data-field="name"
-                           placeholder="Task name...">
-                    <div class="task-badges">
-                        <span class="task-status ${statusClass}">${task.status}</span>
-                        <span class="sync-status ${task.syncStatus}">${syncStatusIcon}</span>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="task-details">
-                <div class="task-field">
-                    <label>Company:</label>
-                    <span class="company-badge">${task.company}</span>
-                </div>
-                
-                <div class="task-field">
-                    <label>Description:</label>
-                    <textarea class="task-description-edit" 
-                              data-field="description" 
-                              placeholder="Add description...">${task.description}</textarea>
-                </div>
-                
-                <div class="task-field">
-                    <label>Status:</label>
-                    <select class="task-status-edit" data-field="status">
-                        <option value="Project" ${task.status === 'Project' ? 'selected' : ''}>Project</option>
-                        <option value="Priority Project" ${task.status === 'Priority Project' ? 'selected' : ''}>Priority Project</option>
-                        <option value="Current Project" ${task.status === 'Current Project' ? 'selected' : ''}>Current Project</option>
-                        <option value="Revision" ${task.status === 'Revision' ? 'selected' : ''}>Revision</option>
-                        <option value="Waiting Approval" ${task.status === 'Waiting Approval' ? 'selected' : ''}>Waiting Approval</option>
-                        <option value="Project Finished" ${task.status === 'Project Finished' ? 'selected' : ''}>Project Finished</option>
-                        <option value="Rejected" ${task.status === 'Rejected' ? 'selected' : ''}>Rejected</option>
-                    </select>
-                </div>
-                
-                <div class="task-field">
-                    <label>Progress:</label>
-                    <div class="progress-control">
-                        <input type="range" 
-                               class="task-progress-edit" 
-                               data-field="progress"
-                               min="0" 
-                               max="100" 
-                               value="${task.progress}">
-                        <span class="progress-value">${task.progress}%</span>
-                    </div>
-                    <div class="progress-bar-container">
-                        <div class="progress-bar" style="width: ${task.progress}%"></div>
-                    </div>
-                </div>
-                
-                <div class="task-field">
-                    <label>Notes:</label>
-                    <textarea class="task-notes-edit" 
-                              data-field="notes" 
-                              placeholder="Add notes...">${task.notes}</textarea>
-                </div>
-            </div>
-            
-            <div class="task-meta-info">
-                <div class="meta-row">
-                    <span><strong>Master ID:</strong> ${task.masterBoardId}</span>
-                    <span><strong>Company ID:</strong> ${task.companyBoardId}</span>
-                </div>
-                <div class="meta-row">
-                    <span><strong>Due:</strong> ${task.dueDate}</span>
-                    <span><strong>Last Sync:</strong> ${formatDate(task.lastSyncedAt)}</span>
-                </div>
-            </div>
-            
-            <div class="task-actions">
-                <button class="btn btn-primary btn-sm sync-btn" onclick="syncTaskWithInfinity('${task.id}')">
-                    🔄 Sync to Infinity
-                </button>
-                <button class="btn btn-secondary btn-sm save-btn" onclick="saveTaskChanges('${task.id}')" style="display: none;">
-                    💾 Save Changes
-                </button>
-                <button class="btn btn-danger btn-sm" onclick="removeImportedTask('${task.id}')">
-                    🗑️ Remove
-                </button>
-            </div>
-        </div>
-    `;
-}
-
-// Attach event listeners for inline editing
-function attachTaskEventListeners(taskId) {
-    const taskCard = document.querySelector(`[data-task-id="${taskId}"]`);
-    if (!taskCard) return;
-    
-    const editableFields = taskCard.querySelectorAll('.task-name-edit, .task-description-edit, .task-status-edit, .task-progress-edit, .task-notes-edit');
-    
-    editableFields.forEach(field => {
-        field.addEventListener('input', () => handleTaskFieldChange(taskId, field));
-        field.addEventListener('change', () => handleTaskFieldChange(taskId, field));
-    });
-}
-// ✅ NEW - Refresh task from StartInfinity
-async function refreshTask(masterBoardId, companyBoardId) {
-    try {
-        showToast('🔄 Refreshing task from StartInfinity...', 'info');
-        
-        // Call your n8n import workflow again to get fresh data
-        const response = await fetch('/api/task-action', {
+        // Fetch latest data from Infinity
+        const getResponse = await fetch('/api/task-action', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 action: 'get_task_by_ids',
-                master_board_id: masterBoardId,
-                company_board_id: companyBoardId
+                master_board_id: task.masterBoardId,
+                company_board_id: task.companyBoardId
             })
         });
         
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        let latestTaskData = task; // Fallback to current data
+        let changesFromInfinity = [];
+        
+        if (getResponse.ok) {
+            const getResult = await getResponse.json();
+            if (getResult.success && getResult.task) {
+                latestTaskData = getResult.task;
+                
+                // Compare with local data to detect changes made in Infinity
+                if (latestTaskData.name !== task.name) {
+                    changesFromInfinity.push(`Name: "${task.name}" → "${latestTaskData.name}"`);
+                }
+                if (latestTaskData.progress !== task.progress) {
+                    changesFromInfinity.push(`Progress: ${task.progress}% → ${latestTaskData.progress}%`);
+                }
+                if (latestTaskData.status !== task.status) {
+                    changesFromInfinity.push(`Status: "${task.status}" → "${latestTaskData.status}"`);
+                }
+                if (latestTaskData.description !== task.description) {
+                    changesFromInfinity.push('Description updated');
+                }
+                
+                console.log('📊 Changes detected from Infinity:', changesFromInfinity);
+                
+                // Update local task with latest Infinity data
+                const updatedTask = {
+                    ...task, // Keep local metadata
+                    ...latestTaskData, // Override with fresh Infinity data
+                    lastSyncedAt: new Date().toISOString(),
+                    syncStatus: 'synced'
+                };
+                
+                // Save the updated data locally
+                await saveTaskToMyDashboard(updatedTask, task.masterBoardId, task.companyBoardId);
+                
+                // Update our working reference
+                const taskIndex = availableTasks.findIndex(t => t.id === taskId);
+                if (taskIndex >= 0) {
+                    availableTasks[taskIndex] = updatedTask;
+                }
+                
+                if (changesFromInfinity.length > 0) {
+                    const changesSummary = changesFromInfinity.length > 2 
+                        ? `${changesFromInfinity.slice(0, 2).join(', ')} +${changesFromInfinity.length - 2} more`
+                        : changesFromInfinity.join(', ');
+                    showToast(`📥 Pulled changes from Infinity: ${changesSummary}`, 'info');
+                } else {
+                    console.log('✅ No changes detected in Infinity');
+                }
+            } else {
+                console.warn('Could not fetch latest data from Infinity, using local data');
+                showToast('⚠️ Could not fetch latest from Infinity, syncing local data', 'warning');
+            }
+        } else {
+            console.warn('Failed to fetch from Infinity, proceeding with local data');
+            showToast('⚠️ Could not fetch latest from Infinity, syncing local data', 'warning');
         }
         
-        const result = await response.json();
+        // ✅ STEP 2: PUSH the (now current) data TO Infinity
+        syncBtn.innerHTML = '🔄 Syncing to Infinity...';
         
-        if (result.success && result.task) {
-            // Update the task in your dashboard with fresh data
-            await saveTaskToMyDashboard(result.task, masterBoardId, companyBoardId);
-            
-            // Refresh the display
-            await loadAssignedTasks();
-            
-            showToast(`✅ "${result.task.name}" refreshed with latest data!`, 'success');
+        console.log('🔄 Step 2: Pushing data TO StartInfinity...');
+        
+        const syncData = {
+            action: 'update_task',
+            master_board_id: latestTaskData.masterBoardId || task.masterBoardId,
+            company_board_id: latestTaskData.companyBoardId || task.companyBoardId,
+            company: latestTaskData.company || task.company || 'VEBLEN (Internal)',
+            task_name: latestTaskData.name || task.name,
+            description: latestTaskData.description || '',
+            progress: latestTaskData.progress || 0,
+            status: latestTaskData.status || 'Project',
+            notes: latestTaskData.notes || ''
+        };
+        
+        const syncResponse = await fetch('/api/task-action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(syncData)
+        });
+        
+        if (syncResponse.ok) {
+            const syncResult = await syncResponse.json();
+            if (syncResult.success) {
+                // Final update of sync status
+                const finalTask = {
+                    ...latestTaskData,
+                    syncStatus: 'synced',
+                    lastSyncedAt: new Date().toISOString(),
+                    lastUpdated: new Date().toISOString()
+                };
+                
+                await saveTaskToMyDashboard(finalTask, finalTask.masterBoardId, finalTask.companyBoardId);
+                
+                // Success message
+                if (changesFromInfinity.length > 0) {
+                    showToast(`✅ Bi-directional sync complete! Pulled ${changesFromInfinity.length} change(s) and synced to Infinity`, 'success');
+                } else {
+                    showToast(`✅ Sync complete! Task is up-to-date with Infinity`, 'success');
+                }
+                
+                // Refresh dashboard to show all updates
+                await loadAssignedTasks();
+                
+            } else {
+                throw new Error(syncResult.error || 'Sync to Infinity failed');
+            }
         } else {
-            throw new Error(result.error || 'Failed to refresh task');
+            throw new Error(`HTTP ${syncResponse.status}: Failed to sync to Infinity`);
         }
         
     } catch (error) {
-        console.error('❌ Task refresh failed:', error);
-        showToast(`❌ Refresh failed: ${error.message}`, 'error');
+        console.error('❌ Bi-directional sync error:', error);
+        
+        // Update error status
+        if (task) {
+            task.syncStatus = 'error';
+            await saveTaskToMyDashboard(task, task.masterBoardId, task.companyBoardId);
+        }
+        
+        let errorMessage = 'Sync failed';
+        if (error.message.includes('network') || error.message.includes('fetch')) {
+            errorMessage = 'Network error - check connection';
+        } else if (error.message.includes('404')) {
+            errorMessage = 'Task not found in Infinity';
+        } else {
+            errorMessage = `Sync failed: ${error.message}`;
+        }
+        
+        showToast(`❌ ${errorMessage}`, 'error');
+        await loadAssignedTasks();
+        
+    } finally {
+        // Restore button
+        if (syncBtn) {
+            syncBtn.innerHTML = originalText;
+            syncBtn.disabled = false;
+        }
+        
+        console.log('🔄 Bi-directional sync completed for:', taskId);
     }
 }
 // Handle field changes and show save button
