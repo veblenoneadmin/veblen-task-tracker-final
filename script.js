@@ -1892,6 +1892,7 @@ function attachTaskEventListeners(taskId) {
 }
 
 // ✅ COMPLETE renderMyImportedTasks function
+// ✅ ENHANCED - Task cards with image thumbnails
 function renderMyImportedTasks(tasks) {
     const tasksList = document.getElementById('assignedTasksList');
     
@@ -1931,6 +1932,10 @@ ${tasks.map(task => {
             task.description) 
         : 'No description available';
     
+    // ✅ NEW - Handle task image with fallback
+    const taskImage = task.imageUrl || task.image_url || task.Image_URL || null;
+    const hasImage = taskImage && taskImage.trim() !== '';
+    
     return `
         <div class="task-card" data-task-id="${task.id}" style="
             background: rgba(0, 0, 0, 0.3);
@@ -1939,7 +1944,48 @@ ${tasks.map(task => {
             border: 1px solid rgba(255, 255, 255, 0.1);
             transition: all 0.3s ease;
             margin-bottom: var(--spacing-lg);
+            ${hasImage ? 'min-height: 420px;' : ''}
         ">
+            <!-- ✅ NEW - Task Image Thumbnail (if exists) -->
+            ${hasImage ? `
+            <div style="
+                margin-bottom: 1rem;
+                text-align: center;
+                position: relative;
+                overflow: hidden;
+                border-radius: 8px;
+                background: rgba(0, 0, 0, 0.2);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+            ">
+                <img src="${taskImage}" 
+                     alt="Task Image" 
+                     loading="lazy"
+                     onclick="openImageModal('${taskImage}', '${task.name}')"
+                     style="
+                         width: 100%;
+                         height: 120px;
+                         object-fit: cover;
+                         cursor: pointer;
+                         transition: all 0.3s ease;
+                         border-radius: 6px;
+                     "
+                     onmouseover="this.style.transform='scale(1.05)'"
+                     onmouseout="this.style.transform='scale(1)'"
+                     onerror="this.parentElement.style.display='none'">
+                <div style="
+                    position: absolute;
+                    bottom: 4px;
+                    right: 4px;
+                    background: rgba(0, 0, 0, 0.7);
+                    color: white;
+                    padding: 2px 6px;
+                    border-radius: 4px;
+                    font-size: 0.7rem;
+                    pointer-events: none;
+                ">🔍 Click to expand</div>
+            </div>
+            ` : ''}
+            
             <!-- Task Header with Real Data -->
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; gap: 1rem;">
                 <h3 style="
@@ -1950,7 +1996,7 @@ ${tasks.map(task => {
                     flex: 1;
                     line-height: 1.4;
                 " title="${task.name}">
-                    ${task.name || 'Untitled Task'}
+                    ${hasImage ? '🖼️ ' : ''}${task.name || 'Untitled Task'}
                 </h3>
                 <span class="task-status ${statusClass}" style="
                     padding: 0.25rem 0.75rem;
@@ -2008,6 +2054,7 @@ ${tasks.map(task => {
                     <small>📅 Updated: ${formatDate(task.lastUpdated)}</small>
                     <small>${getSyncStatusIcon(task.syncStatus || 'synced')}</small>
                 </div>
+                ${hasImage ? `<div style="text-align: center; margin-top: 0.5rem;"><small>📷 Image attached</small></div>` : ''}
             </div>
             
             <!-- Action Buttons -->
@@ -2067,6 +2114,210 @@ ${tasks.map(task => {
     tasks.forEach(task => {
         attachTaskEventListeners(task.id);
     });
+}
+
+// ✅ NEW - Image modal for full-size viewing
+function openImageModal(imageUrl, taskName) {
+    // Create modal if it doesn't exist
+    let modal = document.getElementById('imageModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'imageModal';
+        modal.className = 'modal';
+        modal.style.display = 'none';
+        modal.innerHTML = `
+            <div class="modal-content" style="
+                background: var(--surface);
+                margin: 2% auto;
+                padding: 0;
+                border-radius: var(--radius-xl);
+                width: 90%;
+                max-width: 800px;
+                box-shadow: var(--shadow-xl);
+                border: 2px solid var(--border);
+                position: relative;
+            ">
+                <div class="modal-header" style="
+                    padding: var(--spacing-lg);
+                    border-bottom: 1px solid var(--border);
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    background: var(--dark-gradient);
+                    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+                ">
+                    <h3 id="imageModalTitle" style="margin: 0; color: var(--text-primary);">Task Image</h3>
+                    <span class="close" onclick="closeImageModal()" style="
+                        color: var(--text-secondary);
+                        font-size: 2rem;
+                        font-weight: 300;
+                        cursor: pointer;
+                        transition: all 0.3s ease;
+                        padding: 0;
+                        background: none;
+                        border: none;
+                        width: 40px;
+                        height: 40px;
+                        border-radius: 50%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    ">&times;</span>
+                </div>
+                <div class="modal-body" style="
+                    padding: var(--spacing-lg);
+                    text-align: center;
+                    background: var(--surface);
+                ">
+                    <img id="imageModalImg" 
+                         style="
+                             max-width: 100%;
+                             max-height: 70vh;
+                             border-radius: var(--radius-md);
+                             box-shadow: var(--shadow-lg);
+                             border: 1px solid var(--border);
+                         "
+                         alt="Task Image">
+                    <div style="
+                        margin-top: var(--spacing-md);
+                        color: var(--text-secondary);
+                        font-size: 0.875rem;
+                    ">
+                        Click image to open in new tab • Press ESC to close
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        // Add click outside to close
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeImageModal();
+            }
+        });
+        
+        // Add ESC key to close
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && modal.style.display === 'block') {
+                closeImageModal();
+            }
+        });
+    }
+    
+    // Update modal content
+    document.getElementById('imageModalTitle').textContent = `📷 ${taskName || 'Task Image'}`;
+    const img = document.getElementById('imageModalImg');
+    img.src = imageUrl;
+    img.onclick = () => window.open(imageUrl, '_blank');
+    
+    // Show modal
+    modal.style.display = 'block';
+    modal.style.animation = 'fadeIn 0.3s ease';
+}
+
+function closeImageModal() {
+    const modal = document.getElementById('imageModal');
+    if (modal) {
+        modal.style.animation = 'fadeOut 0.3s ease';
+        setTimeout(() => {
+            modal.style.display = 'none';
+        }, 300);
+    }
+}
+
+// ✅ UPDATE - Enhanced saveTaskToMyDashboard to preserve image URLs
+async function saveTaskToMyDashboard(task, masterBoardId, companyBoardId) {
+    if (!currentEmployee) return;
+    
+    // Get user's personal task list
+    const tasksKey = `myTasks_${currentEmployee}`;
+    let myTasks = [];
+    
+    try {
+        const saved = localStorage.getItem(tasksKey);
+        if (saved) {
+            myTasks = JSON.parse(saved);
+        }
+    } catch (error) {
+        console.error('Error loading existing tasks:', error);
+        myTasks = [];
+    }
+    
+    // ✅ Enhanced task with image URL preservation
+    const taskForDashboard = {
+        // Core identifiers
+        id: `${masterBoardId}_${companyBoardId}`,
+        masterBoardId: masterBoardId,
+        companyBoardId: companyBoardId,
+        
+        // Task data with image URL support
+        name: task.name || 'Imported Task',
+        description: task.description || '',
+        notes: task.notes || '',
+        progress: task.progress || 0,
+        status: task.status || 'Current Project',
+        company: task.company || 'Unknown Company',
+        company_display_name: task.company_display_name || task.company,
+        
+        // ✅ NEW - Image URL preservation (multiple possible field names)
+        imageUrl: task.imageUrl || task.image_url || task.Image_URL || task.attachment_url || null,
+        
+        // Date information
+        dueDate: task.dueDate || 'Not set',
+        dueDateRaw: task.dueDateRaw,
+        createdDate: task.createdDate || new Date().toLocaleDateString(),
+        updatedDate: task.updatedDate || new Date().toLocaleDateString(),
+        
+        // Import metadata
+        importedBy: currentEmployee,
+        importedAt: new Date().toISOString(),
+        lastUpdated: new Date().toISOString(),
+        lastSyncedAt: task.lastSyncedAt || new Date().toISOString(),
+        syncStatus: task.syncStatus || 'synced',
+        
+        // UI flags
+        isHighPriority: task.isHighPriority || false,
+        isCurrentProject: task.isCurrentProject || false,
+        isComplete: task.isComplete || false,
+        isEditable: true,
+        
+        // Links and additional data
+        links: task.links || '',
+        assignedTo: task.assignedTo || [],
+        
+        // Debug info
+        debug: {
+            importSource: 'n8n_workflow',
+            extractedFromInfinity: true,
+            originalTaskData: task.debug || null,
+            hasImage: !!(task.imageUrl || task.image_url || task.Image_URL)
+        }
+    };
+    
+    // Check if task already exists (update) or add new
+    const existingIndex = myTasks.findIndex(t => t.id === taskForDashboard.id);
+    
+    if (existingIndex >= 0) {
+        // Update existing task with new data
+        myTasks[existingIndex] = {
+            ...myTasks[existingIndex], // Keep existing metadata
+            ...taskForDashboard,       // Override with fresh data
+            importedAt: myTasks[existingIndex].importedAt, // Keep original import time
+            lastUpdated: new Date().toISOString() // Update the last updated time
+        };
+        console.log('🔄 Updated existing task:', taskForDashboard.name);
+    } else {
+        // Add new task
+        myTasks.push(taskForDashboard);
+        console.log('➕ Added new task:', taskForDashboard.name);
+    }
+    
+    // Save to localStorage
+    localStorage.setItem(tasksKey, JSON.stringify(myTasks));
+    availableTasks = myTasks;
+    
+    console.log('💾 Task saved to dashboard:', taskForDashboard.id, 'Has image:', !!taskForDashboard.imageUrl);
 }
     
 // ✅ FIXED - Sync function with proper variable scope
