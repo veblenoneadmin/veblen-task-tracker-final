@@ -2140,22 +2140,10 @@ async function handleTaskIntake(e) {
     try {
         showToast('📝 Creating new task...', 'info');
         
-        // Build task data
-        const taskData = {
-            action: 'task_intake',
-            'Task Name': formData.get('taskName'),
-            'Description': formData.get('taskDescription'),
-            'Company': formData.get('taskCompany'),
-            'Is this project a priority?': formData.get('taskPriority') === 'yes' ? 'Yes' : 'No',
-            'Assigned': formData.getAll('taskAssigned'),
-            'Due Date': formData.get('taskDueDate'),
-            'Links': formData.get('taskLinks'),
-            'Employee Name': currentEmployee,
-            'Timestamp': new Date().toISOString()
-        };
-        
-        // Handle image upload if present
+        // Handle image upload first
         const imageFile = formData.get('taskImage');
+        let imageUrl = '';
+        
         if (imageFile && imageFile.size > 0) {
             console.log('📸 Uploading image to ImgBB...');
             
@@ -2169,37 +2157,64 @@ async function handleTaskIntake(e) {
             
             if (imgbbResponse.ok) {
                 const imgbbData = await imgbbResponse.json();
-                taskData.Image_URL = imgbbData.data.url;
-                console.log('✅ Image uploaded successfully');
+                imageUrl = imgbbData.data.url;
+                console.log('✅ Image uploaded successfully:', imageUrl);
             } else {
                 console.warn('⚠️ Image upload failed, proceeding without image');
             }
         }
         
-        // Send to n8n webhook
-        const response = await fetch(CONFIG.n8nWebhookUrl, {
+        // Get assigned users (multiple select)
+        const assignedElements = form.querySelectorAll('#taskAssigned option:checked');
+        const assignedArray = Array.from(assignedElements).map(option => option.value);
+        
+        // Build task data with CORRECT field names matching your HTML
+        const taskData = {
+            action: 'task_intake',
+            'Project Title': formData.get('taskTitle') || '',           // ✅ Fixed
+            'Description': formData.get('taskDescription') || '',       // ✅ Fixed
+            'Company': formData.get('taskCompany') || '',               // ✅ Fixed
+            'Is this project a priority?': formData.get('taskPriority') || 'No', // ✅ Fixed
+            'Due Date': formData.get('taskDueDate') || '',              // ✅ Fixed
+            'Links': formData.get('taskLinks') || '',                   // ✅ Fixed
+            'Name': currentEmployee,
+            'Assigned': assignedArray,                                  // ✅ Fixed
+            'Image_URL': imageUrl,
+            'Employee Name': currentEmployee,
+            'Timestamp': new Date().toISOString()
+        };
+        
+        console.log('📤 Sending task data:', taskData);
+        
+        const response = await fetch(CONFIG.taskIntakeUrl, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(taskData)
         });
         
+        console.log('📡 Response status:', response.status);
+        
         if (response.ok) {
             const result = await response.json();
+            console.log('✅ Task created successfully:', result);
             showToast('✅ Task created successfully!', 'success');
             form.reset();
-            console.log('Task created:', result);
+            
+            // Clear image preview
+            const imagePreview = document.getElementById('taskImagePreview');
+            if (imagePreview) imagePreview.innerHTML = '';
+            
         } else {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            const errorData = await response.json().catch(() => ({}));
+            console.error('❌ Server error:', errorData);
+            throw new Error(`HTTP ${response.status}: ${errorData.error || response.statusText}`);
         }
         
     } catch (error) {
         console.error('❌ Task intake error:', error);
-        showToast('Failed to create task. Please try again.', 'error');
+        showToast(`Failed to create task: ${error.message}`, 'error');
     }
 }
-
 async function handleDailyReport(e) {
     e.preventDefault();
     
@@ -2214,22 +2229,7 @@ async function handleDailyReport(e) {
     try {
         showToast('📊 Submitting daily report...', 'info');
         
-        // Build report data
-        const reportData = {
-            action: 'daily_report',
-            'Employee Name': currentEmployee,
-            'Company': formData.get('reportCompany'),
-            'Project Name': formData.get('reportProject'),
-            'Revisions': formData.get('reportRevisions'),
-            'Total Time Spent': formData.get('reportTotalTime'),
-            'Today Time Spent': formData.get('reportTodayTime'),
-            'Notes': formData.get('reportNotes'),
-            'Links': formData.get('reportLinks'),
-            'Date': new Date().toISOString().split('T')[0], // YYYY-MM-DD format
-            'Timestamp': new Date().toISOString()
-        };
-        
-        // Handle photo upload (required for daily reports)
+        // Handle photo upload (required)
         const photoFile = formData.get('reportPhoto');
         if (!photoFile || photoFile.size === 0) {
             showToast('Please select a photo for your daily report', 'warning');
@@ -2246,35 +2246,58 @@ async function handleDailyReport(e) {
             body: imgbbFormData
         });
         
-        if (imgbbResponse.ok) {
-            const imgbbData = await imgbbResponse.json();
-            reportData.Photo_URL = imgbbData.data.url;
-            console.log('✅ Photo uploaded successfully');
-        } else {
+        if (!imgbbResponse.ok) {
             throw new Error('Failed to upload photo');
         }
         
-        // Send to n8n webhook
-        const response = await fetch(CONFIG.n8nWebhookUrl, {
+        const imgbbData = await imgbbResponse.json();
+        console.log('✅ Photo uploaded successfully');
+        
+        // Build report data with EXACT field names from n8n workflow
+        const reportData = {
+            action: 'daily_report',
+            'Name': currentEmployee,
+            'Company': formData.get('reportCompany'),
+            'Project Name': formData.get('projectName'),
+            'Number of Revisions': formData.get('numRevisions'),
+            'Total Time Spent on Project': formData.get('totalTimeSpent'),
+            'Notes': formData.get('reportNotes'),
+            'Links': formData.get('reportLinks') || '',
+            'Date': formData.get('reportDate'),
+            'Photo for report': imgbbData.data.url,
+            'Feedback or Requests': formData.get('feedbackRequests') || '',
+            'Timestamp': new Date().toISOString()
+        };
+        
+        console.log('📤 Sending report data:', reportData);
+        
+        const response = await fetch(CONFIG.reportLoggerUrl, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(reportData)
         });
         
+        console.log('📡 Report response status:', response.status);
+        
         if (response.ok) {
             const result = await response.json();
+            console.log('✅ Daily report submitted successfully:', result);
             showToast('✅ Daily report submitted successfully!', 'success');
             form.reset();
-            console.log('Daily report submitted:', result);
+            
+            // Clear photo preview
+            const photoPreview = document.getElementById('reportPhotoPreview');
+            if (photoPreview) photoPreview.innerHTML = '';
+            
         } else {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            const errorData = await response.json().catch(() => ({}));
+            console.error('❌ Report submission error:', errorData);
+            throw new Error(`HTTP ${response.status}: ${errorData.error || response.statusText}`);
         }
         
     } catch (error) {
         console.error('❌ Daily report error:', error);
-        showToast('Failed to submit daily report. Please try again.', 'error');
+        showToast(`Failed to submit daily report: ${error.message}`, 'error');
     }
 }
 
