@@ -1,11 +1,14 @@
 // Configuration - SIMPLIFIED VERSION
+// ============= UPDATED CONFIG OBJECT =============
+// Replace your existing CONFIG object with this updated version
+
 const CONFIG = {
-    taskIntakeUrl: 'https://primary-s0q-production.up.railway.app/webhook/taskintakewebhook',
-    taskUpdateUrl: 'https://primary-s0q-production.up.railway.app/webhook/task-update',
-    timeLoggerUrl: 'https://primary-s0q-production.up.railway.app/webhook/timelogging',
-    reportLoggerUrl: 'https://primary-s0q-production.up.railway.app/webhook/reportlogging',
-    taskRetrievalUrl: 'https://primary-s0q-production.up.railway.app/webhook/get-tasks',
-    imgbbApiKey: '679bd601ac49c50cae877fb240620cfe'
+    n8nWebhookUrl: '/api/task-action',
+    imgbbApiKey: '679bd601ac49c50cae877fb240620cfe',
+    // Updated URLs to match your server endpoints
+    taskIntakeUrl: '/api/task-intake',
+    reportLoggerUrl: '/api/report-logger', 
+    timeLoggerUrl: '/api/time-logger'
 };
 
 // WORKFLOW STATES - SIMPLIFIED
@@ -2126,7 +2129,9 @@ async function removeImportedTask(taskId) {
 }
 
 // Stub implementations for form handlers
-// Daily Report Handler - ADD THIS TO YOUR SCRIPT.JS
+
+// ============= UPDATED DAILY REPORT FUNCTION =============
+// Replace your existing handleDailyReport function with this
 async function handleDailyReport(e) {
     e.preventDefault();
     
@@ -2167,13 +2172,12 @@ async function handleDailyReport(e) {
         
         // Build report data with EXACT field names from n8n workflow
         const reportData = {
-            action: 'daily_report',
             'Name': currentEmployee,
             'Company': formData.get('reportCompany'),
             'Project Name': formData.get('projectName'),
-            'Number of Revisions': formData.get('numRevisions'),
-            'Total Time Spent on Project': formData.get('totalTimeSpent'),
-            'Notes': formData.get('reportNotes'),
+            'Number of Revisions': formData.get('numRevisions') || '0',
+            'Total Time Spent on Project': formData.get('totalTimeSpent') || '0 hours',
+            'Notes': formData.get('reportNotes') || '',
             'Links': formData.get('reportLinks') || '',
             'Date': formData.get('reportDate'),
             'Photo for report': imgbbData.data.url,
@@ -2183,7 +2187,8 @@ async function handleDailyReport(e) {
         
         console.log('📤 Sending report data:', reportData);
         
-        const response = await fetch(CONFIG.reportLoggerUrl, {
+        // Use the correct API endpoint
+        const response = await fetch('/api/report-logger', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(reportData)
@@ -2200,6 +2205,9 @@ async function handleDailyReport(e) {
             // Clear photo preview
             const photoPreview = document.getElementById('reportPhotoPreview');
             if (photoPreview) photoPreview.innerHTML = '';
+            
+            // Reset date to today
+            document.getElementById('reportDate').valueAsDate = new Date();
             
         } else {
             const errorData = await response.json().catch(() => ({}));
@@ -2213,7 +2221,11 @@ async function handleDailyReport(e) {
     }
 }
 
-async function handleDailyReport(e) {
+// ============= TASK INTAKE LOGGER FUNCTIONS =============
+// ADD THESE NEW FUNCTIONS TO YOUR SCRIPT.JS (don't replace anything)
+
+// Handle task intake form submission
+async function handleTaskIntake(e) {
     e.preventDefault();
     
     if (!currentEmployee) {
@@ -2225,19 +2237,19 @@ async function handleDailyReport(e) {
     const formData = new FormData(form);
     
     try {
-        showToast('📊 Submitting daily report...', 'info');
+        showToast('📝 Creating task...', 'info');
         
-        // Handle photo upload (required)
-        const photoFile = formData.get('reportPhoto');
-        if (!photoFile || photoFile.size === 0) {
-            showToast('Please select a photo for your daily report', 'warning');
+        // Handle image upload (required)
+        const imageFile = formData.get('taskImage');
+        if (!imageFile || imageFile.size === 0) {
+            showToast('Please select an image for your task', 'warning');
             return;
         }
         
-        console.log('📸 Uploading photo to ImgBB...');
+        console.log('📸 Uploading task image to ImgBB...');
         
         const imgbbFormData = new FormData();
-        imgbbFormData.append('image', photoFile);
+        imgbbFormData.append('image', imageFile);
         
         const imgbbResponse = await fetch(`https://api.imgbb.com/1/upload?key=${CONFIG.imgbbApiKey}`, {
             method: 'POST',
@@ -2245,58 +2257,117 @@ async function handleDailyReport(e) {
         });
         
         if (!imgbbResponse.ok) {
-            throw new Error('Failed to upload photo');
+            throw new Error('Failed to upload task image');
         }
         
         const imgbbData = await imgbbResponse.json();
-        console.log('✅ Photo uploaded successfully');
+        console.log('✅ Task image uploaded successfully');
         
-        // Build report data with EXACT field names from n8n workflow
-        const reportData = {
-            action: 'daily_report',
-            'Name': currentEmployee,
-            'Company': formData.get('reportCompany'),
-            'Project Name': formData.get('projectName'),
-            'Number of Revisions': formData.get('numRevisions'),
-            'Total Time Spent on Project': formData.get('totalTimeSpent'),
-            'Notes': formData.get('reportNotes'),
-            'Links': formData.get('reportLinks') || '',
-            'Date': formData.get('reportDate'),
-            'Photo for report': imgbbData.data.url,
-            'Feedback or Requests': formData.get('feedbackRequests') || '',
+        // Build task data with exact field names from n8n workflow
+        const taskData = {
+            'TaskType': formData.get('taskType'),
+            'TaskName': formData.get('taskName'),
+            'TaskImage': imgbbData.data.url,
+            'Company': formData.get('company'),
+            'Assigned': formData.get('assigned'),
+            'TaskDescription': formData.get('taskDescription') || '',
+            'Links': formData.get('taskLinks') || '',
             'Timestamp': new Date().toISOString()
         };
         
-        console.log('📤 Sending report data:', reportData);
+        console.log('📤 Sending task data:', taskData);
         
-        const response = await fetch(CONFIG.reportLoggerUrl, {
+        // Use the correct API endpoint
+        const response = await fetch('/api/task-intake', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(reportData)
+            body: JSON.stringify(taskData)
         });
         
-        console.log('📡 Report response status:', response.status);
+        console.log('📡 Task response status:', response.status);
         
         if (response.ok) {
             const result = await response.json();
-            console.log('✅ Daily report submitted successfully:', result);
-            showToast('✅ Daily report submitted successfully!', 'success');
+            console.log('✅ Task created successfully:', result);
+            showToast('✅ Task created successfully!', 'success');
             form.reset();
             
-            // Clear photo preview
-            const photoPreview = document.getElementById('reportPhotoPreview');
-            if (photoPreview) photoPreview.innerHTML = '';
+            // Clear image preview
+            const imagePreview = document.getElementById('taskImagePreview');
+            if (imagePreview) imagePreview.innerHTML = '';
             
         } else {
             const errorData = await response.json().catch(() => ({}));
-            console.error('❌ Report submission error:', errorData);
+            console.error('❌ Task creation error:', errorData);
             throw new Error(`HTTP ${response.status}: ${errorData.error || response.statusText}`);
         }
         
     } catch (error) {
-        console.error('❌ Daily report error:', error);
-        showToast(`Failed to submit daily report: ${error.message}`, 'error');
+        console.error('❌ Task intake error:', error);
+        showToast(`Failed to create task: ${error.message}`, 'error');
     }
+}
+
+// Enhanced task image preview (replaces your existing handleTaskImagePreview if you have one)
+function handleTaskImagePreview(e) {
+    const file = e.target.files[0];
+    const previewContainer = document.getElementById('taskImagePreview');
+    
+    // Clear previous preview
+    previewContainer.innerHTML = '';
+    
+    if (!file) {
+        console.log('📸 No file selected for task image');
+        return;
+    }
+    
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp'];
+    if (!allowedTypes.includes(file.type.toLowerCase())) {
+        showToast('❌ Please select a valid image file (JPEG, PNG, GIF, BMP, WebP)', 'error');
+        e.target.value = ''; // Clear the input
+        return;
+    }
+    
+    // Validate file size (32MB limit for ImgBB)
+    const maxSize = 32 * 1024 * 1024; // 32MB in bytes
+    if (file.size > maxSize) {
+        showToast('❌ Image too large. Please select an image under 32MB', 'error');
+        e.target.value = ''; // Clear the input
+        return;
+    }
+    
+    // Create file reader
+    const reader = new FileReader();
+    
+    reader.onload = function(event) {
+        console.log('📸 Task image preview loaded:', file.name, `(${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+        
+        // Create enhanced preview HTML
+        const previewHTML = `
+            <div style="margin-top: var(--spacing-md); padding: var(--spacing-md); background: rgba(102, 126, 234, 0.1); border-radius: var(--radius-md); border: 1px solid rgba(102, 126, 234, 0.3);">
+                <div style="display: flex; align-items: center; gap: var(--spacing-md); margin-bottom: var(--spacing-sm);">
+                    <span style="color: var(--text-primary); font-weight: 600;">📸 Task Image Preview:</span>
+                    <span style="color: var(--text-secondary); font-size: 0.875rem;">${file.name}</span>
+                    <span style="color: var(--primary-color); font-size: 0.75rem; background: rgba(102, 126, 234, 0.2); padding: 2px 8px; border-radius: 12px;">${(file.size / 1024 / 1024).toFixed(2)}MB</span>
+                </div>
+                <img src="${event.target.result}" alt="Task preview" style="max-width: 100%; max-height: 200px; border-radius: var(--radius-md); box-shadow: var(--shadow-md); border: 2px solid rgba(102, 126, 234, 0.3);">
+                <div style="margin-top: var(--spacing-sm); color: var(--text-success); font-size: 0.875rem; font-weight: 500;">
+                    ✅ Image ready for upload
+                </div>
+            </div>
+        `;
+        
+        previewContainer.innerHTML = previewHTML;
+    };
+    
+    reader.onerror = function() {
+        console.error('❌ Error reading task image file');
+        showToast('❌ Error reading image file', 'error');
+        e.target.value = ''; // Clear the input
+    };
+    
+    reader.readAsDataURL(file);
 }
 
 function handleTaskImagePreview(e) {
