@@ -251,11 +251,12 @@ function updateBrisbaneClock() {
     
     updateLocalTime(now);
     
+    // ✅ FIXED: Use 12-hour format for Brisbane time
     const brisbaneTimeStr = brisbaneNow.toLocaleTimeString('en-AU', {
         hour: '2-digit',
         minute: '2-digit', 
         second: '2-digit',
-        hour12: false
+        hour12: true  // ✅ Changed to 12-hour format
     });
     
     const brisbaneDateStr = brisbaneNow.toLocaleDateString('en-AU', {
@@ -317,34 +318,36 @@ function getTimezoneShort(date) {
 }
 
 function updateShiftResetCountdown(brisbaneNow, localNow) {
-    const next9AM = new Date(brisbaneNow);
-    next9AM.setHours(9, 0, 0, 0);
+    const next7AM = new Date(brisbaneNow);
+    next7AM.setHours(7, 0, 0, 0);  // ✅ Changed from 9 AM to 7 AM
     
-    if (brisbaneNow >= next9AM) {
-        next9AM.setDate(next9AM.getDate() + 1);
+    if (brisbaneNow >= next7AM) {
+        next7AM.setDate(next7AM.getDate() + 1);
     }
     
-    shiftResetTime = next9AM;
+    shiftResetTime = next7AM;
     
-    const timeDiff = next9AM.getTime() - brisbaneNow.getTime();
+    const timeDiff = next7AM.getTime() - brisbaneNow.getTime();
     const hours = Math.floor(timeDiff / (1000 * 60 * 60));
     const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
     const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
     
     const countdownStr = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-    const resetTimeStr = next9AM.toLocaleDateString('en-AU', {
+    
+    // ✅ FIXED: Updated reset time text to reflect 7 AM
+    const resetTimeStr = next7AM.toLocaleDateString('en-AU', {
         weekday: 'short',
         month: 'short',
         day: 'numeric'
-    }) + ' at 9:00 AM';
+    }) + ' at 7:00 AM';
     
-    const localResetTime = new Date(next9AM.getTime());
-    const localResetTimeStr = localResetTime.toLocaleTimeString('en-US', {
+    // ✅ FIXED: Calculate the user's LOCAL equivalent of Brisbane 7 AM
+    const localWorkStartTime = new Intl.DateTimeFormat('en-US', {
         hour: '2-digit',
         minute: '2-digit',
         hour12: true,
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-    });
+    }).format(next7AM); // This formats Brisbane 7 AM in user's local time
     
     const countdownEl = document.getElementById('resetCountdown');
     const resetTimeEl = document.getElementById('nextResetTime');
@@ -352,19 +355,23 @@ function updateShiftResetCountdown(brisbaneNow, localNow) {
     
     if (countdownEl) countdownEl.textContent = countdownStr;
     if (resetTimeEl) resetTimeEl.textContent = resetTimeStr;
-    if (workStartEl) workStartEl.textContent = `🔴 Work starts at ${localResetTimeStr} your time`;
+    
+    // ✅ FIXED: Dynamic work start time based on user's timezone
+    if (workStartEl) {
+        workStartEl.textContent = `🔴 Work starts at ${localWorkStartTime} your time`;
+    }
     
     checkForShiftReset(brisbaneNow);
 }
 
 function checkForShiftReset(brisbaneNow) {
-    const today9AM = new Date(brisbaneNow);
-    today9AM.setHours(9, 0, 0, 0);
+    const today7AM = new Date(brisbaneNow);
+    today7AM.setHours(7, 0, 0, 0);  // ✅ Changed from 9 AM to 7 AM
     
     const lastResetCheck = localStorage.getItem('lastShiftResetCheck');
     const lastResetDate = lastResetCheck ? new Date(lastResetCheck) : new Date(0);
     
-    if (brisbaneNow >= today9AM && lastResetDate < today9AM) {
+    if (brisbaneNow >= today7AM && lastResetDate < today7AM) {
         performShiftReset();
         localStorage.setItem('lastShiftResetCheck', brisbaneNow.toISOString());
     }
