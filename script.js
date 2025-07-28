@@ -1,36 +1,14 @@
-// ============= COMPLETE VEBLEN TASK TRACKER SCRIPT.JS =============
-// Version: 2.1 - Final Clean Version with All Fixes
-// Part 1 of 2
-
-// ============= GLOBAL CONFIGURATION =============
+// Configuration - SIMPLIFIED VERSION
 const CONFIG = {
-    n8nWebhookUrl: '/api/task-action',
-    taskUpdateUrl: '/api/task-update', 
-    timeLoggerUrl: '/api/task-action',
+    taskIntakeUrl: 'https://primary-s0q-production.up.railway.app/webhook/taskintakewebhook',
+    taskUpdateUrl: 'https://primary-s0q-production.up.railway.app/webhook/task-update',
+    timeLoggerUrl: 'https://primary-s0q-production.up.railway.app/webhook/timelogging',
+    reportLoggerUrl: 'https://primary-s0q-production.up.railway.app/webhook/reportlogging',
+    taskRetrievalUrl: 'https://primary-s0q-production.up.railway.app/webhook/get-tasks',
     imgbbApiKey: '679bd601ac49c50cae877fb240620cfe'
 };
 
-const PROGRESS_ATTRIBUTES = {
-    "CROWN REALITY": "eb943dd8-dd91-4620-a875-59bdeee59a1f",
-    "LCMB GROUP": "4cff12df-fc0d-40aa-aade-e52161b37621", 
-    "NEWTECH TRAILERS": "f78f7f1b-ec1f-4f1b-972b-6931f6925373",
-    "VEBLEN (Internal)": "05ba9bd9-6829-4049-8366-a1ec8d9281d4",
-    "FLECK GROUP": "2f9594ea-c62d-4a15-b668-0cdf2f9162cd"
-};
-
-// ============= GLOBAL STATE VARIABLES =============
-let currentEmployee = null;
-let activeTask = null;
-let timerInterval = null;
-let elapsedSeconds = 0;
-let workSessions = [];
-let activeTaskProgress = 0;
-let availableTasks = [];
-let dailyShiftData = null;
-let shiftStartTime = null;
-window.loadedTasks = [];
-
-// Workflow state management
+// WORKFLOW STATES - SIMPLIFIED
 const WORKFLOW_STATES = {
     NOT_STARTED: 'not_started',
     WORKING: 'working', 
@@ -38,115 +16,503 @@ const WORKFLOW_STATES = {
     FINISHED: 'finished'
 };
 
+// Progress attribute IDs for each company
+const PROGRESS_ATTRIBUTES = {
+    "CROWN REALITY": "eb943dd8-dd91-4620-a875-59bdeee59a1f",
+    "LCMB GROUP": "4cff12df-fc0d-40aa-aade-e52161b37621",
+    "NEWTECH TRAILERS": "f78f7f1b-ec1f-4f1b-972b-6931f6925373",
+    "VEBLEN (Internal)": "05ba9bd9-6829-4049-8366-a1ec8d9281d4",
+    "FLECK GROUP": "2f9594ea-c62d-4a15-b668-0cdf2f9162cd"
+};
+
+// State Management - SIMPLIFIED
+let currentEmployee = null;
+let workClockInterval = null;
+let breakClockInterval = null;
+let currentWorkSession = null;
+let currentBreakSession = null;
+let dailyShiftData = null;
+let brisbaneClockInterval = null;
 let currentWorkflowState = WORKFLOW_STATES.NOT_STARTED;
+let shiftResetTime = null;
+let availableTasks = [];
 
-// Testing bypass configuration
-const BYPASS_PASSWORD = 'veblen2024';
+// TESTING BYPASS FUNCTIONALITY - ADMIN ONLY
+const BYPASS_PASSWORD = 'veblenone123';
 
-// ============= INITIALIZATION =============
+// Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 VEBLEN Task Tracker initializing...');
+    initializeApp();
     
-    // Initialize employee selector
-    const employeeSelect = document.getElementById('employeeSelect');
-    if (employeeSelect) {
-        employeeSelect.addEventListener('change', handleEmployeeChange);
-        
-        // Load saved employee
-        const savedEmployee = localStorage.getItem('selectedEmployee');
-        if (savedEmployee) {
-            employeeSelect.value = savedEmployee;
-            currentEmployee = savedEmployee;
-            loadEmployeeData();
-        }
+    // Add password input handler
+    const passwordInput = document.getElementById('passwordInput');
+    if (passwordInput) {
+        passwordInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                validatePassword();
+            }
+        });
     }
-    
-    // Initialize forms
-    const taskForm = document.getElementById('taskForm');
-    if (taskForm) {
-        taskForm.addEventListener('submit', handleTaskSubmit);
-    }
-    
-    const reportForm = document.getElementById('reportForm');
-    if (reportForm) {
-        reportForm.addEventListener('submit', handleDailyReport);
-    }
-    
-    // Initialize image previews
-    const taskImageInput = document.getElementById('taskImage');
-    if (taskImageInput) {
-        taskImageInput.addEventListener('change', handleTaskImagePreview);
-    }
-    
-    const reportPhotoInput = document.getElementById('reportPhoto');
-    if (reportPhotoInput) {
-        reportPhotoInput.addEventListener('change', handleReportPhotoPreview);
-    }
-    
-    // Initialize workflow
-    initializeWorkflowState();
-    startShiftTimeUpdater();
-    
-    console.log('✅ VEBLEN Task Tracker initialized successfully!');
 });
 
-// ============= WORKFLOW MANAGEMENT =============
-function initializeWorkflowState() {
-    const saved = localStorage.getItem('workflowState');
-    if (saved) {
-        try {
-            const data = JSON.parse(saved);
-            currentWorkflowState = data.state || WORKFLOW_STATES.NOT_STARTED;
-            shiftStartTime = data.shiftStartTime ? new Date(data.shiftStartTime) : null;
-            dailyShiftData = data.dailyShiftData || null;
-        } catch (e) {
-            console.warn('Could not load workflow state:', e);
-            currentWorkflowState = WORKFLOW_STATES.NOT_STARTED;
-        }
+function initializeApp() {
+    console.log('🚀 Initializing VEBLEN Task Tracker...');
+    
+    // Initialize Brisbane clock first
+    initializeBrisbaneClock();
+    
+    // Load saved employee
+    const savedEmployee = localStorage.getItem('selectedEmployee');
+    if (savedEmployee) {
+        document.getElementById('employeeSelect').value = savedEmployee;
+        currentEmployee = savedEmployee;
+        console.log('🔄 Loaded saved employee:', currentEmployee);
+        loadEmployeeData();
     }
+
+    // Set up event listeners
+    document.getElementById('employeeSelect').addEventListener('change', handleEmployeeChange);
+    document.getElementById('taskIntakeForm').addEventListener('submit', handleTaskIntake);
+    document.getElementById('refreshTasksBtn').addEventListener('click', loadAssignedTasks);
+    document.getElementById('dailyReportForm').addEventListener('submit', handleDailyReport);
+    
+    // SIMPLIFIED TIME CLOCK BUTTONS - PURE TIMER
+    document.getElementById('startWorkBtn').addEventListener('click', handleStartWork);
+    document.getElementById('breakBtn').addEventListener('click', handleBreak);
+    document.getElementById('backToWorkBtn').addEventListener('click', handleResumeWork);
+    document.getElementById('endWorkBtn').addEventListener('click', handleEndWork);
+
+    // Image upload previews
+    document.getElementById('taskImage').addEventListener('change', handleTaskImagePreview);
+    document.getElementById('reportPhoto').addEventListener('change', handleReportPhotoPreview);
+
+    // Set default date to today for report
+    document.getElementById('reportDate').valueAsDate = new Date();
+    
+    // Initialize workflow state
+    console.log('🔄 Initializing workflow state...');
+    currentWorkflowState = WORKFLOW_STATES.NOT_STARTED;
+    initializeWorkflowState();
+    
+    // Debug: Log button state after 1 second
+    setTimeout(() => {
+        const startBtn = document.getElementById('startWorkBtn');
+        console.log('🔄 START button after init:', {
+            exists: !!startBtn,
+            disabled: startBtn ? startBtn.disabled : 'N/A',
+            workflowState: currentWorkflowState,
+            employee: currentEmployee
+        });
+    }, 1000);
+}
+
+// ============= TESTING BYPASS FUNCTIONS =============
+
+function openPasswordModal() {
+    const modal = document.getElementById('passwordModal');
+    const input = document.getElementById('passwordInput');
+    const error = document.getElementById('passwordError');
+    const success = document.getElementById('passwordSuccess');
+    
+    // Reset modal state
+    input.value = '';
+    error.style.display = 'none';
+    success.style.display = 'none';
+    
+    modal.style.display = 'block';
+    
+    // Focus on input after modal is shown
+    setTimeout(() => input.focus(), 100);
+}
+
+function closePasswordModal() {
+    const modal = document.getElementById('passwordModal');
+    modal.style.display = 'none';
+}
+
+function validatePassword() {
+    const input = document.getElementById('passwordInput');
+    const error = document.getElementById('passwordError');
+    const success = document.getElementById('passwordSuccess');
+    const confirmBtn = document.querySelector('.password-btn-confirm');
+    
+    const enteredPassword = input.value.trim();
+    
+    if (enteredPassword === BYPASS_PASSWORD) {
+        // Show success message
+        error.style.display = 'none';
+        success.style.display = 'block';
+        confirmBtn.disabled = true;
+        
+        // Perform testing reset after short delay
+        setTimeout(() => {
+            performTestingBypass();
+            closePasswordModal();
+            showToast('🧪 TESTING MODE: Shift reset for testing only', 'success');
+        }, 1500);
+        
+    } else {
+        // Show error message
+        success.style.display = 'none';
+        error.style.display = 'block';
+        
+        // Clear input and shake effect
+        input.value = '';
+        input.style.animation = 'shake 0.5s ease-in-out';
+        setTimeout(() => {
+            input.style.animation = '';
+            input.focus();
+        }, 500);
+    }
+}
+
+function performTestingBypass() {
+    console.log('🧪 ADMIN TESTING: Performing bypass reset for testing purposes only...');
+    
+    if (!currentEmployee) {
+        showToast('Please select an employee first', 'warning');
+        return;
+    }
+    
+    // THIS IS ONLY FOR TESTING - Normal workflow restrictions remain for regular users
+    
+    // Reset workflow state for testing
+    currentWorkflowState = WORKFLOW_STATES.NOT_STARTED;
+    
+    // Clear stored testing states
+    const workflowStateKey = `workflowState_${currentEmployee}`;
+    const clockStateKey = `workClock_${currentEmployee}`;
+    
+    localStorage.removeItem(workflowStateKey);
+    localStorage.removeItem(clockStateKey);
+    
+    // Clear any active timers for testing
+    clearWorkClockState();
+    
+    // Reset button states for testing
     updateWorkflowButtonStates();
+    
+    // Update status with testing indicator
+    updateTimeClockStatus('🧪 TESTING MODE: Ready to start your shift', new Date());
+    
+    // Save the reset state
+    saveWorkflowState();
+    
+    console.log('✅ TESTING BYPASS: System reset for admin testing - normal users remain in their workflow states');
+}
+
+// ============= BRISBANE CLOCK SYSTEM =============
+
+function initializeBrisbaneClock() {
+    console.log('🕐 Initializing Brisbane clock...');
+    createBrisbaneClockDisplay();
+    updateBrisbaneClock();
+    brisbaneClockInterval = setInterval(updateBrisbaneClock, 1000);
+}
+
+function createBrisbaneClockDisplay() {
+    const header = document.querySelector('.header');
+    if (!header) {
+        console.error('❌ Header not found for Brisbane clock');
+        return;
+    }
+    
+    const clockHTML = `
+        <div id="brisbaneClockSection" class="brisbane-clock-section">
+            <div class="brisbane-clock-container">
+                <div class="local-time-display">
+                    <div class="time-zone-label" id="localTimezoneLabel">🕐 Your Time (GMT+0)</div>
+                    <div class="current-time local-time" id="localTime">--:--:--</div>
+                    <div class="current-date" id="localDate">-- -- ----</div>
+                </div>
+                <div class="brisbane-time-display">
+                    <div class="time-zone-label">🇦🇺 Brisbane Time</div>
+                    <div class="current-time" id="brisbaneTime">--:--:--</div>
+                    <div class="current-date" id="brisbaneDate">-- -- ----</div>
+                </div>
+                <div class="shift-reset-display">
+                    <div class="reset-label">Next Shift Reset</div>
+                    <div class="reset-countdown" id="resetCountdown">--:--:--</div>
+                    <div class="reset-time" id="nextResetTime">Tomorrow at 9:00 AM</div>
+                    <div class="work-start-notice" id="workStartNotice">🔴 Work starts at 9:00 AM your time</div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    header.insertAdjacentHTML('afterend', clockHTML);
+    console.log('✅ Brisbane clock display created');
+}
+
+function updateBrisbaneClock() {
+    const now = new Date();
+    const brisbaneNow = new Date(now.toLocaleString("en-US", {timeZone: "Australia/Brisbane"}));
+    
+    updateLocalTime(now);
+    
+    const brisbaneTimeStr = brisbaneNow.toLocaleTimeString('en-AU', {
+        hour: '2-digit',
+        minute: '2-digit', 
+        second: '2-digit',
+        hour12: false
+    });
+    
+    const brisbaneDateStr = brisbaneNow.toLocaleDateString('en-AU', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric'
+    });
+    
+    const brisbaneTimeEl = document.getElementById('brisbaneTime');
+    const brisbaneDateEl = document.getElementById('brisbaneDate');
+    
+    if (brisbaneTimeEl) brisbaneTimeEl.textContent = brisbaneTimeStr;
+    if (brisbaneDateEl) brisbaneDateEl.textContent = brisbaneDateStr;
+    
+    updateShiftResetCountdown(brisbaneNow, now);
+}
+
+function updateLocalTime(localNow) {
+    const timeZoneShort = getTimezoneShort(localNow);
+    
+    const localTimeStr = localNow.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+    });
+    
+    const localDateStr = localNow.toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long', 
+        day: 'numeric',
+        year: 'numeric'
+    });
+    
+    const localTimeElement = document.getElementById('localTime');
+    const localDateElement = document.getElementById('localDate');
+    const localTimezoneElement = document.getElementById('localTimezoneLabel');
+    
+    if (localTimeElement) localTimeElement.textContent = localTimeStr;
+    if (localDateElement) localDateElement.textContent = localDateStr;
+    if (localTimezoneElement) localTimezoneElement.textContent = `🕐 Your Time (${timeZoneShort})`;
+}
+
+function getTimezoneShort(date) {
+    const timeZoneName = date.toLocaleDateString('en', {
+        day: '2-digit',
+        timeZoneName: 'short'
+    }).substring(4);
+    
+    if (!timeZoneName || timeZoneName.length > 6) {
+        const offset = -date.getTimezoneOffset();
+        const hours = Math.floor(Math.abs(offset) / 60);
+        const minutes = Math.abs(offset) % 60;
+        const sign = offset >= 0 ? '+' : '-';
+        return `GMT${sign}${hours.toString().padStart(2, '0')}${minutes > 0 ? ':' + minutes.toString().padStart(2, '0') : ''}`;
+    }
+    
+    return timeZoneName;
+}
+
+function updateShiftResetCountdown(brisbaneNow, localNow) {
+    const next9AM = new Date(brisbaneNow);
+    next9AM.setHours(9, 0, 0, 0);
+    
+    if (brisbaneNow >= next9AM) {
+        next9AM.setDate(next9AM.getDate() + 1);
+    }
+    
+    shiftResetTime = next9AM;
+    
+    const timeDiff = next9AM.getTime() - brisbaneNow.getTime();
+    const hours = Math.floor(timeDiff / (1000 * 60 * 60));
+    const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
+    
+    const countdownStr = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    const resetTimeStr = next9AM.toLocaleDateString('en-AU', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric'
+    }) + ' at 9:00 AM';
+    
+    const localResetTime = new Date(next9AM.getTime());
+    const localResetTimeStr = localResetTime.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+    });
+    
+    const countdownEl = document.getElementById('resetCountdown');
+    const resetTimeEl = document.getElementById('nextResetTime');
+    const workStartEl = document.getElementById('workStartNotice');
+    
+    if (countdownEl) countdownEl.textContent = countdownStr;
+    if (resetTimeEl) resetTimeEl.textContent = resetTimeStr;
+    if (workStartEl) workStartEl.textContent = `🔴 Work starts at ${localResetTimeStr} your time`;
+    
+    checkForShiftReset(brisbaneNow);
+}
+
+function checkForShiftReset(brisbaneNow) {
+    const today9AM = new Date(brisbaneNow);
+    today9AM.setHours(9, 0, 0, 0);
+    
+    const lastResetCheck = localStorage.getItem('lastShiftResetCheck');
+    const lastResetDate = lastResetCheck ? new Date(lastResetCheck) : new Date(0);
+    
+    if (brisbaneNow >= today9AM && lastResetDate < today9AM) {
+        performShiftReset();
+        localStorage.setItem('lastShiftResetCheck', brisbaneNow.toISOString());
+    }
+}
+
+function performShiftReset() {
+    console.log('🔄 Performing automatic shift reset at 9 AM Brisbane time');
+    
+    currentWorkflowState = WORKFLOW_STATES.NOT_STARTED;
+    clearWorkClockState();
+    updateWorkflowButtonStates();
+    saveWorkflowState();
+    
+    showToast('🌅 New shift day has begun! You can now start work.', 'info');
+}
+
+// ============= WORKFLOW STATE MANAGEMENT =============
+
+function initializeWorkflowState() {
+    console.log('🔄 initializeWorkflowState called');
+    
+    if (!currentEmployee) {
+        console.log('🔄 No employee selected, setting to NOT_STARTED');
+        currentWorkflowState = WORKFLOW_STATES.NOT_STARTED;
+        updateWorkflowButtonStates();
+        return;
+    }
+    
+    const savedState = loadWorkflowState();
+    
+    if (savedState && savedState.state) {
+        currentWorkflowState = savedState.state;
+        console.log('🔄 Restored workflow state:', currentWorkflowState);
+    } else {
+        currentWorkflowState = WORKFLOW_STATES.NOT_STARTED;
+        console.log('🔄 No saved state, defaulting to:', currentWorkflowState);
+    }
+    
+    updateWorkflowButtonStates();
+    saveWorkflowState();
 }
 
 function saveWorkflowState() {
-    const data = {
+    if (!currentEmployee) return;
+    
+    const workflowStateKey = `workflowState_${currentEmployee}`;
+    const state = {
         state: currentWorkflowState,
-        shiftStartTime: shiftStartTime?.toISOString(),
-        dailyShiftData: dailyShiftData,
-        lastUpdated: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        employee: currentEmployee,
+        shiftDate: new Date().toDateString()
     };
-    localStorage.setItem('workflowState', JSON.stringify(data));
+    
+    localStorage.setItem(workflowStateKey, JSON.stringify(state));
 }
 
-// ENHANCED BUTTON STATE MANAGEMENT - Single Definition
+function loadWorkflowState() {
+    if (!currentEmployee) return null;
+    
+    const workflowStateKey = `workflowState_${currentEmployee}`;
+    const saved = localStorage.getItem(workflowStateKey);
+    
+    if (saved) {
+        try {
+            const state = JSON.parse(saved);
+            const stateDate = state.shiftDate;
+            const today = new Date().toDateString();
+            
+            if (stateDate === today) {
+                return state;
+            } else {
+                localStorage.removeItem(workflowStateKey);
+                return null;
+            }
+        } catch (error) {
+            console.error('Error loading workflow state:', error);
+            localStorage.removeItem(workflowStateKey);
+            return null;
+        }
+    }
+    
+    return null;
+}
+
 function updateWorkflowButtonStates() {
     const startBtn = document.getElementById('startWorkBtn');
-    const breakBtn = document.getElementById('breakBtn');
-    const backToWorkBtn = document.getElementById('resumeWorkBtn');
-    const endWorkBtn = document.getElementById('finishWorkBtn');
+    const breakBtn = document.getElementById('breakBtn'); 
+    const backToWorkBtn = document.getElementById('backToWorkBtn');
+    const endWorkBtn = document.getElementById('endWorkBtn');
     
-    // Reset all buttons to disabled state
+    console.log('🔄 Current workflow state:', currentWorkflowState);
+    console.log('🔄 Current employee:', currentEmployee);
+    
+    // Reset all buttons first
     [startBtn, breakBtn, backToWorkBtn, endWorkBtn].forEach(btn => {
         if (btn) {
-            btn.disabled = true;
-            btn.classList.add('btn-disabled');
-            btn.style.pointerEvents = 'none';
-            btn.style.opacity = '0.4';
+            btn.disabled = false;
+            btn.classList.remove('btn-disabled');
+            btn.style.pointerEvents = 'auto';
+            btn.style.opacity = '1';
         }
     });
     
-    // Enable appropriate buttons based on state
+    // Apply workflow restrictions
     switch (currentWorkflowState) {
         case WORKFLOW_STATES.NOT_STARTED:
-            if (startBtn && currentEmployee) {
+            if (breakBtn) { 
+                breakBtn.disabled = true; 
+                breakBtn.classList.add('btn-disabled');
+                breakBtn.style.pointerEvents = 'none';
+                breakBtn.style.opacity = '0.4';
+            }
+            if (backToWorkBtn) { 
+                backToWorkBtn.disabled = true; 
+                backToWorkBtn.classList.add('btn-disabled');
+                backToWorkBtn.style.pointerEvents = 'none';
+                backToWorkBtn.style.opacity = '0.4';
+            }
+            if (endWorkBtn) { 
+                endWorkBtn.disabled = true; 
+                endWorkBtn.classList.add('btn-disabled');
+                endWorkBtn.style.pointerEvents = 'none';
+                endWorkBtn.style.opacity = '0.4';
+            }
+            
+            if (startBtn) {
                 startBtn.disabled = false;
                 startBtn.classList.remove('btn-disabled');
                 startBtn.style.pointerEvents = 'auto';
                 startBtn.style.opacity = '1';
             }
-            updateTimeClockStatus('Ready to start your shift');
+            
+            updateTimeClockStatus('Ready to start your shift', new Date());
             break;
             
         case WORKFLOW_STATES.WORKING:
+            if (startBtn) { 
+                startBtn.disabled = true; 
+                startBtn.classList.add('btn-disabled');
+                startBtn.style.pointerEvents = 'none';
+                startBtn.style.opacity = '0.4';
+            }
+            if (backToWorkBtn) { 
+                backToWorkBtn.disabled = true; 
+                backToWorkBtn.classList.add('btn-disabled');
+                backToWorkBtn.style.pointerEvents = 'none';
+                backToWorkBtn.style.opacity = '0.4';
+            }
+            
             if (breakBtn) {
                 breakBtn.disabled = false;
                 breakBtn.classList.remove('btn-disabled');
@@ -162,51 +528,91 @@ function updateWorkflowButtonStates() {
             break;
             
         case WORKFLOW_STATES.ON_BREAK:
+            if (startBtn) { 
+                startBtn.disabled = true; 
+                startBtn.classList.add('btn-disabled');
+                startBtn.style.pointerEvents = 'none';
+                startBtn.style.opacity = '0.4';
+            }
+            if (breakBtn) { 
+                breakBtn.disabled = true; 
+                breakBtn.classList.add('btn-disabled');
+                breakBtn.style.pointerEvents = 'none';
+                breakBtn.style.opacity = '0.4';
+            }
+            if (endWorkBtn) { 
+                endWorkBtn.disabled = true; 
+                endWorkBtn.classList.add('btn-disabled');
+                endWorkBtn.style.pointerEvents = 'none';
+                endWorkBtn.style.opacity = '0.4';
+            }
+            
             if (backToWorkBtn) {
                 backToWorkBtn.disabled = false;
                 backToWorkBtn.classList.remove('btn-disabled');
                 backToWorkBtn.style.pointerEvents = 'auto';
                 backToWorkBtn.style.opacity = '1';
             }
-            if (endWorkBtn) {
-                endWorkBtn.disabled = false;
-                endWorkBtn.classList.remove('btn-disabled');
-                endWorkBtn.style.pointerEvents = 'auto';
-                endWorkBtn.style.opacity = '1';
-            }
             break;
             
         case WORKFLOW_STATES.FINISHED:
-            updateTimeClockStatus('Shift completed. See you tomorrow!');
+            [startBtn, breakBtn, backToWorkBtn, endWorkBtn].forEach(btn => {
+                if (btn) {
+                    btn.disabled = true;
+                    btn.classList.add('btn-disabled');
+                    btn.style.pointerEvents = 'none';
+                    btn.style.opacity = '0.4';
+                }
+            });
+            
+            updateTimeClockStatus('Shift completed. See you tomorrow!', new Date());
             break;
+            
+        default:
+            console.log('🔄 Unknown workflow state, defaulting to NOT_STARTED');
+            currentWorkflowState = WORKFLOW_STATES.NOT_STARTED;
+            updateWorkflowButtonStates();
+            return;
     }
+    
+    console.log('🔄 Button states updated for workflow:', currentWorkflowState);
+    console.log('🔄 START button enabled:', startBtn ? !startBtn.disabled : 'button not found');
 }
 
-async function startWorkDay() {
+// ============= SIMPLIFIED TIME CLOCK - PURE TIMER =============
+
+async function handleStartWork() {
+    console.log('🟢 START WORK button clicked!');
+    
     if (!currentEmployee) {
         showToast('Please select an employee first', 'warning');
         return;
     }
     
-    await handleTimeClock('🟢 START WORK');
-    currentWorkflowState = WORKFLOW_STATES.WORKING;
-    shiftStartTime = new Date();
-    
-    if (!dailyShiftData) {
-        dailyShiftData = {
-            totalWorkedMs: 0,
-            workSessions: [],
-            breaks: []
-        };
+    if (currentWorkflowState !== WORKFLOW_STATES.NOT_STARTED) {
+        console.log('❌ Wrong workflow state for starting work:', currentWorkflowState);
+        showToast('You can only start work at the beginning of your shift', 'error');
+        return;
     }
     
+    console.log('✅ Starting work shift...');
+    await handleTimeClock('🟢 START WORK');
+    currentWorkflowState = WORKFLOW_STATES.WORKING;
     saveWorkflowState();
     updateWorkflowButtonStates();
-    showToast('Work day started! 🚀', 'success');
+    showToast('Work shift started! ⏱️', 'success');
 }
 
-async function takeBreak() {
+async function handleBreak() {
+    console.log('☕ BREAK button clicked!');
+    
+    if (!currentEmployee) {
+        showToast('Please select an employee first', 'warning');
+        return;
+    }
+    
     if (currentWorkflowState !== WORKFLOW_STATES.WORKING) {
+        showToast('You can only take a break while working', 'error');
         return;
     }
     
@@ -214,11 +620,19 @@ async function takeBreak() {
     currentWorkflowState = WORKFLOW_STATES.ON_BREAK;
     saveWorkflowState();
     updateWorkflowButtonStates();
-    showToast('Break time! Take a rest 😌', 'info');
+    showToast('Break started! ☕', 'success');
 }
 
-async function resumeWork() {
+async function handleResumeWork() {
+    console.log('🔵 BACK TO WORK button clicked!');
+    
+    if (!currentEmployee) {
+        showToast('Please select an employee first', 'warning');
+        return;
+    }
+    
     if (currentWorkflowState !== WORKFLOW_STATES.ON_BREAK) {
+        showToast('You can only resume work from a break', 'error');
         return;
     }
     
@@ -226,11 +640,23 @@ async function resumeWork() {
     currentWorkflowState = WORKFLOW_STATES.WORKING;
     saveWorkflowState();
     updateWorkflowButtonStates();
-    showToast('Back to work! Let\'s go! 💪', 'success');
+    showToast('Back to work! 💪', 'success');
 }
 
-async function finishWorkDay() {
-    if (currentWorkflowState === WORKFLOW_STATES.FINISHED) {
+async function handleEndWork() {
+    console.log('🔴 END WORK button clicked!');
+    
+    if (!currentEmployee) {
+        showToast('Please select an employee first', 'warning');
+        return;
+    }
+    
+    if (currentWorkflowState !== WORKFLOW_STATES.WORKING) {
+        showToast('You can only end work while actively working', 'error');
+        return;
+    }
+    
+    if (!confirm('Are you sure you want to end your shift for today?\n\nYou won\'t be able to start work again until tomorrow at 9 AM Brisbane time.')) {
         return;
     }
     
@@ -242,16 +668,24 @@ async function finishWorkDay() {
     showToast('Shift completed! Great work today! 🎯', 'success');
 }
 
-// ============= COMPLETE MODAL SYSTEM =============
+// ============= SIMPLIFIED TASK IMPORT & MANAGEMENT =============
 
-// 1. COMPLETE TASK EDITOR MODAL CREATION
-function createTaskEditorModal() {
-    // Remove existing modal if it exists
-    const existingModal = document.getElementById('taskEditorModal');
-    if (existingModal) {
-        existingModal.remove();
+function openTaskEditorModal() {
+    // Create modal if it doesn't exist
+    if (!document.getElementById('taskEditorModal')) {
+        createTaskEditorModal();
     }
     
+    // Reset form
+    document.getElementById('masterBoardId').value = '';
+    document.getElementById('companyBoardId').value = '';
+    document.getElementById('taskEditorContent').innerHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 2rem;">Enter both IDs above and click "Import Task" to add it to your dashboard</p>';
+    
+    // Show modal
+    document.getElementById('taskEditorModal').style.display = 'block';
+}
+
+function createTaskEditorModal() {
     const modalHTML = `
     <div id="taskEditorModal" class="modal">
         <div class="modal-content">
@@ -263,426 +697,441 @@ function createTaskEditorModal() {
             <div class="modal-body">
                 <div class="task-id-inputs">
                     <div class="form-group">
-                        <label for="masterBoardId">Master Board Item ID:</label>
-                        <input type="text" 
-                               id="masterBoardId" 
-                               placeholder="Paste Master Board Item ID here" 
-                               class="form-control">
-                        <small class="help-text">📋 Copy this from Discord: Right-click task → Copy ID</small>
+                        <label for="masterBoardId">Master Board Item ID*</label>
+                        <input type="text" id="masterBoardId" placeholder="Enter master board item ID from Infinity" required>
                     </div>
                     
                     <div class="form-group">
-                        <label for="companyBoardId">Company Board Item ID:</label>
-                        <input type="text" 
-                               id="companyBoardId" 
-                               placeholder="Paste Company Board Item ID here" 
-                               class="form-control">
-                        <small class="help-text">🏢 Copy this from Discord: Right-click task → Copy ID</small>
+                        <label for="companyBoardId">Company Board Item ID*</label>
+                        <input type="text" id="companyBoardId" placeholder="Enter company board item ID from Infinity" required>
                     </div>
                     
-                    <div class="form-group">
-                        <button type="button" 
-                                onclick="importTaskFromIds()" 
-                                class="btn btn-primary btn-full-width">
-                            📥 Import Task to Dashboard
-                        </button>
-                    </div>
+                    <button type="button" class="btn btn-primary" onclick="importTaskToMyDashboard()">
+                        📥 Import Task to My Dashboard
+                    </button>
                 </div>
                 
-                <!-- Task Editor Content -->
                 <div id="taskEditorContent">
                     <p style="color: var(--text-secondary); text-align: center; padding: 2rem;">
                         Enter both IDs above and click "Import Task" to add it to your dashboard
                     </p>
                 </div>
                 
-                <!-- Task Edit Form (Hidden initially) -->
-                <div id="taskEditForm" class="task-edit-form">
-                    <div class="edit-grid">
-                        <div class="form-group">
-                            <label for="editTaskName">Task Name:</label>
-                            <input type="text" id="editTaskName" class="form-control">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="editTaskStatus">Status:</label>
-                            <select id="editTaskStatus" class="form-control">
-                                <option value="Project">Project</option>
-                                <option value="Priority Project">Priority Project</option>
-                                <option value="Current Project">Current Project</option>
-                                <option value="Revision">Revision</option>
-                                <option value="Waiting Approval">Waiting Approval</option>
-                                <option value="Project Finished">Project Finished</option>
-                                <option value="Rejected">Rejected</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group full-width">
-                            <label for="editTaskDescription">Description:</label>
-                            <textarea id="editTaskDescription" class="form-control" rows="3"></textarea>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="editTaskPriority">Priority:</label>
-                            <select id="editTaskPriority" class="form-control">
-                                <option value="Low">Low</option>
-                                <option value="Medium">Medium</option>
-                                <option value="High">High</option>
-                                <option value="Urgent">Urgent</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="editTaskDueDate">Due Date:</label>
-                            <input type="date" id="editTaskDueDate" class="form-control">
-                        </div>
-                    </div>
-                    
-                    <!-- Progress Editor -->
-                    <div class="progress-editor">
-                        <label>Progress:</label>
-                        <div class="progress-preview">
-                            <span id="modalProgressValue">0%</span>
-                            <div class="status-indicator" id="modalStatusIndicator">Project</div>
-                        </div>
-                        <input type="range" 
-                               id="editModalProgress" 
-                               min="0" 
-                               max="100" 
-                               value="0" 
-                               onchange="updateModalProgress()">
-                        <div class="progress-hints">
-                            <span class="hint">0% - Just Started</span>
-                            <span class="hint">50% - In Progress</span>
-                            <span class="hint">100% - Complete</span>
-                        </div>
-                    </div>
-                    
-                    <!-- Modal Footer -->
-                    <div class="modal-footer">
-                        <button type="button" onclick="closeTaskEditorModal()" class="btn btn-secondary">
-                            Cancel
-                        </button>
-                        <button type="button" onclick="quickCompleteTask()" class="btn btn-success">
-                            ✅ Quick Complete (100%)
-                        </button>
-                        <button type="button" onclick="saveTaskEdits()" class="btn btn-primary">
-                            💾 Save Changes
-                        </button>
-                    </div>
+                <div class="modal-footer" id="taskEditorFooter" style="display: none;">
+                    <button type="button" class="btn btn-secondary" onclick="closeTaskEditorModal()">
+                        Cancel
+                    </button>
+                    <button type="button" class="btn btn-success" onclick="updateTaskInInfinity()">
+                        🔄 Update in Infinity
+                    </button>
                 </div>
             </div>
         </div>
     </div>
     `;
     
-    // Add modal to page
     document.body.insertAdjacentHTML('beforeend', modalHTML);
-    
-    // Add event listeners
-    setupModalEventListeners();
 }
 
-// 2. COMPLETE CLOSE MODAL FUNCTION
-function closeTaskEditorModal() {
-    const modal = document.getElementById('taskEditorModal');
-    if (modal) {
-        // Add fade out animation
-        modal.style.opacity = '0';
-        modal.style.transform = 'scale(0.95)';
-        
-        setTimeout(() => {
-            modal.style.display = 'none';
-            modal.style.opacity = '1';
-            modal.style.transform = 'scale(1)';
-        }, 300);
-    }
-    
-    // Clean up global state
-    window.currentEditingTask = null;
-    
-    // Reset form if it exists
-    const taskEditForm = document.getElementById('taskEditForm');
-    if (taskEditForm) {
-        taskEditForm.classList.remove('active');
-    }
-}
-
-// 3. MODAL EVENT LISTENERS SETUP
-function setupModalEventListeners() {
-    // Close modal when clicking outside
-    const modal = document.getElementById('taskEditorModal');
-    if (modal) {
-        modal.addEventListener('click', function(event) {
-            if (event.target === modal) {
-                closeTaskEditorModal();
-            }
-        });
-    }
-    
-    // ESC key to close modal
-    document.addEventListener('keydown', function(event) {
-        if (event.key === 'Escape') {
-            const modal = document.getElementById('taskEditorModal');
-            if (modal && modal.style.display === 'block') {
-                closeTaskEditorModal();
-            }
-            
-            const passwordModal = document.getElementById('passwordModal');
-            if (passwordModal && passwordModal.style.display === 'block') {
-                closePasswordModal();
-            }
-        }
-    });
-}
-
-// 4. COMPLETE OPEN MODAL FUNCTION
-function openTaskEditorModal() {
-    // Create modal if it doesn't exist
-    if (!document.getElementById('taskEditorModal')) {
-        createTaskEditorModal();
-    }
-    
-    // Reset form state
-    const masterInput = document.getElementById('masterBoardId');
-    const companyInput = document.getElementById('companyBoardId');
-    const contentDiv = document.getElementById('taskEditorContent');
-    const taskEditForm = document.getElementById('taskEditForm');
-    
-    if (masterInput) masterInput.value = '';
-    if (companyInput) companyInput.value = '';
-    if (contentDiv) {
-        contentDiv.innerHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 2rem;">Enter both IDs above and click "Import Task" to add it to your dashboard</p>';
-    }
-    if (taskEditForm) {
-        taskEditForm.classList.remove('active');
-    }
-    
-    // Show modal with animation
-    const modal = document.getElementById('taskEditorModal');
-    if (modal) {
-        modal.style.display = 'block';
-        modal.style.opacity = '0';
-        modal.style.transform = 'scale(0.95)';
-        
-        // Trigger animation
-        setTimeout(() => {
-            modal.style.opacity = '1';
-            modal.style.transform = 'scale(1)';
-        }, 10);
-    }
-}
-
-// 5. IMPORT TASK FUNCTION
-async function importTaskFromIds() {
-    const masterBoardId = document.getElementById('masterBoardId')?.value?.trim();
-    const companyBoardId = document.getElementById('companyBoardId')?.value?.trim();
+// Enhanced import function with immediate dashboard display
+async function importTaskToMyDashboard() {
+    const masterBoardId = document.getElementById('masterBoardId').value.trim();
+    const companyBoardId = document.getElementById('companyBoardId').value.trim();
     
     if (!masterBoardId || !companyBoardId) {
-        showToast('❌ Please enter both Master Board and Company Board IDs', 'error');
+        showToast('Please enter both Master Board ID and Company Board ID', 'warning');
         return;
     }
     
     if (!currentEmployee) {
-        showToast('❌ Please select an employee first', 'error');
+        showToast('Please select an employee first', 'warning');
         return;
     }
     
     try {
-        showToast('🔄 Importing task...', 'info');
+        showToast('📥 Importing task from Infinity...', 'info');
         
-        // Call your existing function to get task data
-        const response = await fetch(`/api/task/${companyBoardId}`, {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' }
-        });
-        
-        if (!response.ok) {
-            throw new Error(`Failed to fetch task: ${response.status}`);
-        }
-        
-        const taskData = await response.json();
-        
-        // Save to local dashboard
-        const tasksKey = `myTasks_${currentEmployee}`;
-        let myTasks = [];
-        
-        try {
-            const saved = localStorage.getItem(tasksKey);
-            if (saved) {
-                myTasks = JSON.parse(saved);
-            }
-        } catch (e) {
-            console.warn('Could not load existing tasks, starting fresh');
-        }
-        
-        const taskId = `${masterBoardId}_${companyBoardId}`;
-        
-        // Check if task already exists
-        const existingIndex = myTasks.findIndex(t => t.id === taskId);
-        
-        // Use enhanced task object creation
-        const taskObject = createEnhancedTaskObject(taskData, masterBoardId, companyBoardId);
-        
-        if (existingIndex >= 0) {
-            myTasks[existingIndex] = taskObject;
-            showToast('✅ Task updated in your dashboard', 'success');
-        } else {
-            myTasks.push(taskObject);
-            showToast('✅ Task imported to your dashboard', 'success');
-        }
-        
-        localStorage.setItem(tasksKey, JSON.stringify(myTasks));
-        availableTasks = myTasks;
-        
-        // Display for editing
-        displayTaskForEditing(taskObject, masterBoardId, companyBoardId);
-        
-        // Refresh the main task list
-        await loadAssignedTasks();
-        
-    } catch (error) {
-        console.error('Import error:', error);
-        showToast(`❌ Import failed: ${error.message}`, 'error');
-    }
-}
-// ============= COMPLETE VEBLEN TASK TRACKER SCRIPT.JS =============
-// Part 2 of 2 - Final Clean Version with All Fixes
-
-// 6. DISPLAY TASK FOR EDITING
-function displayTaskForEditing(task, masterBoardId, companyBoardId) {
-    const contentDiv = document.getElementById('taskEditorContent');
-    const taskEditForm = document.getElementById('taskEditForm');
-    
-    if (!contentDiv || !taskEditForm) return;
-    
-    // Hide import section and show edit form
-    contentDiv.style.display = 'none';
-    taskEditForm.classList.add('active');
-    
-    // Populate form fields
-    document.getElementById('editTaskName').value = task.name || '';
-    document.getElementById('editTaskDescription').value = task.description || '';
-    document.getElementById('editTaskStatus').value = task.status || 'Project';
-    document.getElementById('editTaskPriority').value = task.priority || 'Medium';
-    document.getElementById('editTaskDueDate').value = task.dueDate || '';
-    document.getElementById('editModalProgress').value = task.progress || 0;
-    
-    // Update progress display
-    updateModalProgress();
-    
-    // Store current editing task
-    window.currentEditingTask = {
-        ...task,
-        masterBoardId,
-        companyBoardId
-    };
-}
-
-// 7. PROGRESS UPDATE FUNCTION
-function updateModalProgress() {
-    const progressSlider = document.getElementById('editModalProgress');
-    const progressValue = document.getElementById('modalProgressValue');
-    const statusIndicator = document.getElementById('modalStatusIndicator');
-    
-    if (!progressSlider || !progressValue || !statusIndicator) return;
-    
-    const progress = parseInt(progressSlider.value);
-    progressValue.textContent = `${progress}%`;
-    
-    // Update status indicator based on progress
-    let status = 'Project';
-    let statusClass = 'status-project';
-    
-    if (progress >= 100) {
-        status = 'Project Finished';
-        statusClass = 'status-finished';
-    } else if (progress >= 80) {
-        status = 'Current Project';
-        statusClass = 'status-current';
-    } else if (progress >= 50) {
-        status = 'Current Project';
-        statusClass = 'status-current';
-    }
-    
-    statusIndicator.textContent = status;
-    statusIndicator.className = `status-indicator ${statusClass}`;
-}
-
-// 8. SAVE TASK EDITS
-async function saveTaskEdits() {
-    if (!window.currentEditingTask) {
-        showToast('❌ No task selected for editing', 'error');
-        return;
-    }
-    
-    const task = window.currentEditingTask;
-    
-    try {
-        const updates = {
-            name: document.getElementById('editTaskName').value,
-            description: document.getElementById('editTaskDescription').value,
-            status: document.getElementById('editTaskStatus').value,
-            priority: document.getElementById('editTaskPriority').value,
-            dueDate: document.getElementById('editTaskDueDate').value,
-            progress: parseInt(document.getElementById('editModalProgress').value)
-        };
-        
-        // Update via API
-        const response = await fetch('/api/task-update', {
+        // Fetch task data from Infinity
+        const response = await fetch(CONFIG.taskRetrievalUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                action: 'update_details',
-                task_id: task.companyBoardId,
-                master_task_id: task.masterBoardId,
-                company: task.company,
-                ...updates
+                action: 'get_task_by_ids',
+                master_board_id: masterBoardId,
+                company_board_id: companyBoardId
             })
         });
         
         if (response.ok) {
-            // Update local storage
-            await updateTaskInMyDashboard(task.masterBoardId, task.companyBoardId, updates);
-            
-            showToast('✅ Task updated successfully', 'success');
-            
-            // Refresh task list
-            await loadAssignedTasks();
-            
-            // Close modal
-            closeTaskEditorModal();
+            const data = await response.json();
+            if (data.success && data.task) {
+                // Add task to user's personal dashboard
+                await saveTaskToMyDashboard(data.task, masterBoardId, companyBoardId);
+                
+                // Close the import modal
+                closeTaskEditorModal();
+                
+                // Immediately refresh the dashboard to show the new task
+                await loadAssignedTasks();
+                
+                showToast('✅ Task imported successfully! Now visible on your dashboard.', 'success');
+                
+                // Auto-scroll to the new task
+                setTimeout(() => {
+                    const taskCards = document.querySelectorAll('.task-card');
+                    if (taskCards.length > 0) {
+                        taskCards[taskCards.length - 1].scrollIntoView({ 
+                            behavior: 'smooth', 
+                            block: 'center' 
+                        });
+                    }
+                }, 500);
+                
+            } else {
+                throw new Error(data.message || 'Task not found in Infinity');
+            }
         } else {
-            throw new Error(`HTTP ${response.status}`);
+            // If API fails, allow manual entry
+            showManualTaskEntry(masterBoardId, companyBoardId);
         }
-        
     } catch (error) {
-        console.error('Save error:', error);
-        showToast(`❌ Save failed: ${error.message}`, 'error');
+        console.error('Error importing task from Infinity:', error);
+        // Allow manual entry if API fails
+        showManualTaskEntry(masterBoardId, companyBoardId);
     }
 }
 
-// 9. QUICK COMPLETE FUNCTION
-async function quickCompleteTask() {
+function showManualTaskEntry(masterBoardId, companyBoardId) {
+    document.getElementById('taskEditorContent').innerHTML = `
+        <div class="task-editor-form">
+            <div class="task-info-header">
+                <h3>✏️ Manual Task Entry</h3>
+                <span class="task-company-badge">Infinity Import</span>
+            </div>
+            
+            <p style="color: var(--text-secondary); margin-bottom: var(--spacing-lg); text-align: center;">
+                Unable to auto-fetch from Infinity. Please enter task details manually:
+            </p>
+            
+            <div class="form-group">
+                <label for="manualTaskName">Task Name*</label>
+                <input type="text" id="manualTaskName" placeholder="Enter task name" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="manualTaskCompany">Company*</label>
+                <select id="manualTaskCompany" required>
+                    <option value="">Select Company</option>
+                    <option value="VEBLEN (Internal)">VEBLEN (Internal)</option>
+                    <option value="LCMB GROUP">LCMB GROUP</option>
+                    <option value="NEWTECH TRAILERS">NEWTECH TRAILERS</option>
+                    <option value="CROWN REALITY">CROWN REALITY</option>
+                    <option value="FLECK GROUP">FLECK GROUP</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="manualTaskProgress">Progress (%)</label>
+                <div class="progress-input-container">
+                    <input type="range" id="manualTaskProgress" min="0" max="100" value="0" 
+                           oninput="updateProgressDisplay(this.value)">
+                    <span id="progressDisplay">0%</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="editProgressBar" style="width: 0%"></div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="manualTaskStatus">Status</label>
+                <select id="manualTaskStatus">
+                    <option value="Project">Project</option>
+                    <option value="Priority Project">Priority Project</option>
+                    <option value="Current Project" selected>Current Project</option>
+                    <option value="Revision">Revision</option>
+                    <option value="Waiting Approval">Waiting Approval</option>
+                    <option value="Project Finished">Project Finished</option>
+                    <option value="Rejected">Rejected</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="manualTaskDescription">Description</label>
+                <textarea id="manualTaskDescription" rows="3" placeholder="Enter task description"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="manualTaskNotes">Notes</label>
+                <textarea id="manualTaskNotes" rows="4" placeholder="Add any notes or updates..."></textarea>
+            </div>
+            
+            <div class="task-meta-info">
+                <p><strong>Master Board ID:</strong> ${masterBoardId}</p>
+                <p><strong>Company Board ID:</strong> ${companyBoardId}</p>
+                <p><strong>Employee:</strong> ${currentEmployee}</p>
+            </div>
+            
+            <button type="button" class="btn btn-primary" onclick="saveManualTaskEntry('${masterBoardId}', '${companyBoardId}')">
+                💾 Add to My Dashboard
+            </button>
+        </div>
+    `;
+}
+
+async function saveManualTaskEntry(masterBoardId, companyBoardId) {
+    const taskName = document.getElementById('manualTaskName').value.trim();
+    const taskCompany = document.getElementById('manualTaskCompany').value;
+    const progress = parseInt(document.getElementById('manualTaskProgress').value);
+    const status = document.getElementById('manualTaskStatus').value;
+    const description = document.getElementById('manualTaskDescription').value;
+    const notes = document.getElementById('manualTaskNotes').value;
+    
+    if (!taskName || !taskCompany) {
+        showToast('Please fill in Task Name and Company', 'warning');
+        return;
+    }
+    
+    const manualTask = {
+        id: `${masterBoardId}_${companyBoardId}`,
+        name: taskName,
+        company: taskCompany,
+        progress: progress,
+        status: status,
+        description: description,
+        notes: notes,
+        dueDate: 'Not set',
+        createdDate: new Date().toLocaleDateString(),
+        masterBoardId: masterBoardId,
+        companyBoardId: companyBoardId,
+        importedBy: currentEmployee,
+        importedAt: new Date().toISOString()
+    };
+    
+    await saveTaskToMyDashboard(manualTask, masterBoardId, companyBoardId);
+    showToast('✅ Task added to your dashboard successfully!', 'success');
+    closeTaskEditorModal();
+    await loadAssignedTasks();
+}
+
+// Enhanced task saving with better data structure
+async function saveTaskToMyDashboard(task, masterBoardId, companyBoardId) {
+    if (!currentEmployee) return;
+    
+    // Get user's personal task list
+    const tasksKey = `myTasks_${currentEmployee}`;
+    let myTasks = [];
+    
+    try {
+        const saved = localStorage.getItem(tasksKey);
+        if (saved) {
+            myTasks = JSON.parse(saved);
+        }
+    } catch (error) {
+        console.error('Error loading existing tasks:', error);
+        myTasks = [];
+    }
+    
+    // Create enhanced task with Infinity IDs
+    const taskForDashboard = {
+        id: `${masterBoardId}_${companyBoardId}`,
+        name: task.name || 'Imported Task',
+        company: task.company || 'Unknown Company',
+        progress: task.progress || 0,
+        status: task.status || 'Current Project',
+        description: task.description || '',
+        notes: task.notes || '',
+        dueDate: task.dueDate || 'Not set',
+        createdDate: task.createdDate || new Date().toLocaleDateString(),
+        masterBoardId: masterBoardId,
+        companyBoardId: companyBoardId,
+        importedBy: currentEmployee,
+        importedAt: new Date().toISOString(),
+        lastUpdated: new Date().toISOString(),
+        lastSyncedAt: new Date().toISOString(),
+        syncStatus: 'synced', // synced, pending, error
+        isEditable: true
+    };
+    
+    // Check if task already exists
+    const existingIndex = myTasks.findIndex(t => t.id === taskForDashboard.id);
+    if (existingIndex >= 0) {
+        // Update existing task but preserve edit status
+        myTasks[existingIndex] = {
+            ...myTasks[existingIndex],
+            ...taskForDashboard,
+            lastUpdated: new Date().toISOString()
+        };
+        showToast('📝 Task updated in your dashboard', 'info');
+    } else {
+        myTasks.push(taskForDashboard);
+        showToast('📥 Task added to your dashboard', 'success');
+    }
+    
+    // Save back to localStorage
+    localStorage.setItem(tasksKey, JSON.stringify(myTasks));
+    
+    // Update availableTasks array
+    availableTasks = myTasks;
+}
+
+function displayTaskForEditing(task, masterBoardId, companyBoardId) {
+    const content = document.getElementById('taskEditorContent');
+    
+    content.innerHTML = `
+        <div class="task-editor-form">
+            <div class="task-info-header">
+                <h3>${task.name || 'Imported Task'}</h3>
+                <span class="task-company-badge">${task.company || 'Unknown Company'}</span>
+            </div>
+            
+            <div class="form-group">
+                <label for="editTaskName">Task Name*</label>
+                <input type="text" id="editTaskName" value="${task.name || ''}" placeholder="Enter task name" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="editTaskProgress">Progress (%)</label>
+                <div class="progress-input-container">
+                    <input type="range" id="editTaskProgress" min="0" max="100" value="${task.progress || 0}" 
+                           oninput="updateProgressDisplay(this.value)">
+                    <span id="progressDisplay">${task.progress || 0}%</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="editProgressBar" style="width: ${task.progress || 0}%"></div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="editTaskStatus">Status</label>
+                <select id="editTaskStatus">
+                    <option value="Project" ${task.status === 'Project' ? 'selected' : ''}>Project</option>
+                    <option value="Priority Project" ${task.status === 'Priority Project' ? 'selected' : ''}>Priority Project</option>
+                    <option value="Current Project" ${task.status === 'Current Project' ? 'selected' : ''}>Current Project</option>
+                    <option value="Revision" ${task.status === 'Revision' ? 'selected' : ''}>Revision</option>
+                    <option value="Waiting Approval" ${task.status === 'Waiting Approval' ? 'selected' : ''}>Waiting Approval</option>
+                    <option value="Project Finished" ${task.status === 'Project Finished' ? 'selected' : ''}>Project Finished</option>
+                    <option value="Rejected" ${task.status === 'Rejected' ? 'selected' : ''}>Rejected</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="editTaskDescription">Description</label>
+                <textarea id="editTaskDescription" rows="3" placeholder="Enter task description">${task.description || ''}</textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="editTaskNotes">Notes</label>
+                <textarea id="editTaskNotes" rows="4" placeholder="Add any notes or updates...">${task.notes || ''}</textarea>
+            </div>
+            
+            <div class="task-meta-info">
+                <p><strong>Master Board ID:</strong> ${masterBoardId}</p>
+                <p><strong>Company Board ID:</strong> ${companyBoardId}</p>
+                <p><strong>Task ID:</strong> ${task.id || `${masterBoardId}_${companyBoardId}`}</p>
+                <p><strong>Due Date:</strong> ${task.dueDate || 'Not set'}</p>
+                <p><strong>Imported:</strong> ${new Date().toLocaleString()}</p>
+            </div>
+        </div>
+    `;
+    
+    // Store current task data for saving
+    window.currentEditingTask = {
+        ...task,
+        masterBoardId: masterBoardId,
+        companyBoardId: companyBoardId
+    };
+    
+    // Show footer buttons
+    document.getElementById('taskEditorFooter').style.display = 'flex';
+}
+
+function updateProgressDisplay(value) {
+    document.getElementById('progressDisplay').textContent = value + '%';
+    document.getElementById('editProgressBar').style.width = value + '%';
+}
+
+async function updateTaskInInfinity() {
     if (!window.currentEditingTask) {
-        showToast('❌ No task selected', 'error');
+        showToast('No task loaded for editing', 'error');
         return;
     }
     
-    if (!confirm('Mark this task as 100% complete?')) {
+    const taskName = document.getElementById('editTaskName').value.trim();
+    const progress = parseInt(document.getElementById('editTaskProgress').value);
+    const status = document.getElementById('editTaskStatus').value;
+    const description = document.getElementById('editTaskDescription').value;
+    const notes = document.getElementById('editTaskNotes').value;
+    const masterBoardId = window.currentEditingTask.masterBoardId;
+    const companyBoardId = window.currentEditingTask.companyBoardId;
+    
+    if (!taskName) {
+        showToast('Please enter a task name', 'warning');
         return;
     }
     
-    // Set progress to 100% and status to finished
-    document.getElementById('editModalProgress').value = 100;
-    document.getElementById('editTaskStatus').value = 'Project Finished';
-    updateModalProgress();
+    const updateData = {
+        action: 'update_task',
+        master_board_id: masterBoardId,
+        company_board_id: companyBoardId,
+        task_name: taskName,
+        progress: progress,
+        status: status,
+        description: description,
+        notes: notes,
+        timestamp: new Date().toISOString(),
+        updated_by: currentEmployee || 'Unknown User'
+    };
     
-    // Save changes
-    await saveTaskEdits();
+    try {
+        showToast('🔄 Updating task in Infinity...', 'info');
+        
+        // Update in Infinity
+        const response = await fetch(CONFIG.taskUpdateUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updateData)
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            if (result.success) {
+                // Update local dashboard
+                await updateTaskInMyDashboard(masterBoardId, companyBoardId, {
+                    name: taskName,
+                    progress: progress,
+                    status: status,
+                    description: description,
+                    notes: notes
+                });
+                
+                showToast('✅ Task updated successfully in Infinity and your dashboard!', 'success');
+                closeTaskEditorModal();
+                
+                // Refresh assigned tasks list
+                await loadAssignedTasks();
+            } else {
+                throw new Error(result.message || 'Update failed in Infinity');
+            }
+        } else {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+    } catch (error) {
+        console.error('Error updating task in Infinity:', error);
+        
+        // Still update locally even if Infinity update fails
+        await updateTaskInMyDashboard(masterBoardId, companyBoardId, {
+            name: taskName,
+            progress: progress,
+            status: status,
+            description: description,
+            notes: notes
+        });
+        
+        showToast('⚠️ Updated locally, but failed to sync with Infinity: ' + error.message, 'warning');
+        await loadAssignedTasks();
+    }
 }
 
-// 10. UPDATE TASK IN DASHBOARD FUNCTION
 async function updateTaskInMyDashboard(masterBoardId, companyBoardId, updates) {
     if (!currentEmployee) return;
     
@@ -715,148 +1164,14 @@ async function updateTaskInMyDashboard(masterBoardId, companyBoardId, updates) {
     }
 }
 
-// ============= CRITICAL MISSING FUNCTIONS =============
-
-// SYNC TASK TO INFINITY (Critical for task updates)
-async function syncTaskToInfinity(taskId) {
-    const task = availableTasks.find(t => t.id === taskId);
-    if (!task) {
-        showToast('Task not found', 'error');
-        return;
+function closeTaskEditorModal() {
+    const modal = document.getElementById('taskEditorModal');
+    if (modal) {
+        modal.style.display = 'none';
     }
     
-    try {
-        // Show syncing state
-        const syncBtn = document.querySelector(`[onclick="syncTaskToInfinity('${taskId}')"]`);
-        if (syncBtn) {
-            const originalText = syncBtn.innerHTML;
-            syncBtn.innerHTML = '🔄 Syncing...';
-            syncBtn.disabled = true;
-        }
-        
-        console.log('🔄 Syncing task to StartInfinity:', task.name);
-        
-        const response = await fetch('/api/task-update', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'sync_task',
-                task_id: task.companyBoardId,
-                master_task_id: task.masterBoardId,
-                company: task.company,
-                name: task.name,
-                description: task.description,
-                status: task.status,
-                priority: task.priority,
-                progress: task.progress,
-                dueDate: task.dueDate
-            })
-        });
-        
-        if (response.ok) {
-            const result = await response.json();
-            if (result.success) {
-                // Update sync status
-                await updateTaskInMyDashboard(task.masterBoardId, task.companyBoardId, {
-                    syncStatus: 'synced',
-                    lastSyncedAt: new Date().toISOString()
-                });
-                
-                showToast('✅ Task synced with Infinity successfully', 'success');
-                await loadAssignedTasks();
-            } else {
-                throw new Error(result.message || 'Sync failed');
-            }
-        } else {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        
-    } catch (error) {
-        console.error('❌ Error syncing task:', error);
-        showToast(`❌ Sync failed: ${error.message}`, 'error');
-        
-        // Update sync status to error
-        await updateTaskInMyDashboard(task.masterBoardId, task.companyBoardId, {
-            syncStatus: 'error'
-        });
-        await loadAssignedTasks();
-    }
-}
-
-// REMOVE TASK FROM DASHBOARD
-async function removeTaskFromDashboard(taskId) {
-    if (!confirm('Remove this task from your dashboard?\n\nThis will not affect the task in Infinity.')) {
-        return;
-    }
-    
-    try {
-        const tasksKey = `myTasks_${currentEmployee}`;
-        let myTasks = JSON.parse(localStorage.getItem(tasksKey) || '[]');
-        
-        // Remove task
-        myTasks = myTasks.filter(t => t.id !== taskId);
-        
-        localStorage.setItem(tasksKey, JSON.stringify(myTasks));
-        availableTasks = myTasks;
-        
-        await loadAssignedTasks();
-        showToast('🗑️ Task removed from dashboard', 'success');
-        
-    } catch (error) {
-        console.error('Error removing task:', error);
-        showToast('Error removing task', 'error');
-    }
-}
-
-// HELPER FUNCTION
-function getValue(elementId) {
-    const element = document.getElementById(elementId);
-    return element ? element.value.trim() : '';
-}
-
-// ENHANCED TASK CREATION WITH METADATA
-function createEnhancedTaskObject(taskData, masterBoardId, companyBoardId) {
-    return {
-        id: `${masterBoardId}_${companyBoardId}`,
-        masterBoardId: masterBoardId,
-        companyBoardId: companyBoardId,
-        name: taskData.name || 'Imported Task',
-        description: taskData.description || '',
-        status: taskData.status || 'Project',
-        priority: taskData.priority || 'Medium',
-        progress: taskData.progress || 0,
-        assignedTo: currentEmployee,
-        company: taskData.company || 'Unknown',
-        dueDate: taskData.dueDate || '',
-        
-        // Enhanced metadata
-        importedAt: new Date().toISOString(),
-        lastUpdated: new Date().toISOString(),
-        lastSyncedAt: new Date().toISOString(),
-        syncStatus: 'synced',
-        
-        // UI flags
-        isHighPriority: (taskData.priority === 'High' || taskData.priority === 'Urgent'),
-        isCurrentProject: (taskData.status === 'Current Project'),
-        isComplete: (taskData.progress >= 100),
-        isEditable: true,
-        
-        // Links and additional data
-        links: taskData.links || '',
-        
-        // Debug info
-        debug: {
-            importSource: 'manual_import',
-            extractedFromInfinity: true,
-            originalTaskData: taskData
-        }
-    };
-}
-
-// EVENT LISTENERS FUNCTION
-function attachTaskEventListeners(taskId) {
-    console.log(`Attaching event listeners for task: ${taskId}`);
-    // Implementation for inline editing if needed
+    // Clean up
+    window.currentEditingTask = null;
 }
 
 // ============= EMPLOYEE CHANGE HANDLER =============
@@ -888,597 +1203,9 @@ function clearEmployeeData() {
     updateWorkflowButtonStates();
 }
 
-// ============= TASK MANAGEMENT =============
+// ============= ESSENTIAL UTILITY FUNCTIONS =============
 
-async function loadAssignedTasks() {
-    if (!currentEmployee) return;
-    
-    const tasksContainer = document.getElementById('assignedTasksList');
-    if (!tasksContainer) return;
-    
-    try {
-        tasksContainer.innerHTML = '<p class="loading">Loading your assigned tasks...</p>';
-        
-        // Load from localStorage first
-        const tasksKey = `myTasks_${currentEmployee}`;
-        let myTasks = [];
-        
-        try {
-            const saved = localStorage.getItem(tasksKey);
-            if (saved) {
-                myTasks = JSON.parse(saved);
-            }
-        } catch (e) {
-            console.warn('Could not load saved tasks:', e);
-        }
-        
-        availableTasks = myTasks;
-        
-        if (myTasks.length === 0) {
-            tasksContainer.innerHTML = `
-                <div class="no-tasks">
-                    <p>No tasks found in your dashboard.</p>
-                    <button onclick="openTaskEditorModal()" class="btn btn-primary">
-                        📥 Import Task from Infinity
-                    </button>
-                </div>
-            `;
-            return;
-        }
-        
-        // Display tasks using enhanced task cards
-        const tasksHTML = myTasks.map(task => createTaskCard(task)).join('');
-        tasksContainer.innerHTML = tasksHTML;
-        
-        console.log(`✅ Loaded ${myTasks.length} tasks for ${currentEmployee}`);
-        
-    } catch (error) {
-        console.error('Error loading tasks:', error);
-        tasksContainer.innerHTML = '<p class="error">Error loading tasks. Please try refreshing.</p>';
-    }
-}
-
-// ENHANCED TASK CARD CREATION - Single Definition with Sync Buttons
-function createTaskCard(task) {
-    const progressColor = getProgressColor(task.progress || 0);
-    const statusBadge = getStatusBadge(task.status || 'Project');
-    const priorityBadge = getPriorityBadge(task.priority || 'Medium');
-    
-    return `
-        <div class="task-card" data-task-id="${task.id}">
-            <div class="task-header">
-                <h3 class="task-title">${task.name || 'Untitled Task'}</h3>
-                <div class="task-badges">
-                    ${statusBadge}
-                    ${priorityBadge}
-                </div>
-            </div>
-            
-            ${task.description ? `<p class="task-description">${task.description}</p>` : ''}
-            
-            <!-- Progress Section -->
-            <div style="margin-bottom: 1rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                    <span>Progress</span>
-                    <span style="font-weight: 700; color: ${progressColor};">${task.progress || 0}%</span>
-                </div>
-                <div style="height: 8px; background: rgba(0, 0, 0, 0.3); border-radius: 4px; overflow: hidden;">
-                    <div style="
-                        height: 100%;
-                        border-radius: 4px;
-                        transition: width 0.5s ease;
-                        background-color: ${progressColor};
-                        width: ${task.progress || 0}%;
-                    "></div>
-                </div>
-            </div>
-            
-            <!-- Task Metadata -->
-            <div style="margin-bottom: 1rem; font-size: 0.8rem; color: var(--text-secondary);">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
-                    <small>🆔 Master: ${task.masterBoardId?.substring(0, 8)}...</small>
-                    <small>🏢 Company: ${task.companyBoardId?.substring(0, 8)}...</small>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
-                    <small>📅 Updated: ${formatDate(task.lastUpdated)}</small>
-                    <small>${getSyncStatusIcon(task.syncStatus || 'synced')}</small>
-                </div>
-            </div>
-            
-            <!-- Action Buttons -->
-            <div style="display: flex; gap: 0.5rem;">
-                <button class="btn btn-primary" style="
-                    flex: 1; 
-                    font-size: 0.85rem; 
-                    padding: 0.6rem 0.8rem;
-                    background: var(--primary-gradient);
-                    border: none;
-                    border-radius: var(--radius-md);
-                    color: white;
-                    font-weight: 600;
-                    cursor: pointer;
-                    transition: all 0.3s ease;
-                " onclick="editImportedTask('${task.id}')">
-                    ✏️ Edit
-                </button>
-                
-                <button class="btn btn-success" style="
-                    flex: 1; 
-                    font-size: 0.85rem; 
-                    padding: 0.6rem 0.8rem;
-                    background: linear-gradient(135deg, #10B981, #059669);
-                    border: none;
-                    border-radius: var(--radius-md);
-                    color: white;
-                    font-weight: 600;
-                    cursor: pointer;
-                    transition: all 0.3s ease;
-                " onclick="syncTaskToInfinity('${task.id}')">
-                    🔄 Sync
-                </button>
-                
-                <button class="btn btn-danger" style="
-                    flex: 0.8; 
-                    font-size: 0.85rem; 
-                    padding: 0.6rem 0.8rem;
-                    background: linear-gradient(135deg, #EF4444, #DC2626);
-                    border: none;
-                    border-radius: var(--radius-md);
-                    color: white;
-                    font-weight: 600;
-                    cursor: pointer;
-                    transition: all 0.3s ease;
-                " onclick="removeTaskFromDashboard('${task.id}')">
-                    🗑️ Remove
-                </button>
-            </div>
-        </div>
-    `;
-}
-
-function getProgressColor(progress) {
-    if (progress >= 100) return '#48bb78';
-    if (progress >= 75) return '#38a169';
-    if (progress >= 50) return '#3182ce';
-    if (progress >= 25) return '#d69e2e';
-    return '#e53e3e';
-}
-
-function getStatusBadge(status) {
-    const statusClass = getStatusClass(status);
-    return `<span class="status-badge ${statusClass}">${status}</span>`;
-}
-
-function getPriorityBadge(priority) {
-    const priorityClass = `priority-${priority.toLowerCase()}`;
-    return `<span class="priority-badge ${priorityClass}">${priority}</span>`;
-}
-
-function getStatusClass(status) {
-    const statusClasses = {
-        'Project': 'status-project',
-        'Priority Project': 'status-priority',
-        'Current Project': 'status-current',
-        'Revision': 'status-revision',
-        'Waiting Approval': 'status-waiting',
-        'Project Finished': 'status-finished',
-        'Rejected': 'status-rejected'
-    };
-    return statusClasses[status] || 'status-project';
-}
-
-async function editImportedTask(taskId) {
-    const task = availableTasks.find(t => t.id === taskId);
-    if (!task) {
-        showToast('Task not found', 'error');
-        return;
-    }
-    
-    // Open task editor modal
-    if (!document.getElementById('taskEditorModal')) {
-        createTaskEditorModal();
-    }
-    
-    // Pre-fill the IDs
-    document.getElementById('masterBoardId').value = task.masterBoardId;
-    document.getElementById('companyBoardId').value = task.companyBoardId;
-    
-    // Display task for editing
-    displayTaskForEditing(task, task.masterBoardId, task.companyBoardId);
-    
-    // Show modal
-    document.getElementById('taskEditorModal').style.display = 'block';
-}
-
-async function removeImportedTask(taskId) {
-    if (!confirm('Are you sure you want to remove this task from your dashboard?\n\nThis will not affect the task in Infinity, only remove it from your personal dashboard.')) {
-        return;
-    }
-    
-    if (!currentEmployee) return;
-    
-    try {
-        const tasksKey = `myTasks_${currentEmployee}`;
-        let myTasks = [];
-        
-        const saved = localStorage.getItem(tasksKey);
-        if (saved) {
-            myTasks = JSON.parse(saved);
-        }
-        
-        // Remove task
-        myTasks = myTasks.filter(t => t.id !== taskId);
-        
-        // Save back
-        localStorage.setItem(tasksKey, JSON.stringify(myTasks));
-        availableTasks = myTasks;
-        
-        // Refresh display
-        await loadAssignedTasks();
-        
-        showToast('🗑️ Task removed from your dashboard', 'success');
-        
-    } catch (error) {
-        console.error('Error removing task:', error);
-        showToast('Error removing task', 'error');
-    }
-}
-
-async function startWorkingOnTask(taskId) {
-    const task = availableTasks.find(t => t.id === taskId);
-    if (!task) {
-        showToast('Task not found', 'error');
-        return;
-    }
-    
-    // If not already working, start the work day
-    if (currentWorkflowState === WORKFLOW_STATES.NOT_STARTED) {
-        await startWorkDay();
-    }
-    
-    activeTask = task;
-    showToast(`🎯 Started working on: ${task.name}`, 'success');
-    
-    // Update active task display
-    updateActiveTaskDisplay();
-}
-
-function updateActiveTaskDisplay() {
-    const activeTaskDiv = document.getElementById('activeTaskDisplay');
-    if (!activeTaskDiv) return;
-    
-    if (activeTask) {
-        activeTaskDiv.innerHTML = `
-            <div class="active-task-info">
-                <h4>🎯 Currently Working On:</h4>
-                <h3>${activeTask.name}</h3>
-                <p>${activeTask.description || 'No description'}</p>
-                <div class="active-task-progress">
-                    <span>Progress: ${activeTask.progress || 0}%</span>
-                    <div class="progress-bar">
-                        <div class="progress-fill" style="width: ${activeTask.progress || 0}%; background-color: ${getProgressColor(activeTask.progress || 0)};"></div>
-                    </div>
-                </div>
-                <button onclick="pauseCurrentTask()" class="btn btn-warning">
-                    ⏸️ Pause Task
-                </button>
-            </div>
-        `;
-    } else {
-        activeTaskDiv.innerHTML = '<p>No active task. Select a task to start working.</p>';
-    }
-}
-
-function pauseCurrentTask() {
-    if (activeTask) {
-        showToast(`⏸️ Paused work on: ${activeTask.name}`, 'info');
-        activeTask = null;
-        updateActiveTaskDisplay();
-    }
-}
-
-// ============= TASK SUBMISSION =============
-
-async function handleTaskSubmit(e) {
-    e.preventDefault();
-    
-    if (!currentEmployee) {
-        showToast('Please select an employee first', 'warning');
-        return;
-    }
-    
-    const form = e.target;
-    const formData = new FormData(form);
-    
-    try {
-        showToast('🔄 Starting new task...', 'info');
-        
-        let imageUrl = null;
-        const imageFile = formData.get('taskImage');
-        
-        if (imageFile && imageFile.size > 0) {
-            imageUrl = await uploadImageToImgBB(imageFile);
-        }
-        
-        const taskData = {
-            action: 'start_task',
-            'WHO ARE YOU?': currentEmployee,
-            'WHAT ARE YOU DOING?': formData.get('taskType'),
-            'NOTES': formData.get('taskNotes') || '',
-            'IMAGE_URL': imageUrl,
-            'COMPANY': formData.get('company') || 'VEBLEN (Internal)'
-        };
-        
-        const response = await fetch(CONFIG.n8nWebhookUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(taskData)
-        });
-        
-        if (response.ok) {
-            showToast('✅ Task started successfully!', 'success');
-            form.reset();
-            clearTaskImagePreview();
-            
-            // Refresh task list
-            await loadAssignedTasks();
-        } else {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        
-    } catch (error) {
-        console.error('Task submission error:', error);
-        showToast(`❌ Failed to start task: ${error.message}`, 'error');
-    }
-}
-
-// ============= DAILY REPORT HANDLER =============
-
-async function handleDailyReport(e) {
-    e.preventDefault();
-    
-    if (!currentEmployee) {
-        showToast('Please select an employee first', 'warning');
-        return;
-    }
-    
-    const form = e.target;
-    const formData = new FormData(form);
-    
-    try {
-        showToast('🔄 Submitting daily report...', 'info');
-        
-        // Upload photo to ImgBB
-        const photoFile = formData.get('reportPhoto');
-        if (!photoFile || photoFile.size === 0) {
-            showToast('❌ Report photo is required', 'error');
-            return;
-        }
-        
-        const photoUrl = await uploadImageToImgBB(photoFile);
-        
-        const reportData = {
-            action: 'daily_report',
-            'Name': currentEmployee,
-            'Company': formData.get('company') || 'VEBLEN (Internal)',
-            'Date': new Date().toISOString().split('T')[0],
-            'Project Name': formData.get('projectName'),
-            'Revisions': formData.get('numRevisions'),
-            'Time Spent': formData.get('totalTimeSpent'),
-            'Notes': formData.get('reportNotes'),
-            'Links': formData.get('reportLinks') || '',
-            'Photo URL': photoUrl,
-            'Feedback': formData.get('feedbackRequests') || ''
-        };
-        
-        const response = await fetch(CONFIG.n8nWebhookUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(reportData)
-        });
-        
-        if (response.ok) {
-            showToast('✅ Daily report submitted successfully!', 'success');
-            form.reset();
-            clearReportPhotoPreview();
-        } else {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        
-    } catch (error) {
-        console.error('Report submission error:', error);
-        showToast(`❌ Failed to submit report: ${error.message}`, 'error');
-    }
-}
-
-// ============= IMAGE HANDLING =============
-
-async function uploadImageToImgBB(imageFile) {
-    const formData = new FormData();
-    formData.append('image', imageFile);
-    
-    const response = await fetch(`https://api.imgbb.com/1/upload?key=${CONFIG.imgbbApiKey}`, {
-        method: 'POST',
-        body: formData
-    });
-    
-    if (!response.ok) {
-        throw new Error('Image upload failed');
-    }
-    
-    const data = await response.json();
-    
-    if (!data.success) {
-        throw new Error('Image upload failed');
-    }
-    
-    return data.data.url;
-}
-
-function handleTaskImagePreview(e) {
-    const file = e.target.files[0];
-    const previewContainer = document.getElementById('taskImagePreview');
-    
-    // Clear previous preview
-    previewContainer.innerHTML = '';
-    
-    if (!file) {
-        console.log('📸 No file selected for task image');
-        return;
-    }
-    
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp'];
-    if (!allowedTypes.includes(file.type.toLowerCase())) {
-        showToast('❌ Please select a valid image file (JPEG, PNG, GIF, BMP, WebP)', 'error');
-        e.target.value = ''; // Clear the input
-        return;
-    }
-    
-    // Validate file size (32MB limit for ImgBB)
-    const maxSize = 32 * 1024 * 1024; // 32MB in bytes
-    if (file.size > maxSize) {
-        showToast('❌ Image too large. Please select an image under 32MB', 'error');
-        e.target.value = ''; // Clear the input
-        return;
-    }
-    
-    // Create file reader
-    const reader = new FileReader();
-    
-    reader.onload = function(event) {
-        console.log('📸 Task image preview loaded:', file.name, `(${(file.size / 1024 / 1024).toFixed(2)}MB)`);
-        
-        // Create preview HTML
-        const previewHTML = `
-            <div style="margin-top: var(--spacing-md); padding: var(--spacing-md); background: rgba(0, 0, 0, 0.2); border-radius: var(--radius-md); border: 1px solid rgba(255, 255, 255, 0.1);">
-                <div style="display: flex; align-items: center; gap: var(--spacing-md); margin-bottom: var(--spacing-sm);">
-                    <span style="color: var(--text-primary); font-weight: 600;">📸 Image Preview:</span>
-                    <span style="color: var(--text-secondary); font-size: 0.875rem;">${file.name}</span>
-                    <span style="color: var(--text-secondary); font-size: 0.75rem; background: rgba(102, 126, 234, 0.2); padding: 2px 8px; border-radius: 12px;">${(file.size / 1024 / 1024).toFixed(2)}MB</span>
-                </div>
-                <div style="text-align: center;">
-                    <img src="${event.target.result}" 
-                         alt="Task Image Preview" 
-                         style="max-width: 300px; max-height: 200px; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); border: 2px solid var(--border); object-fit: cover;">
-                </div>
-                <button type="button" 
-                        onclick="clearTaskImagePreview()" 
-                        style="margin-top: var(--spacing-sm); padding: var(--spacing-xs) var(--spacing-sm); background: rgba(252, 129, 129, 0.2); color: #fc8181; border: 1px solid rgba(252, 129, 129, 0.3); border-radius: var(--radius-sm); font-size: 0.75rem; cursor: pointer; transition: all 0.3s ease;"
-                        onmouseover="this.style.background='rgba(252, 129, 129, 0.3)'"
-                        onmouseout="this.style.background='rgba(252, 129, 129, 0.2)'">
-                    🗑️ Remove Image
-                </button>
-            </div>
-        `;
-        
-        previewContainer.innerHTML = previewHTML;
-        showToast('✅ Task image loaded successfully', 'success');
-    };
-    
-    reader.onerror = function() {
-        console.error('❌ Error reading task image file');
-        showToast('❌ Error reading image file', 'error');
-        previewContainer.innerHTML = '';
-    };
-    
-    // Read the file as data URL
-    reader.readAsDataURL(file);
-}
-
-function handleReportPhotoPreview(e) {
-    const file = e.target.files[0];
-    const previewContainer = document.getElementById('reportPhotoPreview');
-    
-    // Clear previous preview
-    previewContainer.innerHTML = '';
-    
-    if (!file) {
-        console.log('📸 No file selected for report photo');
-        return;
-    }
-    
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp'];
-    if (!allowedTypes.includes(file.type.toLowerCase())) {
-        showToast('❌ Please select a valid image file (JPEG, PNG, GIF, BMP, WebP)', 'error');
-        e.target.value = ''; // Clear the input
-        return;
-    }
-    
-    // Validate file size (32MB limit for ImgBB)
-    const maxSize = 32 * 1024 * 1024; // 32MB in bytes
-    if (file.size > maxSize) {
-        showToast('❌ Image too large. Please select an image under 32MB', 'error');
-        e.target.value = ''; // Clear the input
-        return;
-    }
-    
-    // Create file reader
-    const reader = new FileReader();
-    
-    reader.onload = function(event) {
-        console.log('📸 Report photo preview loaded:', file.name, `(${(file.size / 1024 / 1024).toFixed(2)}MB)`);
-        
-        // Create preview HTML
-        const previewHTML = `
-            <div style="margin-top: var(--spacing-md); padding: var(--spacing-md); background: rgba(0, 0, 0, 0.2); border-radius: var(--radius-md); border: 1px solid rgba(255, 255, 255, 0.1);">
-                <div style="display: flex; align-items: center; gap: var(--spacing-md); margin-bottom: var(--spacing-sm);">
-                    <span style="color: var(--text-primary); font-weight: 600;">📷 Report Photo:</span>
-                    <span style="color: var(--text-secondary); font-size: 0.875rem;">${file.name}</span>
-                    <span style="color: var(--text-secondary); font-size: 0.75rem; background: rgba(72, 187, 120, 0.2); padding: 2px 8px; border-radius: 12px;">${(file.size / 1024 / 1024).toFixed(2)}MB</span>
-                </div>
-                <div style="text-align: center;">
-                    <img src="${event.target.result}" 
-                         alt="Report Photo Preview" 
-                         style="max-width: 300px; max-height: 200px; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); border: 2px solid var(--border); object-fit: cover;">
-                </div>
-                <button type="button" 
-                        onclick="clearReportPhotoPreview()" 
-                        style="margin-top: var(--spacing-sm); padding: var(--spacing-xs) var(--spacing-sm); background: rgba(252, 129, 129, 0.2); color: #fc8181; border: 1px solid rgba(252, 129, 129, 0.3); border-radius: var(--radius-sm); font-size: 0.75rem; cursor: pointer; transition: all 0.3s ease;"
-                        onmouseover="this.style.background='rgba(252, 129, 129, 0.3)'"
-                        onmouseout="this.style.background='rgba(252, 129, 129, 0.2)'">
-                    🗑️ Remove Photo
-                </button>
-            </div>
-        `;
-        
-        previewContainer.innerHTML = previewHTML;
-        showToast('✅ Report photo loaded successfully', 'success');
-    };
-    
-    reader.onerror = function() {
-        console.error('❌ Error reading report photo file');
-        showToast('❌ Error reading photo file', 'error');
-        previewContainer.innerHTML = '';
-    };
-    
-    // Read the file as data URL
-    reader.readAsDataURL(file);
-}
-
-function clearTaskImagePreview() {
-    const previewContainer = document.getElementById('taskImagePreview');
-    const imageInput = document.getElementById('taskImage');
-    
-    if (previewContainer) previewContainer.innerHTML = '';
-    if (imageInput) imageInput.value = '';
-    
-    showToast('📸 Task image removed', 'info');
-}
-
-function clearReportPhotoPreview() {
-    const previewContainer = document.getElementById('reportPhotoPreview');
-    const photoInput = document.getElementById('reportPhoto');
-    
-    if (previewContainer) previewContainer.innerHTML = '';
-    if (photoInput) photoInput.value = '';
-    
-    showToast('📷 Report photo removed', 'info');
-}
-
-// ============= TIME CLOCK FUNCTIONS =============
-
+// Handle time clock
 async function handleTimeClock(action) {
     if (!currentEmployee) {
         showToast('Please select an employee first', 'warning');
@@ -1490,7 +1217,6 @@ async function handleTimeClock(action) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                action: 'time_clock',
                 'WHO ARE YOU?': currentEmployee,
                 'WHAT ARE YOU DOING?': action
             })
@@ -1498,6 +1224,8 @@ async function handleTimeClock(action) {
 
         if (response.ok) {
             console.log(`✅ ${action} recorded successfully!`);
+            
+            // Update real-time clock based on action
             const now = new Date();
             handleClockAction(action, now);
             updateTimeClockStatus(action, now);
@@ -1505,154 +1233,228 @@ async function handleTimeClock(action) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
     } catch (error) {
-        console.error('Time clock error:', error);
-        showToast(`❌ Failed to log ${action}: ${error.message}`, 'error');
+        console.error('Error recording time clock:', error);
+        showToast('Error recording time clock action', 'error');
     }
 }
 
+// Handle clock action for real-time display
 function handleClockAction(action, timestamp) {
     if (!dailyShiftData) {
-        dailyShiftData = {
-            totalWorkedMs: 0,
-            workSessions: [],
-            breaks: []
-        };
+        initializeDailyShiftData();
     }
     
-    const currentSession = {
-        action: action,
-        timestamp: timestamp.toISOString(),
-        timeString: timestamp.toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit'
-        })
-    };
-    
-    if (action.includes('START') || action.includes('RESUME')) {
-        dailyShiftData.workSessions.push({
-            ...currentSession,
-            type: 'start'
-        });
-    } else if (action.includes('BREAK') || action.includes('DONE')) {
-        dailyShiftData.workSessions.push({
-            ...currentSession,
-            type: 'end'
-        });
-        
-        if (action.includes('BREAK')) {
-            dailyShiftData.breaks.push(currentSession);
-        }
-    }
-    
-    // Calculate total worked time
-    calculateTotalWorkedTime();
-    updateShiftProgress();
-    saveWorkClockState();
-}
-
-function calculateTotalWorkedTime() {
-    if (!dailyShiftData || !dailyShiftData.workSessions.length) return;
-    
-    let totalMs = 0;
-    let sessionStart = null;
-    
-    for (const session of dailyShiftData.workSessions) {
-        if (session.type === 'start') {
-            sessionStart = new Date(session.timestamp);
-        } else if (session.type === 'end' && sessionStart) {
-            const sessionEnd = new Date(session.timestamp);
-            totalMs += sessionEnd.getTime() - sessionStart.getTime();
-            sessionStart = null;
-        }
-    }
-    
-    // Add ongoing session if working
-    if (sessionStart && currentWorkflowState === WORKFLOW_STATES.WORKING) {
-        totalMs += new Date().getTime() - sessionStart.getTime();
-    }
-    
-    dailyShiftData.totalWorkedMs = totalMs;
-}
-
-function loadWorkClockState() {
-    if (!currentEmployee) return;
-    
-    const stateKey = `workClock_${currentEmployee}`;
-    const today = new Date().toISOString().split('T')[0];
-    
-    try {
-        const saved = localStorage.getItem(stateKey);
-        if (saved) {
-            const data = JSON.parse(saved);
-            if (data.date === today) {
-                dailyShiftData = data.shiftData;
-                shiftStartTime = data.shiftStartTime ? new Date(data.shiftStartTime) : null;
-                updateShiftProgress();
-                return;
+    switch (action) {
+        case '🟢 START WORK':
+            if (!dailyShiftData.shiftStartTime) {
+                dailyShiftData.shiftStartTime = timestamp;
             }
-        }
-    } catch (e) {
-        console.warn('Could not load work clock state:', e);
+            currentWorkSession = {
+                startTime: timestamp,
+                lastUpdate: timestamp
+            };
+            currentBreakSession = null;
+            startWorkClock();
+            break;
+            
+        case '☕ TAKE BREAK':
+            if (currentWorkSession) {
+                const sessionTime = timestamp.getTime() - currentWorkSession.startTime.getTime();
+                dailyShiftData.totalWorkedMs += sessionTime;
+                
+                dailyShiftData.workSessions.push({
+                    startTime: currentWorkSession.startTime.toISOString(),
+                    endTime: timestamp.toISOString(),
+                    durationMs: sessionTime
+                });
+                
+                currentWorkSession = null;
+            }
+            
+            currentBreakSession = {
+                startTime: timestamp,
+                lastUpdate: timestamp
+            };
+            startBreakClock();
+            break;
+            
+        case '🔵 BACK TO WORK':
+            currentWorkSession = {
+                startTime: timestamp,
+                lastUpdate: timestamp
+            };
+            currentBreakSession = null;
+            startWorkClock();
+            break;
+            
+        case '🔴 DONE FOR TODAY':
+            if (currentWorkSession) {
+                const sessionTime = timestamp.getTime() - currentWorkSession.startTime.getTime();
+                dailyShiftData.totalWorkedMs += sessionTime;
+                
+                dailyShiftData.workSessions.push({
+                    startTime: currentWorkSession.startTime.toISOString(),
+                    endTime: timestamp.toISOString(),
+                    durationMs: sessionTime
+                });
+            }
+            
+            stopAllClocks();
+            break;
     }
-    
-    // Initialize fresh for today
+}
+
+// Initialize daily shift data
+function initializeDailyShiftData() {
     dailyShiftData = {
         totalWorkedMs: 0,
         workSessions: [],
-        breaks: []
+        shiftStartTime: null,
+        targetShiftMs: 8 * 60 * 60 * 1000
     };
-    updateShiftProgress();
 }
 
-function saveWorkClockState() {
-    if (!currentEmployee) return;
+function formatElapsedTime(milliseconds) {
+    const totalSeconds = Math.floor(milliseconds / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
     
-    const stateKey = `workClock_${currentEmployee}`;
-    const today = new Date().toISOString().split('T')[0];
-    
-    const data = {
-        date: today,
-        shiftData: dailyShiftData,
-        shiftStartTime: shiftStartTime?.toISOString(),
-        lastUpdated: new Date().toISOString()
-    };
-    
-    localStorage.setItem(stateKey, JSON.stringify(data));
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
-function clearWorkClockState() {
-    dailyShiftData = null;
-    shiftStartTime = null;
-    updateShiftProgress();
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    
+    const container = document.getElementById('toastContainer');
+    if (container) {
+        container.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.remove();
+        }, 5000);
+    }
 }
 
-function updateShiftProgress() {
+// Start work clock timer
+function startWorkClock() {
+    if (workClockInterval) clearInterval(workClockInterval);
+    if (breakClockInterval) clearInterval(breakClockInterval);
+    
+    document.getElementById('breakClockDisplay').style.display = 'none';
+    document.getElementById('workClockDisplay').style.display = 'block';
+    
+    updateWorkTimer();
+    
+    workClockInterval = setInterval(updateWorkTimer, 1000);
+    
+    if (currentWorkSession) {
+        saveWorkClockState('working', currentWorkSession.startTime);
+    }
+}
+
+function startBreakClock() {
+    if (workClockInterval) clearInterval(workClockInterval);
+    if (breakClockInterval) clearInterval(breakClockInterval);
+    
+    document.getElementById('workClockDisplay').style.display = 'none';
+    document.getElementById('breakClockDisplay').style.display = 'block';
+    
+    updateBreakTimer();
+    
+    breakClockInterval = setInterval(updateBreakTimer, 1000);
+    
+    if (currentBreakSession) {
+        saveWorkClockState('break', currentBreakSession.startTime);
+    }
+}
+
+function updateWorkTimer() {
+    if (!currentWorkSession || !dailyShiftData) return;
+    
+    const now = Date.now();
+    const currentSessionElapsed = now - currentWorkSession.startTime.getTime();
+    const currentSessionFormatted = formatElapsedTime(currentSessionElapsed);
+    const totalShiftTime = dailyShiftData.totalWorkedMs + currentSessionElapsed;
+    const totalShiftFormatted = formatElapsedTime(totalShiftTime);
+    
+    const workTimerEl = document.getElementById('workTimer');
+    const totalShiftTimeEl = document.getElementById('totalShiftTime');
+    
+    if (workTimerEl) workTimerEl.textContent = currentSessionFormatted;
+    if (totalShiftTimeEl) totalShiftTimeEl.textContent = totalShiftFormatted;
+    
+    updateShiftProgress(totalShiftTime);
+    
+    const startTimeStr = currentWorkSession.startTime.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+    
+    const workStatusEl = document.getElementById('workStatus');
+    if (workStatusEl) {
+        workStatusEl.textContent = `Current session started at ${startTimeStr}`;
+    }
+}
+
+function updateBreakTimer() {
+    if (!currentBreakSession || !dailyShiftData) return;
+    
+    const now = Date.now();
+    const elapsed = now - currentBreakSession.startTime.getTime();
+    const formattedTime = formatElapsedTime(elapsed);
+    
+    const breakTimerEl = document.getElementById('breakTimer');
+    if (breakTimerEl) breakTimerEl.textContent = formattedTime;
+    
+    const totalWorkedFormatted = formatElapsedTime(dailyShiftData.totalWorkedMs);
+    const remainingMs = Math.max(0, dailyShiftData.targetShiftMs - dailyShiftData.totalWorkedMs);
+    const remainingFormatted = formatElapsedTime(remainingMs);
+    
+    const totalWorkedEl = document.getElementById('totalWorkedOnBreak');
+    const shiftRemainingEl = document.getElementById('shiftRemainingOnBreak');
+    
+    if (totalWorkedEl) totalWorkedEl.textContent = totalWorkedFormatted;
+    if (shiftRemainingEl) shiftRemainingEl.textContent = remainingFormatted;
+    
+    const startTimeStr = currentBreakSession.startTime.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+    
+    const breakStatusEl = document.getElementById('breakStatus');
+    if (breakStatusEl) {
+        breakStatusEl.textContent = `Started break at ${startTimeStr}`;
+    }
+}
+
+function updateShiftProgress(totalShiftTimeMs) {
+    if (!dailyShiftData) return;
+    
     const progressBar = document.getElementById('shiftProgressBar');
     const shiftStatus = document.getElementById('shiftStatus');
     
     if (!progressBar || !shiftStatus) return;
     
-    if (!dailyShiftData) {
-        progressBar.style.width = '0%';
-        progressBar.className = 'shift-bar';
-        shiftStatus.textContent = 'No shift data available';
-        return;
-    }
+    const percentage = (totalShiftTimeMs / dailyShiftData.targetShiftMs) * 100;
+    const clampedPercentage = Math.min(100, percentage);
     
-    const hours = dailyShiftData.totalWorkedMs / (60 * 60 * 1000);
-    const percentage = Math.min((hours / 8) * 100, 125); // Allow up to 125% for overtime
+    progressBar.style.width = `${clampedPercentage}%`;
     
-    progressBar.style.width = `${Math.min(percentage, 100)}%`;
+    const hours = totalShiftTimeMs / (60 * 60 * 1000);
     
     if (percentage >= 100) {
-        progressBar.className = 'shift-bar completed';
-        shiftStatus.className = 'shift-completed';
+        progressBar.className = 'shift-bar complete';
+        shiftStatus.className = 'shift-target complete';
         
-        if (percentage > 100) {
-            const overtimeHours = hours - 8;
-            shiftStatus.textContent = `✅ Shift Complete! +${overtimeHours.toFixed(1)} hours overtime (${hours.toFixed(1)} total)`;
+        if (percentage > 110) {
+            progressBar.className = 'shift-bar overtime';
+            shiftStatus.className = 'shift-target overtime';
+            shiftStatus.textContent = `🎉 Overtime! ${hours.toFixed(1)} hours completed (+${(hours - 8).toFixed(1)}h extra)`;
         } else {
-            shiftStatus.textContent = `✅ 8-hour shift completed! Total: ${hours.toFixed(1)} hours`;
+            shiftStatus.textContent = `🎉 Shift Complete! ${hours.toFixed(1)} hours completed`;
         }
     } else {
         progressBar.className = 'shift-bar';
@@ -1725,155 +1527,525 @@ function showShiftSummary() {
     message += `📊 Work Sessions: ${sessions}\n`;
     
     if (totalHours >= 8) {
-        message += `✅ Target Achieved! Great work!`;
+        message += `✅ Target Achieved! (+${(totalHours - 8).toFixed(1)}h extra)`;
+        showToast(message, 'success');
     } else {
-        message += `📈 ${(8 - totalHours).toFixed(1)} hours short of 8-hour target`;
+        message += `⚠️ Target: ${(8 - totalHours).toFixed(1)}h short of 8 hours`;
+        showToast(message, 'warning');
     }
     
-    alert(message);
+    console.log('📋 Detailed Shift Data:', dailyShiftData);
 }
 
-function formatElapsedTime(ms) {
-    const hours = Math.floor(ms / (60 * 60 * 1000));
-    const minutes = Math.floor((ms % (60 * 60 * 1000)) / (60 * 1000));
-    return `${hours}h ${minutes}m`;
-}
-
-function startShiftTimeUpdater() {
-    setInterval(() => {
-        if (dailyShiftData && currentWorkflowState === WORKFLOW_STATES.WORKING) {
-            calculateTotalWorkedTime();
-            updateShiftProgress();
-        }
-    }, 1000);
-}
-
-// ============= TESTING BYPASS FUNCTIONS =============
-
-function openPasswordModal() {
-    const modal = document.getElementById('passwordModal');
-    const input = document.getElementById('passwordInput');
-    const error = document.getElementById('passwordError');
-    const success = document.getElementById('passwordSuccess');
+// Load work clock state for current employee
+async function loadWorkClockState() {
+    if (!currentEmployee) return;
     
-    // Reset modal state
-    input.value = '';
-    error.style.display = 'none';
-    success.style.display = 'none';
+    const clockStateKey = `workClock_${currentEmployee}`;
+    const savedState = localStorage.getItem(clockStateKey);
     
-    modal.style.display = 'block';
-    
-    // Focus on input after modal is shown
-    setTimeout(() => input.focus(), 100);
-}
-
-function closePasswordModal() {
-    const modal = document.getElementById('passwordModal');
-    modal.style.display = 'none';
-}
-
-function validatePassword() {
-    const input = document.getElementById('passwordInput');
-    const error = document.getElementById('passwordError');
-    const success = document.getElementById('passwordSuccess');
-    const confirmBtn = document.querySelector('.password-btn-confirm');
-    
-    const enteredPassword = input.value.trim();
-    
-    if (enteredPassword === BYPASS_PASSWORD) {
-        // Show success message
-        error.style.display = 'none';
-        success.style.display = 'block';
-        confirmBtn.disabled = true;
-        
-        // Perform testing reset after short delay
-        setTimeout(() => {
-            performTestingBypass();
-            closePasswordModal();
-            showToast('🧪 TESTING MODE: Shift reset for testing only', 'success');
-        }, 1500);
-        
-    } else {
-        // Show error message
-        success.style.display = 'none';
-        error.style.display = 'block';
-        
-        // Clear input and refocus
-        input.value = '';
-        input.focus();
-        
-        // Hide error after 3 seconds
-        setTimeout(() => {
-            error.style.display = 'none';
-        }, 3000);
-    }
-}
-
-function performTestingBypass() {
-    console.log('🧪 PERFORMING TESTING BYPASS...');
-    
-    // Reset workflow state
-    currentWorkflowState = WORKFLOW_STATES.NOT_STARTED;
-    
-    // Clear shift data
-    dailyShiftData = null;
-    shiftStartTime = null;
-    
-    // Clear localStorage for current employee
-    if (currentEmployee) {
-        const stateKey = `workClock_${currentEmployee}`;
-        localStorage.removeItem(stateKey);
-    }
-    localStorage.removeItem('workflowState');
-    
-    // Update UI
-    updateWorkflowButtonStates();
-    updateShiftProgress();
-    updateTimeClockStatus('🧪 TESTING MODE: Ready to start your shift');
-    
-    console.log('✅ TESTING BYPASS COMPLETE - All states reset');
-}
-
-// ============= UTILITY FUNCTIONS =============
-
-function showToast(message, type = 'info') {
-    const container = document.getElementById('toastContainer') || createToastContainer();
-    
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.textContent = message;
-    
-    // Add toast to container
-    container.appendChild(toast);
-    
-    // Trigger animation
-    setTimeout(() => toast.classList.add('show'), 10);
-    
-    // Remove toast after delay
-    const delay = type === 'error' ? 5000 : 3000;
-    setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => {
-            if (toast.parentNode) {
-                toast.parentNode.removeChild(toast);
+    if (savedState) {
+        try {
+            const state = JSON.parse(savedState);
+            const now = Date.now();
+            const timeDiff = now - new Date(state.lastUpdate).getTime();
+            
+            const today = new Date().toDateString();
+            const stateDate = new Date(state.lastUpdate).toDateString();
+            
+            if (stateDate === today && timeDiff < 24 * 60 * 60 * 1000) {
+                dailyShiftData = state.dailyShiftData || {
+                    totalWorkedMs: 0,
+                    workSessions: [],
+                    shiftStartTime: null,
+                    targetShiftMs: 8 * 60 * 60 * 1000
+                };
+                
+                if (state.status === 'working') {
+                    currentWorkSession = {
+                        startTime: new Date(state.startTime),
+                        lastUpdate: new Date(state.lastUpdate)
+                    };
+                    startWorkClock();
+                    updateTimeClockStatus('🟢 START WORK', new Date(state.startTime));
+                } else if (state.status === 'break') {
+                    currentBreakSession = {
+                        startTime: new Date(state.startTime),
+                        lastUpdate: new Date(state.lastUpdate)
+                    };
+                    startBreakClock();
+                    updateTimeClockStatus('☕ TAKE BREAK', new Date(state.startTime));
+                }
+            } else {
+                localStorage.removeItem(clockStateKey);
+                initializeDailyShiftData();
             }
-        }, 300);
-    }, delay);
+        } catch (error) {
+            console.error('Error loading clock state:', error);
+            localStorage.removeItem(clockStateKey);
+            initializeDailyShiftData();
+        }
+    } else {
+        initializeDailyShiftData();
+    }
 }
 
-function createToastContainer() {
-    const container = document.createElement('div');
-    container.id = 'toastContainer';
-    container.className = 'toast-container';
-    document.body.appendChild(container);
-    return container;
+function saveWorkClockState(status, startTime) {
+    if (!currentEmployee) return;
+    
+    const clockStateKey = `workClock_${currentEmployee}`;
+    const state = {
+        status: status,
+        startTime: startTime.toISOString(),
+        lastUpdate: new Date().toISOString(),
+        employee: currentEmployee,
+        dailyShiftData: dailyShiftData
+    };
+    
+    localStorage.setItem(clockStateKey, JSON.stringify(state));
+}
+
+function clearWorkClockState() {
+    if (workClockInterval) {
+        clearInterval(workClockInterval);
+        workClockInterval = null;
+    }
+    
+    if (breakClockInterval) {
+        clearInterval(breakClockInterval);
+        breakClockInterval = null;
+    }
+    
+    const workDisplay = document.getElementById('workClockDisplay');
+    const breakDisplay = document.getElementById('breakClockDisplay');
+    
+    if (workDisplay) workDisplay.style.display = 'none';
+    if (breakDisplay) breakDisplay.style.display = 'none';
+    
+    currentWorkSession = null;
+    currentBreakSession = null;
+    dailyShiftData = null;
+    
+    if (currentEmployee) {
+        const clockStateKey = `workClock_${currentEmployee}`;
+        localStorage.removeItem(clockStateKey);
+    }
+}
+
+function stopAllClocks() {
+    clearWorkClockState();
+    
+    if (currentEmployee) {
+        const clockStateKey = `workClock_${currentEmployee}`;
+        saveWorkClockState('stopped', new Date());
+    }
+}
+
+// Load user's imported tasks from dashboard
+async function loadAssignedTasks() {
+    console.log('📋 Loading your imported tasks...');
+    if (!currentEmployee) {
+        document.getElementById('assignedTasksList').innerHTML = '<p class="loading">Select an employee to view assigned tasks...</p>';
+        return;
+    }
+    
+    try {
+        // Load user's personal imported tasks
+        const tasksKey = `myTasks_${currentEmployee}`;
+        const saved = localStorage.getItem(tasksKey);
+        let myTasks = [];
+        
+        if (saved) {
+            myTasks = JSON.parse(saved);
+            availableTasks = myTasks;
+        }
+        
+        if (myTasks.length === 0) {
+            document.getElementById('assignedTasksList').innerHTML = `
+                <p class="loading">No tasks imported yet.</p>
+                <div style="background: rgba(102, 126, 234, 0.1); border: 2px solid rgba(102, 126, 234, 0.3); border-radius: var(--radius-md); padding: var(--spacing-lg); margin-top: var(--spacing-md);">
+                    <h4 style="color: var(--text-primary); margin-bottom: var(--spacing-sm);">📥 Import Your First Task:</h4>
+                    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">1. Click "📥 Import Task from Infinity" button above</p>
+                    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">2. Enter your Master Board Item ID and Company Board Item ID</p>
+                    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">3. Click "Import Task" to add it to your personal dashboard</p>
+                    <p style="color: var(--text-secondary);">4. Edit progress, status, and sync changes back to Infinity</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Render imported tasks
+        renderMyImportedTasks(myTasks);
+        showToast(`📋 Loaded ${myTasks.length} imported task${myTasks.length === 1 ? '' : 's'}`, 'info');
+        
+    } catch (error) {
+        console.error('Error loading imported tasks:', error);
+        document.getElementById('assignedTasksList').innerHTML = '<p class="loading" style="color: var(--text-error);">Error loading your tasks. Please try refreshing.</p>';
+        showToast('Error loading your imported tasks', 'error');
+    }
+}
+
+// Enhanced dashboard rendering with edit capabilities
+function renderMyImportedTasks(tasks) {
+    const tasksList = document.getElementById('assignedTasksList');
+    
+    if (tasks.length === 0) {
+        tasksList.innerHTML = `
+            <div style="text-align: center; padding: var(--spacing-2xl);">
+                <p style="color: var(--text-secondary); margin-bottom: var(--spacing-lg);">No tasks imported yet.</p>
+                <div style="background: rgba(102, 126, 234, 0.1); border: 2px solid rgba(102, 126, 234, 0.3); border-radius: var(--radius-lg); padding: var(--spacing-xl);">
+                    <h4 style="color: var(--text-primary); margin-bottom: var(--spacing-md);">📥 Import Your First Task:</h4>
+                    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">1. Click "📥 Import Task from Infinity" button above</p>
+                    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">2. Enter Master Board Item ID and Company Board Item ID</p>
+                    <p style="color: var(--text-secondary);">3. Task will appear here for editing and syncing</p>
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    tasksList.innerHTML = `
+        <div style="margin-bottom: var(--spacing-xl); text-align: center;">
+            <h3 style="color: var(--text-primary); margin-bottom: var(--spacing-sm);">📋 Your Personal Task Dashboard</h3>
+            <p style="color: var(--text-secondary);">${tasks.length} imported task${tasks.length === 1 ? '' : 's'} • Click any task to edit inline</p>
+        </div>
+        <div class="tasks-grid">
+            ${tasks.map(task => createTaskCard(task)).join('')}
+        </div>
+    `;
+    
+    // Add event listeners for inline editing
+    tasks.forEach(task => {
+        attachTaskEventListeners(task.id);
+    });
+}
+// Create enhanced task card with inline editing
+function createTaskCard(task) {
+    const syncStatusIcon = getSyncStatusIcon(task.syncStatus);
+    const statusClass = getStatusClass(task.status);
+    
+    return `
+        <div class="task-card enhanced-task-card" data-task-id="${task.id}">
+            <div class="task-card-header">
+                <div class="task-title-section">
+                    <input type="text" 
+                           class="task-name-edit" 
+                           value="${task.name}" 
+                           data-field="name"
+                           placeholder="Task name...">
+                    <div class="task-badges">
+                        <span class="task-status ${statusClass}">${task.status}</span>
+                        <span class="sync-status ${task.syncStatus}">${syncStatusIcon}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="task-details">
+                <div class="task-field">
+                    <label>Company:</label>
+                    <span class="company-badge">${task.company}</span>
+                </div>
+                
+                <div class="task-field">
+                    <label>Description:</label>
+                    <textarea class="task-description-edit" 
+                              data-field="description" 
+                              placeholder="Add description...">${task.description}</textarea>
+                </div>
+                
+                <div class="task-field">
+                    <label>Status:</label>
+                    <select class="task-status-edit" data-field="status">
+                        <option value="Project" ${task.status === 'Project' ? 'selected' : ''}>Project</option>
+                        <option value="Priority Project" ${task.status === 'Priority Project' ? 'selected' : ''}>Priority Project</option>
+                        <option value="Current Project" ${task.status === 'Current Project' ? 'selected' : ''}>Current Project</option>
+                        <option value="Revision" ${task.status === 'Revision' ? 'selected' : ''}>Revision</option>
+                        <option value="Waiting Approval" ${task.status === 'Waiting Approval' ? 'selected' : ''}>Waiting Approval</option>
+                        <option value="Project Finished" ${task.status === 'Project Finished' ? 'selected' : ''}>Project Finished</option>
+                        <option value="Rejected" ${task.status === 'Rejected' ? 'selected' : ''}>Rejected</option>
+                    </select>
+                </div>
+                
+                <div class="task-field">
+                    <label>Progress:</label>
+                    <div class="progress-control">
+                        <input type="range" 
+                               class="task-progress-edit" 
+                               data-field="progress"
+                               min="0" 
+                               max="100" 
+                               value="${task.progress}">
+                        <span class="progress-value">${task.progress}%</span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" style="width: ${task.progress}%"></div>
+                    </div>
+                </div>
+                
+                <div class="task-field">
+                    <label>Notes:</label>
+                    <textarea class="task-notes-edit" 
+                              data-field="notes" 
+                              placeholder="Add notes...">${task.notes}</textarea>
+                </div>
+            </div>
+            
+            <div class="task-meta-info">
+                <div class="meta-row">
+                    <span><strong>Master ID:</strong> ${task.masterBoardId}</span>
+                    <span><strong>Company ID:</strong> ${task.companyBoardId}</span>
+                </div>
+                <div class="meta-row">
+                    <span><strong>Due:</strong> ${task.dueDate}</span>
+                    <span><strong>Last Sync:</strong> ${formatDate(task.lastSyncedAt)}</span>
+                </div>
+            </div>
+            
+            <div class="task-actions">
+                <button class="btn btn-primary btn-sm sync-btn" onclick="syncTaskWithInfinity('${task.id}')">
+                    🔄 Sync to Infinity
+                </button>
+                <button class="btn btn-secondary btn-sm save-btn" onclick="saveTaskChanges('${task.id}')" style="display: none;">
+                    💾 Save Changes
+                </button>
+                <button class="btn btn-danger btn-sm" onclick="removeImportedTask('${task.id}')">
+                    🗑️ Remove
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+// Attach event listeners for inline editing
+function attachTaskEventListeners(taskId) {
+    const taskCard = document.querySelector(`[data-task-id="${taskId}"]`);
+    if (!taskCard) return;
+    
+    const editableFields = taskCard.querySelectorAll('.task-name-edit, .task-description-edit, .task-status-edit, .task-progress-edit, .task-notes-edit');
+    
+    editableFields.forEach(field => {
+        field.addEventListener('input', () => handleTaskFieldChange(taskId, field));
+        field.addEventListener('change', () => handleTaskFieldChange(taskId, field));
+    });
+}
+
+// Handle field changes and show save button
+function handleTaskFieldChange(taskId, field) {
+    const taskCard = document.querySelector(`[data-task-id="${taskId}"]`);
+    const saveBtn = taskCard.querySelector('.save-btn');
+    const syncBtn = taskCard.querySelector('.sync-btn');
+    
+    // Show save button, hide sync button
+    saveBtn.style.display = 'inline-flex';
+    syncBtn.style.opacity = '0.5';
+    
+    // Update progress display if it's the progress field
+    if (field.classList.contains('task-progress-edit')) {
+        const progressValue = taskCard.querySelector('.progress-value');
+        const progressBar = taskCard.querySelector('.progress-bar');
+        const value = field.value;
+        
+        progressValue.textContent = `${value}%`;
+        progressBar.style.width = `${value}%`;
+    }
+    
+    // Mark task as having unsaved changes
+    taskCard.classList.add('has-unsaved-changes');
+    
+    // Update sync status
+    updateTaskSyncStatus(taskId, 'pending');
+}
+
+// Save task changes locally
+async function saveTaskChanges(taskId) {
+    const taskCard = document.querySelector(`[data-task-id="${taskId}"]`);
+    const saveBtn = taskCard.querySelector('.save-btn');
+    const syncBtn = taskCard.querySelector('.sync-btn');
+    
+    // Collect all field values
+    const updatedData = {
+        name: taskCard.querySelector('.task-name-edit').value.trim(),
+        description: taskCard.querySelector('.task-description-edit').value.trim(),
+        status: taskCard.querySelector('.task-status-edit').value,
+        progress: parseInt(taskCard.querySelector('.task-progress-edit').value),
+        notes: taskCard.querySelector('.task-notes-edit').value.trim()
+    };
+    
+    // Validate required fields
+    if (!updatedData.name) {
+        showToast('Task name is required', 'warning');
+        return;
+    }
+    
+    try {
+        // Update task in local storage
+        await updateTaskInMyDashboard(taskId, updatedData);
+        
+        // Update UI
+        saveBtn.style.display = 'none';
+        syncBtn.style.opacity = '1';
+        taskCard.classList.remove('has-unsaved-changes');
+        
+        // Update status badge
+        const statusBadge = taskCard.querySelector('.task-status');
+        statusBadge.textContent = updatedData.status;
+        statusBadge.className = `task-status ${getStatusClass(updatedData.status)}`;
+        
+        updateTaskSyncStatus(taskId, 'pending');
+        showToast('💾 Changes saved locally. Click "Sync to Infinity" to update Infinity.', 'success');
+        
+    } catch (error) {
+        console.error('Error saving task changes:', error);
+        showToast('Error saving changes', 'error');
+    }
+}
+
+// Sync task with Infinity
+async function syncTaskWithInfinity(taskId) {
+    const task = availableTasks.find(t => t.id === taskId);
+    if (!task) {
+        showToast('Task not found', 'error');
+        return;
+    }
+    
+    const syncBtn = document.querySelector(`[data-task-id="${taskId}"] .sync-btn`);
+    const originalText = syncBtn.innerHTML;
+    
+    try {
+        // Update button to show loading
+        syncBtn.innerHTML = '⏳ Syncing...';
+        syncBtn.disabled = true;
+        
+        updateTaskSyncStatus(taskId, 'syncing');
+        
+        const updateData = {
+            action: 'update_task',
+            master_board_id: task.masterBoardId,
+            company_board_id: task.companyBoardId,
+            task_name: task.name,
+            progress: task.progress,
+            status: task.status,
+            description: task.description,
+            notes: task.notes,
+            timestamp: new Date().toISOString(),
+            updated_by: currentEmployee || 'Unknown User'
+        };
+        
+        const response = await fetch(CONFIG.taskUpdateUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updateData)
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            if (result.success) {
+                // Update sync status and timestamp
+                await updateTaskSyncStatus(taskId, 'synced');
+                await updateTaskInMyDashboard(taskId, {
+                    lastSyncedAt: new Date().toISOString(),
+                    syncStatus: 'synced'
+                });
+                
+                showToast('✅ Task synced successfully with Infinity!', 'success');
+                
+                // Refresh dashboard to show updated sync time
+                await loadAssignedTasks();
+                
+            } else {
+                throw new Error(result.message || 'Sync failed');
+            }
+        } else {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+    } catch (error) {
+        console.error('Error syncing task:', error);
+        updateTaskSyncStatus(taskId, 'error');
+        showToast(`❌ Sync failed: ${error.message}`, 'error');
+        
+    } finally {
+        // Restore button
+        syncBtn.innerHTML = originalText;
+        syncBtn.disabled = false;
+    }
+}
+
+// Update task in dashboard storage
+async function updateTaskInMyDashboard(taskId, updates) {
+    if (!currentEmployee) return;
+    
+    const tasksKey = `myTasks_${currentEmployee}`;
+    let myTasks = [];
+    
+    try {
+        const saved = localStorage.getItem(tasksKey);
+        if (saved) {
+            myTasks = JSON.parse(saved);
+        }
+    } catch (error) {
+        console.error('Error loading tasks for update:', error);
+        return;
+    }
+    
+    const taskIndex = myTasks.findIndex(t => t.id === taskId);
+    
+    if (taskIndex >= 0) {
+        // Update existing task
+        myTasks[taskIndex] = {
+            ...myTasks[taskIndex],
+            ...updates,
+            lastUpdated: new Date().toISOString()
+        };
+        
+        localStorage.setItem(tasksKey, JSON.stringify(myTasks));
+        availableTasks = myTasks;
+    }
+}
+
+// Update sync status indicator
+function updateTaskSyncStatus(taskId, status) {
+    const taskCard = document.querySelector(`[data-task-id="${taskId}"]`);
+    if (!taskCard) return;
+    
+    const syncStatus = taskCard.querySelector('.sync-status');
+    const icon = getSyncStatusIcon(status);
+    
+    syncStatus.innerHTML = icon;
+    syncStatus.className = `sync-status ${status}`;
+    
+    // Update local storage
+    updateTaskInMyDashboard(taskId, { syncStatus: status });
+}
+
+// Helper functions
+function getSyncStatusIcon(status) {
+    switch (status) {
+        case 'synced': return '✅ Synced';
+        case 'pending': return '⏳ Pending';
+        case 'syncing': return '🔄 Syncing';
+        case 'error': return '❌ Error';
+        default: return '📥 Imported';
+    }
+}
+
+function getStatusClass(status) {
+    const statusClasses = {
+        'Project': 'status-project',
+        'Priority Project': 'status-priority',
+        'Current Project': 'status-current',
+        'Revision': 'status-revision',
+        'Waiting Approval': 'status-waiting',
+        'Project Finished': 'status-finished',
+        'Rejected': 'status-rejected'
+    };
+    return statusClasses[status] || 'status-project';
 }
 
 function formatDate(dateString) {
-    if (!dateString) return 'Unknown';
-    
+    if (!dateString) return 'Never';
     try {
-        return new Date(dateString).toLocaleDateString('en-US', {
+        return new Date(dateString).toLocaleString('en-US', {
             month: 'short',
             day: 'numeric',
             hour: '2-digit',
@@ -1883,17 +2055,94 @@ function formatDate(dateString) {
         return 'Invalid date';
     }
 }
+function getStatusClass(status) {
+    const statusClasses = {
+        'Project': 'status-project',
+        'Priority Project': 'status-priority',
+        'Current Project': 'status-current',
+        'Revision': 'status-revision',
+        'Waiting Approval': 'status-waiting',
+        'Project Finished': 'status-finished',
+        'Rejected': 'status-rejected'
+    };
+    return statusClasses[status] || 'status-project';
+}
 
-function getSyncStatusIcon(status) {
-    switch (status) {
-        case 'synced': return '✅';
-        case 'pending': return '🔄';
-        case 'error': return '❌';
-        default: return '✅';
+async function editImportedTask(taskId) {
+    const task = availableTasks.find(t => t.id === taskId);
+    if (!task) {
+        showToast('Task not found', 'error');
+        return;
+    }
+    
+    // Open task editor modal
+    if (!document.getElementById('taskEditorModal')) {
+        createTaskEditorModal();
+    }
+    
+    // Pre-fill the IDs
+    document.getElementById('masterBoardId').value = task.masterBoardId;
+    document.getElementById('companyBoardId').value = task.companyBoardId;
+    
+    // Display task for editing
+    displayTaskForEditing(task, task.masterBoardId, task.companyBoardId);
+    
+    // Show modal
+    document.getElementById('taskEditorModal').style.display = 'block';
+}
+
+async function removeImportedTask(taskId) {
+    if (!confirm('Are you sure you want to remove this task from your dashboard?\n\nThis will not affect the task in Infinity, only remove it from your personal dashboard.')) {
+        return;
+    }
+    
+    if (!currentEmployee) return;
+    
+    try {
+        const tasksKey = `myTasks_${currentEmployee}`;
+        let myTasks = [];
+        
+        const saved = localStorage.getItem(tasksKey);
+        if (saved) {
+            myTasks = JSON.parse(saved);
+        }
+        
+        // Remove task
+        myTasks = myTasks.filter(t => t.id !== taskId);
+        
+        // Save back
+        localStorage.setItem(tasksKey, JSON.stringify(myTasks));
+        availableTasks = myTasks;
+        
+        // Refresh display
+        await loadAssignedTasks();
+        
+        showToast('🗑️ Task removed from your dashboard', 'success');
+        
+    } catch (error) {
+        console.error('Error removing task:', error);
+        showToast('Error removing task', 'error');
     }
 }
 
-// ============= MODAL CLOSE ON OUTSIDE CLICK =============
+// Stub implementations for form handlers
+async function handleTaskIntake(e) {
+    e.preventDefault();
+    showToast('Task intake feature available in full version', 'info');
+}
+
+async function handleDailyReport(e) {
+    e.preventDefault();
+    showToast('Daily report feature available in full version', 'info');
+}
+
+function handleTaskImagePreview(e) {
+    console.log('📸 Image preview');
+}
+
+function handleReportPhotoPreview(e) {
+    console.log('📸 Photo preview');
+}
 
 // Modal close on outside click
 window.addEventListener('click', function(event) {
@@ -1909,9 +2158,7 @@ window.addEventListener('click', function(event) {
     }
 });
 
-// ============= DEBUG FUNCTIONS =============
-
-// Debug function for testing
+// Debug function
 window.debugStartButton = function() {
     console.log('🔧 DEBUGGING START BUTTON...');
     
@@ -1938,162 +2185,4 @@ window.debugStartButton = function() {
     }
 };
 
-// Debug function for modals
-window.debugModals = function() {
-    console.log('🔧 DEBUGGING MODALS...');
-    
-    const taskModal = document.getElementById('taskEditorModal');
-    const passwordModal = document.getElementById('passwordModal');
-    
-    console.log('Task Editor Modal:', taskModal ? '✅ Found' : '❌ Not found');
-    console.log('Password Modal:', passwordModal ? '✅ Found' : '❌ Not found');
-    
-    // Test modal creation
-    if (!taskModal) {
-        createTaskEditorModal();
-        console.log('✅ Task Editor Modal created');
-    }
-    
-    // Test modal opening
-    try {
-        openTaskEditorModal();
-        console.log('✅ Task Editor Modal opened');
-        
-        setTimeout(() => {
-            closeTaskEditorModal();
-            console.log('✅ Task Editor Modal closed');
-        }, 2000);
-    } catch (error) {
-        console.error('❌ Modal test failed:', error);
-    }
-    
-    return 'Modal debugging complete - check console for results';
-};
-
-// Debug function for employee state
-window.debugEmployee = function() {
-    console.log('🔧 DEBUGGING EMPLOYEE STATE...');
-    
-    const employeeSelect = document.getElementById('employeeSelect');
-    
-    console.log('Employee Select Element:', employeeSelect ? '✅ Found' : '❌ Not found');
-    console.log('Current Employee:', currentEmployee);
-    console.log('Employee Select Value:', employeeSelect?.value);
-    console.log('Saved Employee:', localStorage.getItem('selectedEmployee'));
-    
-    if (employeeSelect && !currentEmployee) {
-        employeeSelect.value = 'Tony Herrera';
-        handleEmployeeChange({ target: { value: 'Tony Herrera' } });
-        console.log('✅ Employee set to Tony Herrera');
-    }
-    
-    return `Employee: ${currentEmployee || 'Not set'}`;
-};
-
-// Quick progress update functions
-async function updateTaskProgress(taskId, newProgress) {
-    const task = availableTasks.find(t => t.id === taskId);
-    if (!task) {
-        showToast('Task not found', 'error');
-        return;
-    }
-    
-    try {
-        const response = await fetch('/api/task-update', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'update_progress',
-                task_id: task.companyBoardId,
-                master_task_id: task.masterBoardId,
-                company: task.company,
-                progress: newProgress
-            })
-        });
-        
-        if (response.ok) {
-            // Update local storage
-            await updateTaskInMyDashboard(task.masterBoardId, task.companyBoardId, { progress: newProgress });
-            
-            // Refresh task list
-            await loadAssignedTasks();
-            
-            showToast(`✅ Progress updated to ${newProgress}%`, 'success');
-        } else {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        
-    } catch (error) {
-        console.error('Progress update error:', error);
-        showToast(`❌ Failed to update progress: ${error.message}`, 'error');
-    }
-}
-
-// ============= KEYBOARD SHORTCUTS =============
-
-document.addEventListener('keydown', function(event) {
-    // Ctrl/Cmd + I = Import Task
-    if ((event.ctrlKey || event.metaKey) && event.key === 'i') {
-        event.preventDefault();
-        openTaskEditorModal();
-    }
-    
-    // Ctrl/Cmd + S = Start Work Day (if not started)
-    if ((event.ctrlKey || event.metaKey) && event.key === 's') {
-        event.preventDefault();
-        if (currentWorkflowState === WORKFLOW_STATES.NOT_STARTED && currentEmployee) {
-            startWorkDay();
-        }
-    }
-    
-    // Ctrl/Cmd + B = Take Break (if working)
-    if ((event.ctrlKey || event.metaKey) && event.key === 'b') {
-        event.preventDefault();
-        if (currentWorkflowState === WORKFLOW_STATES.WORKING) {
-            takeBreak();
-        }
-    }
-    
-    // Ctrl/Cmd + R = Resume Work (if on break)
-    if ((event.ctrlKey || event.metaKey) && event.key === 'r') {
-        event.preventDefault();
-        if (currentWorkflowState === WORKFLOW_STATES.ON_BREAK) {
-            resumeWork();
-        }
-    }
-});
-
-// ============= ERROR HANDLING =============
-
-// Global error handler
-window.addEventListener('error', function(event) {
-    console.error('🚨 Global JavaScript Error:', event.error);
-    showToast('❌ An unexpected error occurred. Please refresh the page.', 'error');
-});
-
-// Unhandled promise rejection handler
-window.addEventListener('unhandledrejection', function(event) {
-    console.error('🚨 Unhandled Promise Rejection:', event.reason);
-    showToast('❌ Network error. Please check your connection.', 'error');
-    event.preventDefault();
-});
-
-// ============= FINAL INITIALIZATION =============
-
-console.log('🚀 Complete VEBLEN Task Tracker script loaded successfully!');
-console.log('📋 Available debug functions:');
-console.log('  - window.debugStartButton()');
-console.log('  - window.debugModals()');
-console.log('  - window.debugEmployee()');
-console.log('⌨️ Keyboard shortcuts:');
-console.log('  - Ctrl/Cmd + I: Import Task');
-console.log('  - Ctrl/Cmd + S: Start Work Day');
-console.log('  - Ctrl/Cmd + B: Take Break');
-console.log('  - Ctrl/Cmd + R: Resume Work');
-console.log('  - ESC: Close Modals');
-
-// Auto-initialize if employee is already selected
-if (currentEmployee) {
-    console.log(`👤 Auto-loading data for ${currentEmployee}...`);
-    loadEmployeeData();
-}
+console.log('🚀 Simplified VEBLEN Task Tracker loaded!');
