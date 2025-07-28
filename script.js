@@ -1063,6 +1063,7 @@ async function saveTaskToMyDashboard(task, masterBoardId, companyBoardId) {
 }
 
 // ✅ ENHANCED - Display real task data in editor with task name editing
+// ✅ ENHANCED - Display task with ALL editable fields (no Notes textarea)
 function displayTaskForEditing(task, masterBoardId, companyBoardId) {
     document.getElementById('taskEditorContent').innerHTML = `
         <div class="task-editor-form">
@@ -1092,13 +1093,14 @@ function displayTaskForEditing(task, masterBoardId, companyBoardId) {
                 </span>
             </div>
             
-            <!-- ✅ ADDED: Task Name Editing -->
+            <!-- ✅ Task Name -->
             <div class="form-group">
-                <label for="editTaskName">Task Name</label>
+                <label for="editTaskName">Task Name*</label>
                 <input type="text" 
                        id="editTaskName" 
                        value="${task.name || ''}"
                        placeholder="Enter task name"
+                       required
                        style="
                            width: 100%;
                            padding: var(--spacing-md);
@@ -1110,50 +1112,7 @@ function displayTaskForEditing(task, masterBoardId, companyBoardId) {
                        ">
             </div>
             
-            <!-- ✅ Real Progress Display -->
-            <div class="form-group">
-                <label for="editTaskProgress">Progress: <span id="progressDisplay">${task.progress || 0}%</span></label>
-                <div style="display: flex; align-items: center; gap: var(--spacing-md);">
-                    <input type="range" 
-                           id="editTaskProgress" 
-                           min="0" 
-                           max="100" 
-                           value="${task.progress || 0}"
-                           style="flex: 1;">
-                </div>
-                <div style="height: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; margin-top: 0.5rem;">
-                    <div id="progressBar" style="
-                        height: 100%;
-                        background: var(--primary-gradient);
-                        border-radius: 4px;
-                        width: ${task.progress || 0}%;
-                        transition: width 0.3s ease;
-                    "></div>
-                </div>
-            </div>
-            
-            <!-- ✅ Real Status Selection -->
-            <div class="form-group">
-                <label for="editTaskStatus">Status</label>
-                <select id="editTaskStatus" class="form-control" style="
-                    width: 100%;
-                    padding: var(--spacing-md);
-                    background: rgba(0, 0, 0, 0.2);
-                    border: 1px solid var(--border);
-                    border-radius: var(--radius-md);
-                    color: var(--text-primary);
-                ">
-                    <option value="Project" ${task.status === 'Project' ? 'selected' : ''}>Project</option>
-                    <option value="Priority Project" ${task.status === 'Priority Project' ? 'selected' : ''}>Priority Project</option>
-                    <option value="Current Project" ${task.status === 'Current Project' ? 'selected' : ''}>Current Project</option>
-                    <option value="Revision" ${task.status === 'Revision' ? 'selected' : ''}>Revision</option>
-                    <option value="Waiting Approval" ${task.status === 'Waiting Approval' ? 'selected' : ''}>Waiting Approval</option>
-                    <option value="Project Finished" ${task.status === 'Project Finished' ? 'selected' : ''}>Project Finished</option>
-                    <option value="Rejected" ${task.status === 'Rejected' ? 'selected' : ''}>Rejected</option>
-                </select>
-            </div>
-            
-            <!-- ✅ Real Description -->
+            <!-- ✅ Description -->
             <div class="form-group">
                 <label for="editTaskDescription">Description</label>
                 <textarea id="editTaskDescription" 
@@ -1171,22 +1130,88 @@ function displayTaskForEditing(task, masterBoardId, companyBoardId) {
                           ">${task.description || ''}</textarea>
             </div>
             
-            <!-- ✅ Notes Section -->
+            <!-- ✅ Progress -->
             <div class="form-group">
-                <label for="editTaskNotes">Notes</label>
-                <textarea id="editTaskNotes" 
-                          rows="4" 
-                          placeholder="Add any notes or updates..."
+                <label for="editTaskProgress">Progress: <span id="progressDisplay">${task.progress || 0}%</span></label>
+                <div style="display: flex; align-items: center; gap: var(--spacing-md); margin-bottom: var(--spacing-sm);">
+                    <input type="range" 
+                           id="editTaskProgress" 
+                           min="0" 
+                           max="100" 
+                           value="${task.progress || 0}"
+                           style="flex: 1; height: 8px;">
+                    <span id="progressPercentage" style="
+                        font-weight: 700;
+                        color: var(--primary-color);
+                        font-size: 1.1rem;
+                        min-width: 60px;
+                        text-align: center;
+                    ">${task.progress || 0}%</span>
+                </div>
+                <div style="height: 8px; background: rgba(0,0,0,0.3); border-radius: 4px;">
+                    <div id="progressBar" style="
+                        height: 100%;
+                        background: var(--primary-gradient);
+                        border-radius: 4px;
+                        width: ${task.progress || 0}%;
+                        transition: width 0.3s ease;
+                    "></div>
+                </div>
+            </div>
+            
+            <!-- ✅ Status -->
+            <div class="form-group">
+                <label for="editTaskStatus">Status*</label>
+                <select id="editTaskStatus" required style="
+                    width: 100%;
+                    padding: var(--spacing-md);
+                    background: rgba(0, 0, 0, 0.2);
+                    border: 1px solid var(--border);
+                    border-radius: var(--radius-md);
+                    color: var(--text-primary);
+                ">
+                    <option value="Project" ${task.status === 'Project' ? 'selected' : ''}>Project</option>
+                    <option value="Priority Project" ${task.status === 'Priority Project' ? 'selected' : ''}>Priority Project</option>
+                    <option value="Current Project" ${task.status === 'Current Project' ? 'selected' : ''}>Current Project</option>
+                    <option value="Revision" ${task.status === 'Revision' ? 'selected' : ''}>Revision</option>
+                    <option value="Waiting Approval" ${task.status === 'Waiting Approval' ? 'selected' : ''}>Waiting Approval</option>
+                    <option value="Project Finished" ${task.status === 'Project Finished' ? 'selected' : ''}>Project Finished</option>
+                    <option value="Rejected" ${task.status === 'Rejected' ? 'selected' : ''}>Rejected</option>
+                </select>
+            </div>
+            
+            <!-- ✅ Due Date -->
+            <div class="form-group">
+                <label for="editTaskDueDate">Due Date</label>
+                <input type="date" 
+                       id="editTaskDueDate" 
+                       value="${task.dueDateRaw || ''}"
+                       style="
+                           width: 100%;
+                           padding: var(--spacing-md);
+                           background: rgba(0, 0, 0, 0.2);
+                           border: 1px solid var(--border);
+                           border-radius: var(--radius-md);
+                           color: var(--text-primary);
+                       ">
+            </div>
+            
+            <!-- ✅ Links -->
+            <div class="form-group">
+                <label for="editTaskLinks">Links (one per line)</label>
+                <textarea id="editTaskLinks" 
+                          rows="3" 
+                          placeholder="Add any relevant links (one per line)"
                           style="
                               width: 100%;
-                              min-height: 100px;
+                              min-height: 80px;
                               padding: var(--spacing-md);
                               background: rgba(0, 0, 0, 0.2);
                               border: 1px solid var(--border);
                               border-radius: var(--radius-md);
                               color: var(--text-primary);
                               resize: vertical;
-                          ">${task.notes || ''}</textarea>
+                          ">${task.links || ''}</textarea>
             </div>
             
             <!-- ✅ Task Metadata Display -->
@@ -1201,7 +1226,7 @@ function displayTaskForEditing(task, masterBoardId, companyBoardId) {
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-sm);">
                     <p><strong>Master ID:</strong> ${masterBoardId}</p>
                     <p><strong>Company ID:</strong> ${companyBoardId}</p>
-                    <p><strong>Due Date:</strong> ${task.dueDate || 'Not set'}</p>
+                    <p><strong>Company:</strong> ${task.company || 'Unknown'}</p>
                     <p><strong>Last Updated:</strong> ${task.lastUpdated ? new Date(task.lastUpdated).toLocaleDateString() : 'Now'}</p>
                 </div>
                 <p style="margin-top: var(--spacing-sm);"><strong>Imported from:</strong> StartInfinity via n8n workflow</p>
@@ -1212,12 +1237,14 @@ function displayTaskForEditing(task, masterBoardId, companyBoardId) {
     // ✅ Add real-time progress slider updates
     const progressSlider = document.getElementById('editTaskProgress');
     const progressDisplay = document.getElementById('progressDisplay');
+    const progressPercentage = document.getElementById('progressPercentage');
     const progressBar = document.getElementById('progressBar');
     
     if (progressSlider) {
         progressSlider.addEventListener('input', function() {
             const value = this.value;
             progressDisplay.textContent = value + '%';
+            progressPercentage.textContent = value + '%';
             progressBar.style.width = value + '%';
         });
     }
@@ -1233,23 +1260,21 @@ function displayTaskForEditing(task, masterBoardId, companyBoardId) {
     document.getElementById('taskEditorFooter').style.display = 'flex';
 }
 
-function updateProgressDisplay(value) {
-    document.getElementById('progressDisplay').textContent = value + '%';
-    document.getElementById('editProgressBar').style.width = value + '%';
-}
-
+// ✅ ENHANCED - Update task with ALL fields
 async function updateTaskInInfinity() {
     if (!window.currentEditingTask) {
         showToast('No task loaded for editing', 'error');
         return;
     }
     
-    // ✅ FIXED: Use the correct element IDs that exist in the modal
+    // ✅ Get ALL form values
     const taskName = document.getElementById('editTaskName').value.trim();
+    const description = document.getElementById('editTaskDescription').value.trim();
     const progress = parseInt(document.getElementById('editTaskProgress').value);
     const status = document.getElementById('editTaskStatus').value;
-    const description = document.getElementById('editTaskDescription').value;
-    const notes = document.getElementById('editTaskNotes').value;
+    const dueDate = document.getElementById('editTaskDueDate').value;
+    const links = document.getElementById('editTaskLinks').value.trim();
+    
     const masterBoardId = window.currentEditingTask.masterBoardId;
     const companyBoardId = window.currentEditingTask.companyBoardId;
     
@@ -1258,22 +1283,28 @@ async function updateTaskInInfinity() {
         return;
     }
     
+    // ✅ Build comprehensive update data matching your n8n workflow
     const updateData = {
         action: 'update_task',
         master_board_id: masterBoardId,
         company_board_id: companyBoardId,
         company: window.currentEditingTask.company || 'VEBLEN (Internal)',
+        
+        // ✅ ALL updatable fields
         task_name: taskName,
+        description: description,
         progress: progress,
         status: status,
-        description: description,
-        notes: notes,
+        due_date: dueDate,
+        links: links,
+        
+        // Metadata
         timestamp: new Date().toISOString(),
         updated_by: currentEmployee || 'Unknown User'
     };
     
     try {
-        showToast('🔄 Updating task in Infinity...', 'info');
+        showToast('🔄 Updating task in StartInfinity...', 'info');
         
         // Update in Infinity using the unified API endpoint
         const response = await fetch('/api/task-action', {
@@ -1285,39 +1316,45 @@ async function updateTaskInInfinity() {
         if (response.ok) {
             const result = await response.json();
             if (result.success) {
-                // Update local dashboard
+                // Update local dashboard with ALL fields
                 await updateTaskInMyDashboard(masterBoardId, companyBoardId, {
                     name: taskName,
+                    description: description,
                     progress: progress,
                     status: status,
-                    description: description,
-                    notes: notes
+                    dueDate: dueDate ? formatDate(dueDate) : null,
+                    dueDateRaw: dueDate,
+                    links: links,
+                    lastUpdated: new Date().toISOString()
                 });
                 
-                showToast('✅ Task updated successfully in Infinity and your dashboard!', 'success');
+                showToast('✅ Task updated successfully in StartInfinity and your dashboard!', 'success');
                 closeTaskEditorModal();
                 
                 // Refresh assigned tasks list
                 await loadAssignedTasks();
             } else {
-                throw new Error(result.message || 'Update failed in Infinity');
+                throw new Error(result.message || 'Update failed in StartInfinity');
             }
         } else {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
     } catch (error) {
-        console.error('Error updating task in Infinity:', error);
+        console.error('Error updating task in StartInfinity:', error);
         
-        // Still update locally even if Infinity update fails
+        // Still update locally even if StartInfinity update fails
         await updateTaskInMyDashboard(masterBoardId, companyBoardId, {
             name: taskName,
+            description: description,
             progress: progress,
             status: status,
-            description: description,
-            notes: notes
+            dueDate: dueDate ? formatDate(dueDate) : null,
+            dueDateRaw: dueDate,
+            links: links,
+            lastUpdated: new Date().toISOString()
         });
         
-        showToast('⚠️ Updated locally, but failed to sync with Infinity: ' + error.message, 'warning');
+        showToast('⚠️ Updated locally, but failed to sync with StartInfinity: ' + error.message, 'warning');
         await loadAssignedTasks();
     }
 }
@@ -1893,6 +1930,7 @@ function attachTaskEventListeners(taskId) {
 
 // ✅ COMPLETE renderMyImportedTasks function
 // ✅ ENHANCED - Task cards with image thumbnails
+// ✅ UPDATED - Task cards without Notes textarea
 function renderMyImportedTasks(tasks) {
     const tasksList = document.getElementById('assignedTasksList');
     
@@ -1932,7 +1970,7 @@ ${tasks.map(task => {
             task.description) 
         : 'No description available';
     
-    // ✅ NEW - Handle task image with fallback
+    // ✅ Handle task image with fallback
     const taskImage = task.imageUrl || task.image_url || task.Image_URL || null;
     const hasImage = taskImage && taskImage.trim() !== '';
     
@@ -1946,7 +1984,7 @@ ${tasks.map(task => {
             margin-bottom: var(--spacing-lg);
             ${hasImage ? 'min-height: 420px;' : ''}
         ">
-            <!-- ✅ NEW - Task Image Thumbnail (if exists) -->
+            <!-- ✅ Task Image Thumbnail (if exists) -->
             ${hasImage ? `
             <div style="
                 margin-bottom: 1rem;
@@ -2016,7 +2054,7 @@ ${tasks.map(task => {
                 <small>🏢 ${task.company || 'No Company'}</small>
             </div>
             
-            <!-- Real Description -->
+            <!-- Description -->
             <div style="
                 color: var(--text-secondary);
                 font-size: 0.9rem;
@@ -2027,7 +2065,7 @@ ${tasks.map(task => {
                 ${shortDescription}
             </div>
             
-            <!-- Real Progress Bar -->
+            <!-- Progress Bar -->
             <div style="margin-bottom: 1rem;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                     <span>Progress</span>
@@ -2043,6 +2081,20 @@ ${tasks.map(task => {
                     "></div>
                 </div>
             </div>
+            
+            <!-- Due Date Info -->
+            ${task.dueDate && task.dueDate !== 'Not set' ? `
+            <div style="margin-bottom: 1rem; font-size: 0.85rem; color: var(--text-secondary);">
+                📅 <strong>Due:</strong> ${task.dueDate}
+            </div>
+            ` : ''}
+            
+            <!-- Links Info -->
+            ${task.links && task.links.trim() !== '' ? `
+            <div style="margin-bottom: 1rem; font-size: 0.85rem; color: var(--text-secondary);">
+                🔗 <strong>Links:</strong> ${task.links.split('\\n').length} link(s) attached
+            </div>
+            ` : ''}
             
             <!-- Task Metadata -->
             <div style="margin-bottom: 1rem; font-size: 0.8rem; color: var(--text-secondary);">
@@ -2890,6 +2942,7 @@ async function handleDailyReport(e) {
     }
 }
 // Stub implementations for form handlers
+// ✅ ENHANCED - Task intake with optional image handling
 async function handleTaskIntake(e) {
     e.preventDefault();
     
@@ -2904,7 +2957,7 @@ async function handleTaskIntake(e) {
     try {
         showToast('📝 Creating new task...', 'info');
         
-        // Handle image upload first
+        // ✅ Handle optional image upload
         const imageFile = formData.get('taskImage');
         let imageUrl = '';
         
@@ -2925,26 +2978,35 @@ async function handleTaskIntake(e) {
                 console.log('✅ Image uploaded successfully:', imageUrl);
             } else {
                 console.warn('⚠️ Image upload failed, proceeding without image');
+                showToast('⚠️ Image upload failed, but task will be created without image', 'warning');
             }
+        } else {
+            console.log('📝 No image provided - creating task without image');
         }
         
         // Get assigned users (multiple select)
         const assignedElements = form.querySelectorAll('#taskAssigned option:checked');
         const assignedArray = Array.from(assignedElements).map(option => option.value);
         
-        // Build task data with CORRECT field names matching your HTML
+        // ✅ Build comprehensive task data with ALL required fields
         const taskData = {
             action: 'task_intake',
-            'Project Title': formData.get('taskTitle') || '',           // ✅ Fixed
-            'Description': formData.get('taskDescription') || '',       // ✅ Fixed
-            'Company': formData.get('taskCompany') || '',               // ✅ Fixed
-            'Is this project a priority?': formData.get('taskPriority') || 'No', // ✅ Fixed
-            'Due Date': formData.get('taskDueDate') || '',              // ✅ Fixed
-            'Links': formData.get('taskLinks') || '',                   // ✅ Fixed
+            
+            // ✅ Core required fields
+            'Project Title': formData.get('taskTitle') || '',
+            'Description': formData.get('taskDescription') || '',
+            'Company': formData.get('taskCompany') || '',
+            'Is this project a priority?': formData.get('taskPriority') || 'No',
+            'Due Date': formData.get('taskDueDate') || '',
+            'Links': formData.get('taskLinks') || '',
+            'Assigned': assignedArray,
             'Name': currentEmployee,
-            'Assigned': assignedArray,                                  // ✅ Fixed
-            'Image_URL': imageUrl,
             'Employee Name': currentEmployee,
+            
+            // ✅ Optional image URL (empty string if no image)
+            'Image_URL': imageUrl,
+            
+            // ✅ Metadata
             'Timestamp': new Date().toISOString()
         };
         
@@ -2961,7 +3023,13 @@ async function handleTaskIntake(e) {
         if (response.ok) {
             const result = await response.json();
             console.log('✅ Task created successfully:', result);
-            showToast('✅ Task created successfully!', 'success');
+            
+            if (imageUrl) {
+                showToast('✅ Task created successfully with image!', 'success');
+            } else {
+                showToast('✅ Task created successfully!', 'success');
+            }
+            
             form.reset();
             
             // Clear image preview
@@ -2980,6 +3048,18 @@ async function handleTaskIntake(e) {
     }
 }
 
+// ✅ ENHANCED - Clear image preview function
+function clearTaskImagePreview() {
+    const input = document.getElementById('taskImage');
+    const preview = document.getElementById('taskImagePreview');
+    
+    if (input) input.value = '';
+    if (preview) preview.innerHTML = '';
+    
+    showToast('Image removed', 'info');
+}
+
+// ✅ ENHANCED - Image preview with better validation
 function handleTaskImagePreview(e) {
     const file = e.target.files[0];
     const previewContainer = document.getElementById('taskImagePreview');
@@ -3018,7 +3098,7 @@ function handleTaskImagePreview(e) {
         const previewHTML = `
             <div style="margin-top: var(--spacing-md); padding: var(--spacing-md); background: rgba(0, 0, 0, 0.2); border-radius: var(--radius-md); border: 1px solid rgba(255, 255, 255, 0.1);">
                 <div style="display: flex; align-items: center; gap: var(--spacing-md); margin-bottom: var(--spacing-sm);">
-                    <span style="color: var(--text-primary); font-weight: 600;">📸 Image Preview:</span>
+                    <span style="color: var(--text-primary); font-weight: 600;">📸 Image Preview (Optional):</span>
                     <span style="color: var(--text-secondary); font-size: 0.875rem;">${file.name}</span>
                     <span style="color: var(--text-secondary); font-size: 0.75rem; background: rgba(102, 126, 234, 0.2); padding: 2px 8px; border-radius: 12px;">${(file.size / 1024 / 1024).toFixed(2)}MB</span>
                 </div>
@@ -3038,7 +3118,7 @@ function handleTaskImagePreview(e) {
         `;
         
         previewContainer.innerHTML = previewHTML;
-        showToast('✅ Task image loaded successfully', 'success');
+        showToast('✅ Task image loaded successfully (optional)', 'success');
     };
     
     reader.onerror = function() {
