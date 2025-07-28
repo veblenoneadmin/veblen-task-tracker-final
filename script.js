@@ -2051,7 +2051,7 @@ ${tasks.map(task => {
         attachTaskEventListeners(task.id);
     });
 }
-// ✅ ADD THIS - Missing sync function for your task cards
+// ✅ FIXED - Sync function with proper variable scope
 async function syncTaskToInfinity(taskId) {
     const task = availableTasks.find(t => t.id === taskId);
     if (!task) {
@@ -2059,15 +2059,21 @@ async function syncTaskToInfinity(taskId) {
         return;
     }
     
+    // ✅ FIXED: Declare variables in proper scope
+    const syncBtn = document.querySelector(`[onclick="syncTaskToInfinity('${taskId}')"]`);
+    let originalText = '🔄 Sync'; // Default fallback
+    
+    if (!syncBtn) {
+        console.error('Sync button not found for task:', taskId);
+        showToast('Sync button not found', 'error');
+        return;
+    }
+    
+    // Store original button text
+    originalText = syncBtn.innerHTML;
+    
     try {
         // Show syncing state
-        const syncBtn = document.querySelector(`[onclick="syncTaskToInfinity('${taskId}')"]`);
-        if (!syncBtn) {
-            console.error('Sync button not found');
-            return;
-        }
-        
-        const originalText = syncBtn.innerHTML;
         syncBtn.innerHTML = '🔄 Syncing...';
         syncBtn.disabled = true;
         
@@ -2077,7 +2083,7 @@ async function syncTaskToInfinity(taskId) {
         console.log('- Progress:', task.progress + '%');
         console.log('- Status:', task.status);
         
-        // ✅ Call your UPDATE n8n workflow
+        // ✅ Call your UPDATE n8n workflow via unified API
         const response = await fetch('/api/task-action', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -2131,8 +2137,7 @@ async function syncTaskToInfinity(taskId) {
         }
         
     } finally {
-        // Restore button
-        const syncBtn = document.querySelector(`[onclick="syncTaskToInfinity('${taskId}')"]`);
+        // ✅ FIXED: Restore button state (originalText is now in scope)
         if (syncBtn) {
             syncBtn.innerHTML = originalText;
             syncBtn.disabled = false;
