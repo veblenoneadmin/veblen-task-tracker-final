@@ -3,12 +3,14 @@
 // Replace your existing CONFIG object with this updated version
 
 const CONFIG = {
-    // Updated URLs to match your server endpoints
+    // ✅ Use your existing n8n webhook endpoints
     taskIntakeUrl: '/api/task-intake',
     reportLoggerUrl: '/api/report-logger', 
     timeLoggerUrl: '/api/time-logger',
-    taskUpdateUrl: '/api/task-update',
-    taskRetrievalUrl: '/api/get-tasks',
+    
+    // ✅ NEW: Task management endpoints (matching your n8n workflow)
+    taskUpdateUrl: '/api/task-update',        // Your existing task update webhook
+    taskRetrievalUrl: '/api/get-tasks',      // Your existing get tasks webhook
     
     // ImgBB API key for image uploads
     imgbbApiKey: '679bd601ac49c50cae877fb240620cfe'
