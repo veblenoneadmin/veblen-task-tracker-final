@@ -2657,7 +2657,7 @@ async function syncTaskToInfinity(taskId) {
             throw new Error(`HTTP ${syncResponse.status}: Failed to sync to Infinity`);
         }
         
-    } catch (error) {
+} catch (error) {
         console.error('❌ Bi-directional sync error:', error);
         
         // Update error status
@@ -2667,10 +2667,18 @@ async function syncTaskToInfinity(taskId) {
         }
         
         let errorMessage = 'Sync failed';
-        if (error.message.includes('network') || error.message.includes('fetch')) {
-            errorMessage = 'Network error - check connection';
+        if (error.message.includes('HTTP error! status: 502')) {
+            errorMessage = 'Server unavailable (502) - n8n workflow may be down. Try again in a few minutes.';
+        } else if (error.message.includes('HTTP error! status: 504')) {
+            errorMessage = 'Request timeout (504) - the update is taking too long. Check StartInfinity manually.';
+        } else if (error.message.includes('HTTP error! status: 401')) {
+            errorMessage = 'Authentication failed (401) - API token may be expired';
+        } else if (error.message.includes('HTTP error! status: 400')) {
+            errorMessage = 'Invalid request (400) - check the task data format';
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+            errorMessage = 'Network error - check your internet connection';
         } else if (error.message.includes('404')) {
-            errorMessage = 'Task not found in Infinity';
+            errorMessage = 'Task not found in Infinity - it may have been deleted';
         } else {
             errorMessage = `Sync failed: ${error.message}`;
         }
