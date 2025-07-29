@@ -18,7 +18,7 @@ const WORKFLOW_STATES = {
 
 // Progress attribute IDs for each company
 const PROGRESS_ATTRIBUTES = {
-    "CROWN REALITY": "eb943dd8-dd91-4620-a875-59bdeee59a1f",
+    "CROWN REALTY": "eb943dd8-dd91-4620-a875-59bdeee59a1f",
     "LCMB GROUP": "4cff12df-fc0d-40aa-aade-e52161b37621",
     "NEWTECH TRAILERS": "f78f7f1b-ec1f-4f1b-972b-6931f6925373",
     "VEBLEN (Internal)": "05ba9bd9-6829-4049-8366-a1ec8d9281d4",
@@ -991,7 +991,7 @@ function showManualTaskEntry(masterBoardId, companyBoardId) {
                     <option value="VEBLEN (Internal)">VEBLEN (Internal)</option>
                     <option value="LCMB GROUP">LCMB GROUP</option>
                     <option value="NEWTECH TRAILERS">NEWTECH TRAILERS</option>
-                    <option value="CROWN REALITY">CROWN REALITY</option>
+                    <option value="CROWN REALTY">CROWN REALTY</option>
                     <option value="FLECK GROUP">FLECK GROUP</option>
                 </select>
             </div>
