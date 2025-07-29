@@ -173,30 +173,106 @@ app.post('/api/task-intake', async (req, res) => {
 
 // ============= LEGACY TASK UPDATE API (for backward compatibility) =============
 // ✅ ADD THIS ROUTE - Point sync to your UPDATE workflow
+// ============= ENHANCED TASK UPDATE API WITH BETTER ERROR HANDLING =============
 app.post('/api/task-update', async (req, res) => {
     try {
-        console.log('🔄 Task update request:', req.body);
+        console.log('🔄 Task update request received:', JSON.stringify(req.body, null, 2));
         
-        // Call your UPDATE n8n workflow
-        const result = await callN8nWebhook('https://primary-s0q-production.up.railway.app/webhook/task-update', req.body);
+        // Enhanced timeout and error handling
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 45000); // 45 second timeout
         
-        res.set({
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type'
+        const response = await fetch('https://primary-s0q-production.up.railway.app/webhook/task-update', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'User-Agent': 'VEBLEN-Task-Tracker/1.0'
+            },
+            body: JSON.stringify(req.body),
+            signal: controller.signal
         });
         
-        res.json({
-            success: true,
-            message: 'Task updated successfully',
-            data: result
-        });
+        clearTimeout(timeoutId);
+        
+        console.log('📡 N8N response status:', response.status);
+        console.log('📡 N8N response headers:', Object.fromEntries(response.headers.entries()));
+        
+        if (response.ok) {
+            let result;
+            try {
+                const responseText = await response.text();
+                console.log('📄 Raw n8n response:', responseText);
+                
+                if (responseText.trim()) {
+                    result = JSON.parse(responseText);
+                } else {
+                    result = { success: true, message: 'Task updated successfully' };
+                }
+            } catch (parseError) {
+                console.log('⚠️ Could not parse n8n response as JSON, treating as success');
+                result = { success: true, message: 'Task updated successfully' };
+            }
+            
+            res.set({
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type'
+            });
+            
+            res.json({
+                success: true,
+                message: 'Task updated successfully',
+                data: result,
+                timestamp: new Date().toISOString()
+            });
+            
+        } else {
+            const errorText = await response.text();
+            console.error('❌ N8N error response:', {
+                status: response.status,
+                statusText: response.statusText,
+                body: errorText,
+                headers: Object.fromEntries(response.headers.entries())
+            });
+            
+            // Specific error handling for common issues
+            let errorMessage = 'Update failed';
+            if (response.status === 502) {
+                errorMessage = 'N8N workflow unavailable (502 Bad Gateway)';
+            } else if (response.status === 504) {
+                errorMessage = 'N8N workflow timeout (504 Gateway Timeout)';
+            } else if (response.status === 400) {
+                errorMessage = 'Invalid request format (400 Bad Request)';
+            } else if (response.status === 401) {
+                errorMessage = 'Authentication failed (401 Unauthorized)';
+            } else if (response.status === 404) {
+                errorMessage = 'N8N webhook not found (404 Not Found)';
+            }
+            
+            res.status(response.status).json({
+                success: false,
+                error: errorMessage,
+                details: errorText,
+                status: response.status,
+                webhook_url: 'task-update'
+            });
+        }
         
     } catch (error) {
-        console.error('Task update error:', error);
+        console.error('❌ Task update server error:', error);
+        
+        let errorMessage = 'Internal server error';
+        if (error.name === 'AbortError') {
+            errorMessage = 'Request timeout - n8n workflow took too long';
+        } else if (error.message.includes('fetch')) {
+            errorMessage = 'Network error connecting to n8n';
+        }
+        
         res.status(500).json({
             success: false,
-            error: error.message || 'Failed to update task'
+            error: errorMessage,
+            details: error.message,
+            timestamp: new Date().toISOString()
         });
     }
 });
