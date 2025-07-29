@@ -1173,6 +1173,7 @@ async function saveTaskToMyDashboard(task, masterBoardId, companyBoardId) {
 // ✅ FIXED - Enhanced displayTaskForEditing function with read-only task name
 // Replace the displayTaskForEditing function in your script.js with this version
 
+// ✅ SIMPLIFIED - Only editable: description, progress, status, due date
 function displayTaskForEditing(task, masterBoardId, companyBoardId) {
     // ✅ Extract company prefix and actual task name
     const fullTaskName = task.name || 'Imported Task';
@@ -1265,25 +1266,17 @@ function displayTaskForEditing(task, masterBoardId, companyBoardId) {
                         ℹ️
                     </span>
                 </div>
-                <small style="
-                    color: var(--text-secondary);
-                    font-size: 0.75rem;
-                    margin-top: 0.5rem;
-                    display: block;
-                ">
-                    💡 Task names are managed in StartInfinity to maintain proper routing and sync integrity
-                </small>
             </div>
             
-            <!-- ✅ Description (Still Editable) -->
+            <!-- ✅ Description (Editable) -->
             <div class="form-group">
-                <label for="editTaskDescription">Description</label>
+                <label for="editTaskDescription">Description*</label>
                 <textarea id="editTaskDescription" 
-                          rows="3" 
+                          rows="4" 
                           placeholder="Enter task description"
                           style="
                               width: 100%;
-                              min-height: 80px;
+                              min-height: 100px;
                               padding: var(--spacing-md);
                               background: rgba(0, 0, 0, 0.2);
                               border: 1px solid var(--border);
@@ -1293,7 +1286,7 @@ function displayTaskForEditing(task, masterBoardId, companyBoardId) {
                           ">${task.description || ''}</textarea>
             </div>
             
-            <!-- ✅ Progress (Still Editable) -->
+            <!-- ✅ Progress (Editable) -->
             <div class="form-group">
                 <label for="editTaskProgress">Progress: <span id="progressDisplay">${task.progress || 0}%</span></label>
                 <div style="display: flex; align-items: center; gap: var(--spacing-md); margin-bottom: var(--spacing-sm);">
@@ -1322,7 +1315,7 @@ function displayTaskForEditing(task, masterBoardId, companyBoardId) {
                 </div>
             </div>
             
-            <!-- ✅ Status (Still Editable) -->
+            <!-- ✅ Status (Editable) -->
             <div class="form-group">
                 <label for="editTaskStatus">Status*</label>
                 <select id="editTaskStatus" required style="
@@ -1343,7 +1336,7 @@ function displayTaskForEditing(task, masterBoardId, companyBoardId) {
                 </select>
             </div>
             
-            <!-- ✅ Due Date (Still Editable) -->
+            <!-- ✅ Due Date (Editable) -->
             <div class="form-group">
                 <label for="editTaskDueDate">Due Date</label>
                 <input type="date" 
@@ -1357,24 +1350,6 @@ function displayTaskForEditing(task, masterBoardId, companyBoardId) {
                            border-radius: var(--radius-md);
                            color: var(--text-primary);
                        ">
-            </div>
-            
-            <!-- ✅ Links (Still Editable) -->
-            <div class="form-group">
-                <label for="editTaskLinks">Links (one per line)</label>
-                <textarea id="editTaskLinks" 
-                          rows="3" 
-                          placeholder="Add any relevant links (one per line)"
-                          style="
-                              width: 100%;
-                              min-height: 80px;
-                              padding: var(--spacing-md);
-                              background: rgba(0, 0, 0, 0.2);
-                              border: 1px solid var(--border);
-                              border-radius: var(--radius-md);
-                              color: var(--text-primary);
-                              resize: vertical;
-                          ">${task.links || ''}</textarea>
             </div>
             
             <!-- ✅ Task Metadata Display -->
@@ -1393,7 +1368,7 @@ function displayTaskForEditing(task, masterBoardId, companyBoardId) {
                     <p><strong>Last Updated:</strong> ${task.lastUpdated ? new Date(task.lastUpdated).toLocaleDateString() : 'Now'}</p>
                 </div>
                 <p style="margin-top: var(--spacing-sm);"><strong>Full Task Name:</strong> ${fullTaskName}</p>
-                <p style="margin-top: var(--spacing-xs);"><strong>Imported from:</strong> StartInfinity via n8n workflow</p>
+                <p style="margin-top: var(--spacing-xs);"><strong>Editable Fields:</strong> Description, Progress, Status, Due Date</p>
             </div>
         </div>
     `;
@@ -1418,7 +1393,7 @@ function displayTaskForEditing(task, masterBoardId, companyBoardId) {
         ...task,
         masterBoardId: masterBoardId,
         companyBoardId: companyBoardId,
-        originalFullTaskName: fullTaskName, // Store the original full name
+        originalFullTaskName: fullTaskName,
         companyPrefix: companyPrefix,
         actualTaskName: actualTaskName
     };
@@ -1429,36 +1404,39 @@ function displayTaskForEditing(task, masterBoardId, companyBoardId) {
 
 // ✅ ENHANCED - Update task with ALL fields
 // ✅ UPDATED - Update task with ALL fields EXCEPT task name (which is protected)
+// ✅ SIMPLIFIED - Update task with ONLY 4 editable fields
 async function updateTaskInInfinity() {
     if (!window.currentEditingTask) {
         showToast('No task loaded for editing', 'error');
         return;
     }
     
-    // ✅ Get ALL form values EXCEPT task name (which is now read-only)
+    // ✅ Get ONLY the 4 editable fields
     const description = document.getElementById('editTaskDescription').value.trim();
     const progress = parseInt(document.getElementById('editTaskProgress').value);
     const status = document.getElementById('editTaskStatus').value;
     const dueDate = document.getElementById('editTaskDueDate').value;
-    const links = document.getElementById('editTaskLinks').value.trim();
     
     const masterBoardId = window.currentEditingTask.masterBoardId;
     const companyBoardId = window.currentEditingTask.companyBoardId;
     
-    // ✅ Build comprehensive update data WITHOUT task_name (protected)
+    if (!description) {
+        showToast('Please enter a description', 'warning');
+        return;
+    }
+    
+    // ✅ Build update data with ONLY 4 fields (no links, no task name)
     const updateData = {
         action: 'update_task',
         master_board_id: masterBoardId,
         company_board_id: companyBoardId,
         company: window.currentEditingTask.company || 'VEBLEN (Internal)',
         
-        // ✅ REMOVED task_name - it's now protected and read-only
-        // task_name: taskName, // ❌ REMOVED - No longer editable
+        // ✅ ONLY 4 editable fields
         description: description,
         progress: progress,
         status: status,
         due_date: dueDate,
-        links: links,
         
         // Metadata
         timestamp: new Date().toISOString(),
@@ -1468,7 +1446,6 @@ async function updateTaskInInfinity() {
     try {
         showToast('🔄 Updating task in StartInfinity...', 'info');
         
-        // Update in Infinity using the unified API endpoint
         const response = await fetch('/api/task-action', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1478,23 +1455,20 @@ async function updateTaskInInfinity() {
         if (response.ok) {
             const result = await response.json();
             if (result.success) {
-                // Update local dashboard with ALL fields EXCEPT name
+                // Update local dashboard with ONLY the 4 editable fields
                 await updateTaskInMyDashboard(masterBoardId, companyBoardId, {
-                    // ✅ Keep original name unchanged
-                    name: window.currentEditingTask.originalFullTaskName,
+                    name: window.currentEditingTask.originalFullTaskName, // Keep original name
                     description: description,
                     progress: progress,
                     status: status,
                     dueDate: dueDate ? formatDate(dueDate) : null,
                     dueDateRaw: dueDate,
-                    links: links,
                     lastUpdated: new Date().toISOString()
                 });
                 
-                showToast('✅ Task updated successfully! Company prefix [' + window.currentEditingTask.companyPrefix + '] protected.', 'success');
+                showToast('✅ Task updated successfully! (Description, Progress, Status, Due Date)', 'success');
                 closeTaskEditorModal();
                 
-                // Refresh assigned tasks list
                 await loadAssignedTasks();
             } else {
                 throw new Error(result.message || 'Update failed in StartInfinity');
@@ -1505,15 +1479,14 @@ async function updateTaskInInfinity() {
     } catch (error) {
         console.error('Error updating task in StartInfinity:', error);
         
-        // Still update locally even if StartInfinity update fails (without name changes)
+        // Still update locally even if StartInfinity update fails
         await updateTaskInMyDashboard(masterBoardId, companyBoardId, {
-            name: window.currentEditingTask.originalFullTaskName, // Keep original
+            name: window.currentEditingTask.originalFullTaskName,
             description: description,
             progress: progress,
             status: status,
             dueDate: dueDate ? formatDate(dueDate) : null,
             dueDateRaw: dueDate,
-            links: links,
             lastUpdated: new Date().toISOString()
         });
         
