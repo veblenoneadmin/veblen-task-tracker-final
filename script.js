@@ -1170,12 +1170,19 @@ async function saveTaskToMyDashboard(task, masterBoardId, companyBoardId) {
     console.log('💾 Task saved to dashboard:', taskForDashboard.id);
 }
 
-// ✅ ENHANCED - Display real task data in editor with task name editing
-// ✅ ENHANCED - Display task with ALL editable fields (no Notes textarea)
+// ✅ FIXED - Enhanced displayTaskForEditing function with read-only task name
+// Replace the displayTaskForEditing function in your script.js with this version
+
 function displayTaskForEditing(task, masterBoardId, companyBoardId) {
+    // ✅ Extract company prefix and actual task name
+    const fullTaskName = task.name || 'Imported Task';
+    const companyPrefixMatch = fullTaskName.match(/^\[([^\]]+)\]\s*(.*)$/);
+    const companyPrefix = companyPrefixMatch ? companyPrefixMatch[1] : '';
+    const actualTaskName = companyPrefixMatch ? companyPrefixMatch[2] : fullTaskName;
+    
     document.getElementById('taskEditorContent').innerHTML = `
         <div class="task-editor-form">
-            <!-- ✅ Header showing REAL task data -->
+            <!-- ✅ Header showing REAL task data with company protection warning -->
             <div class="task-info-header" style="
                 display: flex; 
                 justify-content: space-between; 
@@ -1201,26 +1208,74 @@ function displayTaskForEditing(task, masterBoardId, companyBoardId) {
                 </span>
             </div>
             
-            <!-- ✅ Task Name -->
-            <div class="form-group">
-                <label for="editTaskName">Task Name*</label>
-                <input type="text" 
-                       id="editTaskName" 
-                       value="${task.name || ''}"
-                       placeholder="Enter task name"
-                       required
-                       style="
-                           width: 100%;
-                           padding: var(--spacing-md);
-                           background: rgba(0, 0, 0, 0.2);
-                           border: 1px solid var(--border);
-                           border-radius: var(--radius-md);
-                           color: var(--text-primary);
-                           font-size: 0.9rem;
-                       ">
+            <!-- ✅ FIXED - Company Prefix Protection Notice -->
+            <div style="
+                background: rgba(246, 173, 85, 0.1);
+                border: 1px solid rgba(246, 173, 85, 0.3);
+                border-radius: var(--radius-md);
+                padding: var(--spacing-md);
+                margin-bottom: var(--spacing-lg);
+                color: #f6ad55;
+            ">
+                <strong>🔒 Task Name Protection:</strong> The company prefix <code>[${companyPrefix}]</code> is protected and cannot be modified to maintain sync integrity with the master board.
             </div>
             
-            <!-- ✅ Description -->
+            <!-- ✅ FIXED - Read-Only Task Name Display -->
+            <div class="form-group">
+                <label for="editTaskNameDisplay">Task Name (Read-Only)</label>
+                <div style="
+                    display: flex;
+                    align-items: center;
+                    gap: var(--spacing-sm);
+                    padding: var(--spacing-md);
+                    background: rgba(0, 0, 0, 0.15);
+                    border: 2px solid rgba(102, 126, 234, 0.3);
+                    border-radius: var(--radius-md);
+                    color: var(--text-primary);
+                    font-size: 0.9rem;
+                ">
+                    <!-- Company Prefix (Protected) -->
+                    <span style="
+                        background: rgba(102, 126, 234, 0.3);
+                        color: var(--primary-color);
+                        padding: 0.25rem 0.5rem;
+                        border-radius: var(--radius-sm);
+                        font-weight: 700;
+                        font-size: 0.8rem;
+                        border: 1px solid rgba(102, 126, 234, 0.5);
+                    ">
+                        [${companyPrefix}] 🔒
+                    </span>
+                    
+                    <!-- Actual Task Name (Read-Only Display) -->
+                    <span style="
+                        flex: 1;
+                        font-weight: 600;
+                        color: var(--text-primary);
+                    ">
+                        ${actualTaskName || 'Untitled Task'}
+                    </span>
+                    
+                    <!-- Info Icon -->
+                    <span style="
+                        color: var(--text-secondary);
+                        font-size: 0.8rem;
+                        opacity: 0.7;
+                    " title="Task name cannot be edited to protect sync integrity">
+                        ℹ️
+                    </span>
+                </div>
+                <small style="
+                    color: var(--text-secondary);
+                    font-size: 0.75rem;
+                    margin-top: 0.5rem;
+                    display: block;
+                ">
+                    💡 Task names are managed in StartInfinity to maintain proper routing and sync integrity
+                </small>
+            </div>
+            
+            <!-- ✅ Description (Still Editable) -->
             <div class="form-group">
                 <label for="editTaskDescription">Description</label>
                 <textarea id="editTaskDescription" 
@@ -1238,7 +1293,7 @@ function displayTaskForEditing(task, masterBoardId, companyBoardId) {
                           ">${task.description || ''}</textarea>
             </div>
             
-            <!-- ✅ Progress -->
+            <!-- ✅ Progress (Still Editable) -->
             <div class="form-group">
                 <label for="editTaskProgress">Progress: <span id="progressDisplay">${task.progress || 0}%</span></label>
                 <div style="display: flex; align-items: center; gap: var(--spacing-md); margin-bottom: var(--spacing-sm);">
@@ -1267,7 +1322,7 @@ function displayTaskForEditing(task, masterBoardId, companyBoardId) {
                 </div>
             </div>
             
-            <!-- ✅ Status -->
+            <!-- ✅ Status (Still Editable) -->
             <div class="form-group">
                 <label for="editTaskStatus">Status*</label>
                 <select id="editTaskStatus" required style="
@@ -1288,7 +1343,7 @@ function displayTaskForEditing(task, masterBoardId, companyBoardId) {
                 </select>
             </div>
             
-            <!-- ✅ Due Date -->
+            <!-- ✅ Due Date (Still Editable) -->
             <div class="form-group">
                 <label for="editTaskDueDate">Due Date</label>
                 <input type="date" 
@@ -1304,7 +1359,7 @@ function displayTaskForEditing(task, masterBoardId, companyBoardId) {
                        ">
             </div>
             
-            <!-- ✅ Links -->
+            <!-- ✅ Links (Still Editable) -->
             <div class="form-group">
                 <label for="editTaskLinks">Links (one per line)</label>
                 <textarea id="editTaskLinks" 
@@ -1337,7 +1392,8 @@ function displayTaskForEditing(task, masterBoardId, companyBoardId) {
                     <p><strong>Company:</strong> ${task.company || 'Unknown'}</p>
                     <p><strong>Last Updated:</strong> ${task.lastUpdated ? new Date(task.lastUpdated).toLocaleDateString() : 'Now'}</p>
                 </div>
-                <p style="margin-top: var(--spacing-sm);"><strong>Imported from:</strong> StartInfinity via n8n workflow</p>
+                <p style="margin-top: var(--spacing-sm);"><strong>Full Task Name:</strong> ${fullTaskName}</p>
+                <p style="margin-top: var(--spacing-xs);"><strong>Imported from:</strong> StartInfinity via n8n workflow</p>
             </div>
         </div>
     `;
@@ -1357,11 +1413,14 @@ function displayTaskForEditing(task, masterBoardId, companyBoardId) {
         });
     }
     
-    // Store current task data for saving
+    // ✅ Store current task data for saving (without allowing name changes)
     window.currentEditingTask = {
         ...task,
         masterBoardId: masterBoardId,
-        companyBoardId: companyBoardId
+        companyBoardId: companyBoardId,
+        originalFullTaskName: fullTaskName, // Store the original full name
+        companyPrefix: companyPrefix,
+        actualTaskName: actualTaskName
     };
     
     // Show the footer buttons
@@ -1369,14 +1428,14 @@ function displayTaskForEditing(task, masterBoardId, companyBoardId) {
 }
 
 // ✅ ENHANCED - Update task with ALL fields
+// ✅ UPDATED - Update task with ALL fields EXCEPT task name (which is protected)
 async function updateTaskInInfinity() {
     if (!window.currentEditingTask) {
         showToast('No task loaded for editing', 'error');
         return;
     }
     
-    // ✅ Get ALL form values
-    const taskName = document.getElementById('editTaskName').value.trim();
+    // ✅ Get ALL form values EXCEPT task name (which is now read-only)
     const description = document.getElementById('editTaskDescription').value.trim();
     const progress = parseInt(document.getElementById('editTaskProgress').value);
     const status = document.getElementById('editTaskStatus').value;
@@ -1386,20 +1445,15 @@ async function updateTaskInInfinity() {
     const masterBoardId = window.currentEditingTask.masterBoardId;
     const companyBoardId = window.currentEditingTask.companyBoardId;
     
-    if (!taskName) {
-        showToast('Please enter a task name', 'warning');
-        return;
-    }
-    
-    // ✅ Build comprehensive update data matching your n8n workflow
+    // ✅ Build comprehensive update data WITHOUT task_name (protected)
     const updateData = {
         action: 'update_task',
         master_board_id: masterBoardId,
         company_board_id: companyBoardId,
         company: window.currentEditingTask.company || 'VEBLEN (Internal)',
         
-        // ✅ ALL updatable fields
-        task_name: taskName,
+        // ✅ REMOVED task_name - it's now protected and read-only
+        // task_name: taskName, // ❌ REMOVED - No longer editable
         description: description,
         progress: progress,
         status: status,
@@ -1424,9 +1478,10 @@ async function updateTaskInInfinity() {
         if (response.ok) {
             const result = await response.json();
             if (result.success) {
-                // Update local dashboard with ALL fields
+                // Update local dashboard with ALL fields EXCEPT name
                 await updateTaskInMyDashboard(masterBoardId, companyBoardId, {
-                    name: taskName,
+                    // ✅ Keep original name unchanged
+                    name: window.currentEditingTask.originalFullTaskName,
                     description: description,
                     progress: progress,
                     status: status,
@@ -1436,7 +1491,7 @@ async function updateTaskInInfinity() {
                     lastUpdated: new Date().toISOString()
                 });
                 
-                showToast('✅ Task updated successfully in StartInfinity and your dashboard!', 'success');
+                showToast('✅ Task updated successfully (name protected)!', 'success');
                 closeTaskEditorModal();
                 
                 // Refresh assigned tasks list
@@ -1450,9 +1505,9 @@ async function updateTaskInInfinity() {
     } catch (error) {
         console.error('Error updating task in StartInfinity:', error);
         
-        // Still update locally even if StartInfinity update fails
+        // Still update locally even if StartInfinity update fails (without name changes)
         await updateTaskInMyDashboard(masterBoardId, companyBoardId, {
-            name: taskName,
+            name: window.currentEditingTask.originalFullTaskName, // Keep original
             description: description,
             progress: progress,
             status: status,
