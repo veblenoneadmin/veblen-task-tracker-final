@@ -1491,7 +1491,7 @@ async function updateTaskInInfinity() {
                     lastUpdated: new Date().toISOString()
                 });
                 
-                showToast('✅ Task updated successfully (name protected)!', 'success');
+                showToast('✅ Task updated successfully! Company prefix [' + window.currentEditingTask.companyPrefix + '] protected.', 'success');
                 closeTaskEditorModal();
                 
                 // Refresh assigned tasks list
