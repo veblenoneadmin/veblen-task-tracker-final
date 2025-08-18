@@ -1,4 +1,1277 @@
-// Configuration - SIMPLIFIED VERSION
+// ✅ ADD THESE MISSING FUNCTIONS TO YOUR script.js
+
+function getSyncStatusIcon(status) {
+    switch (status) {
+        case 'synced': return '✅ Synced';
+        case 'pending': return '⏳ Pending';
+        case 'syncing': return '🔄 Syncing';
+        case 'error': return '❌ Error';
+        default: return '🔥 Imported';
+    }
+}
+
+function attachTaskEventListeners(taskId) {
+    // Placeholder for task event listeners
+    console.log('Event listeners attached for task:', taskId);
+}
+
+// ✅ COMPLETE renderMyImportedTasks function
+// ✅ ENHANCED - Task cards with image thumbnails
+// ✅ UPDATED - Task cards without Notes textarea
+function renderMyImportedTasks(tasks) {
+    const tasksList = document.getElementById('assignedTasksList');
+    
+    if (tasks.length === 0) {
+        tasksList.innerHTML = `
+            <div style="text-align: center; padding: var(--spacing-2xl);">
+                <p style="color: var(--text-secondary); margin-bottom: var(--spacing-lg);">No tasks imported yet.</p>
+                <div style="background: rgba(102, 126, 234, 0.1); border: 2px solid rgba(102, 126, 234, 0.3); border-radius: var(--radius-lg); padding: var(--spacing-xl);">
+                    <h4 style="color: var(--text-primary); margin-bottom: var(--spacing-md);">🔥 Import Your First Task:</h4>
+                    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">1. Click "🔥 Import Task from Infinity" button above</p>
+                    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">2. Enter Master Board Item ID and Company Board Item ID</p>
+                    <p style="color: var(--text-secondary);">3. Task will appear here for editing and syncing</p>
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    tasksList.innerHTML = `
+        <div style="margin-bottom: var(--spacing-xl); text-align: center;">
+            <h3 style="color: var(--text-primary); margin-bottom: var(--spacing-sm);">📋 Your Personal Task Dashboard</h3>
+            <p style="color: var(--text-secondary);">${tasks.length} imported task${tasks.length === 1 ? '' : 's'} • Click any task to edit inline</p>
+        </div>
+        <div class="tasks-grid">
+${tasks.map(task => {
+    // Calculate progress bar color based on real progress
+    const progressColor = task.progress >= 80 ? '#10B981' : 
+                        task.progress >= 50 ? '#F59E0B' : '#EF4444';
+    
+    // Status badge styling with real status
+    const statusClass = getStatusClass(task.status);
+    
+    // Truncate description if too long
+    const shortDescription = task.description ? 
+        (task.description.length > 120 ? 
+            task.description.substring(0, 120) + '...' : 
+            task.description) 
+        : 'No description available';
+    
+    // ✅ Handle task image with fallback
+    const taskImage = task.imageUrl || task.image_url || task.Image_URL || null;
+    const hasImage = taskImage && taskImage.trim() !== '';
+    
+    return `
+        <div class="task-card" data-task-id="${task.id}" style="
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+            margin-bottom: var(--spacing-lg);
+            ${hasImage ? 'min-height: 420px;' : ''}
+        ">
+            <!-- ✅ Task Image Thumbnail (if exists) -->
+            ${hasImage ? `
+            <div style="
+                margin-bottom: 1rem;
+                text-align: center;
+                position: relative;
+                overflow: hidden;
+                border-radius: 8px;
+                background: rgba(0, 0, 0, 0.2);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+            ">
+                <img src="${taskImage}" 
+                     alt="Task Image" 
+                     loading="lazy"
+                     onclick="openImageModal('${taskImage}', '${task.name}')"
+                     style="
+                         width: 100%;
+                         height: 120px;
+                         object-fit: cover;
+                         cursor: pointer;
+                         transition: all 0.3s ease;
+                         border-radius: 6px;
+                     "
+                     onmouseover="this.style.transform='scale(1.05)'"
+                     onmouseout="this.style.transform='scale(1)'"
+                     onerror="this.parentElement.style.display='none'">
+                <div style="
+                    position: absolute;
+                    bottom: 4px;
+                    right: 4px;
+                    background: rgba(0, 0, 0, 0.7);
+                    color: white;
+                    padding: 2px 6px;
+                    border-radius: 4px;
+                    font-size: 0.7rem;
+                    pointer-events: none;
+                ">🔍 Click to expand</div>
+            </div>
+            ` : ''}
+            
+            <!-- Task Header with Real Data -->
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; gap: 1rem;">
+                <h3 style="
+                    font-size: 1.1rem;
+                    font-weight: 600;
+                    color: var(--text-primary);
+                    margin: 0;
+                    flex: 1;
+                    line-height: 1.4;
+                " title="${task.name}">
+                    ${hasImage ? '🖼️ ' : ''}${task.name || 'Untitled Task'}
+                </h3>
+                <span class="task-status ${statusClass}" style="
+                    padding: 0.25rem 0.75rem;
+                    border-radius: 12px;
+                    font-size: 0.75rem;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    letter-spacing: 0.05em;
+                    white-space: nowrap;
+                ">
+                    ${task.status || 'Unknown'}
+                </span>
+            </div>
+            
+            <!-- Company Info -->
+            <div style="margin-bottom: 0.75rem; opacity: 0.8;">
+                <small>🏢 ${task.company || 'No Company'}</small>
+            </div>
+            
+            <!-- Description -->
+            <div style="
+                color: var(--text-secondary);
+                font-size: 0.9rem;
+                line-height: 1.5;
+                margin-bottom: 1rem;
+                min-height: 2.7rem;
+            ">
+                ${shortDescription}
+            </div>
+            
+            <!-- Progress Bar -->
+            <div style="margin-bottom: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <span>Progress</span>
+                    <span style="font-weight: 700; color: ${progressColor};">${task.progress || 0}%</span>
+                </div>
+                <div style="height: 8px; background: rgba(0, 0, 0, 0.3); border-radius: 4px; overflow: hidden;">
+                    <div style="
+                        height: 100%;
+                        border-radius: 4px;
+                        transition: width 0.5s ease;
+                        background-color: ${progressColor};
+                        width: ${task.progress || 0}%;
+                    "></div>
+                </div>
+            </div>
+            
+            <!-- Due Date Info -->
+            ${task.dueDate && task.dueDate !== 'Not set' ? `
+            <div style="margin-bottom: 1rem; font-size: 0.85rem; color: var(--text-secondary);">
+                📅 <strong>Due:</strong> ${task.dueDate}
+            </div>
+            ` : ''}
+            
+            <!-- Links Info -->
+            ${task.links && task.links.trim() !== '' ? `
+            <div style="margin-bottom: 1rem; font-size: 0.85rem; color: var(--text-secondary);">
+                🔗 <strong>Links:</strong> ${task.links.split('\\n').length} link(s) attached
+            </div>
+            ` : ''}
+            
+            <!-- Task Metadata -->
+            <div style="margin-bottom: 1rem; font-size: 0.8rem; color: var(--text-secondary);">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                    <small>🆔 Master: ${task.masterBoardId?.substring(0, 8)}...</small>
+                    <small>🏢 Company: ${task.companyBoardId?.substring(0, 8)}...</small>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                    <small>📅 Updated: ${formatDate(task.lastUpdated)}</small>
+                    <small>${getSyncStatusIcon(task.syncStatus || 'synced')}</small>
+                </div>
+                ${hasImage ? `<div style="text-align: center; margin-top: 0.5rem;"><small>📷 Image attached</small></div>` : ''}
+            </div>
+            
+            <!-- Action Buttons -->
+            <div style="display: flex; gap: 0.5rem;">
+                <button class="btn btn-primary" style="
+                    flex: 1; 
+                    font-size: 0.85rem; 
+                    padding: 0.6rem 0.8rem;
+                    background: var(--primary-gradient);
+                    border: none;
+                    border-radius: var(--radius-md);
+                    color: white;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                " onclick="editImportedTask('${task.id}')">
+                    ✏️ Edit
+                </button>
+                
+                <button class="btn btn-success" style="
+                    flex: 1; 
+                    font-size: 0.85rem; 
+                    padding: 0.6rem 0.8rem;
+                    background: linear-gradient(135deg, #10B981, #059669);
+                    border: none;
+                    border-radius: var(--radius-md);
+                    color: white;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                " onclick="syncTaskToInfinity('${task.id}')">
+                    🔄 Sync
+                </button>
+                
+                <button class="btn btn-danger" style="
+                    flex: 0.8; 
+                    font-size: 0.85rem; 
+                    padding: 0.6rem 0.8rem;
+                    background: linear-gradient(135deg, #EF4444, #DC2626);
+                    border: none;
+                    border-radius: var(--radius-md);
+                    color: white;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                " onclick="removeTaskFromDashboard('${task.id}')">
+                    🗑️ Remove
+                </button>
+            </div>
+        </div>
+    `;
+}).join('')}
+        </div>
+    `;
+    
+    // Add event listeners for inline editing
+    tasks.forEach(task => {
+        attachTaskEventListeners(task.id);
+    });
+}
+
+// ✅ NEW - Image modal for full-size viewing
+function openImageModal(imageUrl, taskName) {
+    // Create modal if it doesn't exist
+    let modal = document.getElementById('imageModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'imageModal';
+        modal.className = 'modal';
+        modal.style.display = 'none';
+        modal.innerHTML = `
+            <div class="modal-content" style="
+                background: var(--surface);
+                margin: 2% auto;
+                padding: 0;
+                border-radius: var(--radius-xl);
+                width: 90%;
+                max-width: 800px;
+                box-shadow: var(--shadow-xl);
+                border: 2px solid var(--border);
+                position: relative;
+            ">
+                <div class="modal-header" style="
+                    padding: var(--spacing-lg);
+                    border-bottom: 1px solid var(--border);
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    background: var(--dark-gradient);
+                    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+                ">
+                    <h3 id="imageModalTitle" style="margin: 0; color: var(--text-primary);">Task Image</h3>
+                    <span class="close" onclick="closeImageModal()" style="
+                        color: var(--text-secondary);
+                        font-size: 2rem;
+                        font-weight: 300;
+                        cursor: pointer;
+                        transition: all 0.3s ease;
+                        padding: 0;
+                        background: none;
+                        border: none;
+                        width: 40px;
+                        height: 40px;
+                        border-radius: 50%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    ">&times;</span>
+                </div>
+                <div class="modal-body" style="
+                    padding: var(--spacing-lg);
+                    text-align: center;
+                    background: var(--surface);
+                ">
+                    <img id="imageModalImg" 
+                         style="
+                             max-width: 100%;
+                             max-height: 70vh;
+                             border-radius: var(--radius-md);
+                             box-shadow: var(--shadow-lg);
+                             border: 1px solid var(--border);
+                         "
+                         alt="Task Image">
+                    <div style="
+                        margin-top: var(--spacing-md);
+                        color: var(--text-secondary);
+                        font-size: 0.875rem;
+                    ">
+                        Click image to open in new tab • Press ESC to close
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        // Add click outside to close
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeImageModal();
+            }
+        });
+        
+        // Add ESC key to close
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && modal.style.display === 'block') {
+                closeImageModal();
+            }
+        });
+    }
+    
+    // Update modal content
+    document.getElementById('imageModalTitle').textContent = `📷 ${taskName || 'Task Image'}`;
+    const img = document.getElementById('imageModalImg');
+    img.src = imageUrl;
+    img.onclick = () => window.open(imageUrl, '_blank');
+    
+    // Show modal
+    modal.style.display = 'block';
+    modal.style.animation = 'fadeIn 0.3s ease';
+}
+
+function closeImageModal() {
+    const modal = document.getElementById('imageModal');
+    if (modal) {
+        modal.style.animation = 'fadeOut 0.3s ease';
+        setTimeout(() => {
+            modal.style.display = 'none';
+        }, 300);
+    }
+}
+
+// ✅ FIXED - Sync function with proper variable scope
+// ✅ ENHANCED - Bi-directional sync (pull FROM Infinity, then push TO Infinity)
+async function syncTaskToInfinity(taskId) {
+    const task = availableTasks.find(t => t.id === taskId);
+    if (!task) {
+        showToast('Task not found', 'error');
+        return;
+    }
+    
+    const syncBtn = document.querySelector(`[onclick="syncTaskToInfinity('${taskId}')"]`);
+    let originalText = '🔄 Sync';
+    
+    if (!syncBtn) {
+        console.error('Sync button not found for task:', taskId);
+        showToast('Sync button not found', 'error');
+        return;
+    }
+    
+    originalText = syncBtn.innerHTML;
+    
+    try {
+        // ✅ STEP 1: PULL latest data FROM Infinity first
+        syncBtn.innerHTML = '🔥 Fetching latest...';
+        syncBtn.disabled = true;
+        
+        console.log('🔄 Starting bi-directional sync for:', task.name);
+        console.log('🔥 Step 1: Pulling latest data FROM StartInfinity...');
+        
+        // Fetch latest data from Infinity
+        const getResponse = await fetch('/api/task-action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'get_task_by_ids',
+                master_board_id: task.masterBoardId,
+                company_board_id: task.companyBoardId
+            })
+        });
+        
+        let latestTaskData = task; // Fallback to current data
+        let changesFromInfinity = [];
+        
+        if (getResponse.ok) {
+            const getResult = await getResponse.json();
+            if (getResult.success && getResult.task) {
+                latestTaskData = getResult.task;
+                
+                // Compare with local data to detect changes made in Infinity
+                if (latestTaskData.name !== task.name) {
+                    changesFromInfinity.push(`Name: "${task.name}" → "${latestTaskData.name}"`);
+                }
+                if (latestTaskData.progress !== task.progress) {
+                    changesFromInfinity.push(`Progress: ${task.progress}% → ${latestTaskData.progress}%`);
+                }
+                if (latestTaskData.status !== task.status) {
+                    changesFromInfinity.push(`Status: "${task.status}" → "${latestTaskData.status}"`);
+                }
+                if (latestTaskData.description !== task.description) {
+                    changesFromInfinity.push('Description updated');
+                }
+                
+                console.log('📊 Changes detected from Infinity:', changesFromInfinity);
+                
+                // Update local task with latest Infinity data
+                const updatedTask = {
+                    ...task, // Keep local metadata
+                    ...latestTaskData, // Override with fresh Infinity data
+                    lastSyncedAt: new Date().toISOString(),
+                    syncStatus: 'synced'
+                };
+                
+                // Save the updated data locally
+                await saveTaskToMyDashboard(updatedTask, task.masterBoardId, task.companyBoardId);
+                
+                // Update our working reference
+                const taskIndex = availableTasks.findIndex(t => t.id === taskId);
+                if (taskIndex >= 0) {
+                    availableTasks[taskIndex] = updatedTask;
+                }
+                
+                if (changesFromInfinity.length > 0) {
+                    const changesSummary = changesFromInfinity.length > 2 
+                        ? `${changesFromInfinity.slice(0, 2).join(', ')} +${changesFromInfinity.length - 2} more`
+                        : changesFromInfinity.join(', ');
+                    showToast(`🔥 Pulled changes from Infinity: ${changesSummary}`, 'info');
+                } else {
+                    console.log('✅ No changes detected in Infinity');
+                }
+            } else {
+                console.warn('Could not fetch latest data from Infinity, using local data');
+                showToast('⚠️ Could not fetch latest from Infinity, syncing local data', 'warning');
+            }
+        } else {
+            console.warn('Failed to fetch from Infinity, proceeding with local data');
+            showToast('⚠️ Could not fetch latest from Infinity, syncing local data', 'warning');
+        }
+        
+        // ✅ STEP 2: PUSH the (now current) data TO Infinity
+        syncBtn.innerHTML = '🔄 Syncing to Infinity...';
+        
+        console.log('🔄 Step 2: Pushing data TO StartInfinity...');
+        
+        const syncData = {
+            action: 'update_task',
+            master_board_id: latestTaskData.masterBoardId || task.masterBoardId,
+            company_board_id: latestTaskData.companyBoardId || task.companyBoardId,
+            company: latestTaskData.company || task.company || 'VEBLEN (Internal)',
+            task_name: latestTaskData.name || task.name,
+            description: latestTaskData.description || '',
+            progress: latestTaskData.progress || 0,
+            status: latestTaskData.status || 'Project',
+            notes: latestTaskData.notes || ''
+        };
+        
+        const syncResponse = await fetch('/api/task-action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(syncData)
+        });
+        
+        if (syncResponse.ok) {
+            const syncResult = await syncResponse.json();
+            if (syncResult.success) {
+                // Final update of sync status
+                const finalTask = {
+                    ...latestTaskData,
+                    syncStatus: 'synced',
+                    lastSyncedAt: new Date().toISOString(),
+                    lastUpdated: new Date().toISOString()
+                };
+                
+                await saveTaskToMyDashboard(finalTask, finalTask.masterBoardId, finalTask.companyBoardId);
+                
+                // Success message
+                if (changesFromInfinity.length > 0) {
+                    showToast(`✅ Bi-directional sync complete! Pulled ${changesFromInfinity.length} change(s) and synced to Infinity`, 'success');
+                } else {
+                    showToast(`✅ Sync complete! Task is up-to-date with Infinity`, 'success');
+                }
+                
+                // Refresh dashboard to show all updates
+                await loadAssignedTasks();
+                
+            } else {
+                throw new Error(syncResult.error || 'Sync to Infinity failed');
+            }
+        } else {
+            throw new Error(`HTTP ${syncResponse.status}: Failed to sync to Infinity`);
+        }
+        
+} catch (error) {
+        console.error('❌ Bi-directional sync error:', error);
+        
+        // Update error status
+        if (task) {
+            task.syncStatus = 'error';
+            await saveTaskToMyDashboard(task, task.masterBoardId, task.companyBoardId);
+        }
+        
+        let errorMessage = 'Sync failed';
+        if (error.message.includes('HTTP error! status: 502')) {
+            errorMessage = 'Server unavailable (502) - n8n workflow may be down. Try again in a few minutes.';
+        } else if (error.message.includes('HTTP error! status: 504')) {
+            errorMessage = 'Request timeout (504) - the update is taking too long. Check StartInfinity manually.';
+        } else if (error.message.includes('HTTP error! status: 401')) {
+            errorMessage = 'Authentication failed (401) - API token may be expired';
+        } else if (error.message.includes('HTTP error! status: 400')) {
+            errorMessage = 'Invalid request (400) - check the task data format';
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+            errorMessage = 'Network error - check your internet connection';
+        } else if (error.message.includes('404')) {
+            errorMessage = 'Task not found in Infinity - it may have been deleted';
+        } else {
+            errorMessage = `Sync failed: ${error.message}`;
+        }
+        
+        showToast(`❌ ${errorMessage}`, 'error');
+        await loadAssignedTasks();
+        
+    } finally {
+        // Restore button
+        if (syncBtn) {
+            syncBtn.innerHTML = originalText;
+            syncBtn.disabled = false;
+        }
+        
+        console.log('🔄 Bi-directional sync completed for:', taskId);
+    }
+}
+
+// Handle field changes and show save button
+function handleTaskFieldChange(taskId, field) {
+    const taskCard = document.querySelector(`[data-task-id="${taskId}"]`);
+    const saveBtn = taskCard.querySelector('.save-btn');
+    const syncBtn = taskCard.querySelector('.sync-btn');
+    
+    // Show save button, hide sync button
+    saveBtn.style.display = 'inline-flex';
+    syncBtn.style.opacity = '0.5';
+    
+    // Update progress display if it's the progress field
+    if (field.classList.contains('task-progress-edit')) {
+        const progressValue = taskCard.querySelector('.progress-value');
+        const progressBar = taskCard.querySelector('.progress-bar');
+        const value = field.value;
+        
+        progressValue.textContent = `${value}%`;
+        progressBar.style.width = `${value}%`;
+    }
+    
+    // Mark task as having unsaved changes
+    taskCard.classList.add('has-unsaved-changes');
+    
+    // Update sync status
+    updateTaskSyncStatus(taskId, 'pending');
+}
+
+// Save task changes locally
+async function saveTaskChanges(taskId) {
+    const taskCard = document.querySelector(`[data-task-id="${taskId}"]`);
+    const saveBtn = taskCard.querySelector('.save-btn');
+    const syncBtn = taskCard.querySelector('.sync-btn');
+    
+    // Collect all field values
+    const updatedData = {
+        name: taskCard.querySelector('.task-name-edit').value.trim(),
+        description: taskCard.querySelector('.task-description-edit').value.trim(),
+        status: taskCard.querySelector('.task-status-edit').value,
+        progress: parseInt(taskCard.querySelector('.task-progress-edit').value),
+        notes: taskCard.querySelector('.task-notes-edit').value.trim()
+    };
+    
+    // Validate required fields
+    if (!updatedData.name) {
+        showToast('Task name is required', 'warning');
+        return;
+    }
+    
+    try {
+        // Update task in local storage
+        await updateTaskInMyDashboard(taskId, updatedData);
+        
+        // Update UI
+        saveBtn.style.display = 'none';
+        syncBtn.style.opacity = '1';
+        taskCard.classList.remove('has-unsaved-changes');
+        
+        // Update status badge
+        const statusBadge = taskCard.querySelector('.task-status');
+        statusBadge.textContent = updatedData.status;
+        statusBadge.className = `task-status ${getStatusClass(updatedData.status)}`;
+        
+        updateTaskSyncStatus(taskId, 'pending');
+        showToast('💾 Changes saved locally. Click "Sync to Infinity" to update Infinity.', 'success');
+        
+    } catch (error) {
+        console.error('Error saving task changes:', error);
+        showToast('Error saving changes', 'error');
+    }
+}
+
+// Sync task with Infinity
+async function syncTaskWithInfinity(taskId) {
+    const task = availableTasks.find(t => t.id === taskId);
+    if (!task) {
+        showToast('Task not found', 'error');
+        return;
+    }
+    
+    const syncBtn = document.querySelector(`[data-task-id="${taskId}"] .sync-btn`);
+    const originalText = syncBtn.innerHTML;
+    
+    try {
+        // Update button to show loading
+        syncBtn.innerHTML = '⏳ Syncing...';
+        syncBtn.disabled = true;
+        
+        updateTaskSyncStatus(taskId, 'syncing');
+        
+        const updateData = {
+            action: 'update_task',
+            master_board_id: task.masterBoardId,
+            company_board_id: task.companyBoardId,
+            task_name: task.name,
+            progress: task.progress,
+            status: task.status,
+            description: task.description,
+            notes: task.notes,
+            timestamp: new Date().toISOString(),
+            updated_by: currentEmployee || 'Unknown User'
+        };
+        
+        console.log('🔄 Syncing task to Infinity:', updateData);
+        
+        const response = await fetch(CONFIG.taskUpdateUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updateData)
+        });
+        
+        console.log('📡 Sync response status:', response.status);
+        
+        if (response.ok) {
+            const result = await response.json();
+            console.log('✅ Sync result:', result);
+            
+            if (result.success) {
+                // Update sync status and timestamp
+                await updateTaskSyncStatus(taskId, 'synced');
+                await updateTaskInMyDashboard(taskId, {
+                    lastSyncedAt: new Date().toISOString(),
+                    syncStatus: 'synced'
+                });
+                
+                showToast('✅ Task synced successfully with Infinity!', 'success');
+                
+                // Refresh dashboard to show updated sync time
+                await loadAssignedTasks();
+                
+            } else {
+                throw new Error(result.message || 'Sync failed');
+            }
+        } else {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `HTTP error ${response.status}`);
+        }
+        
+    } catch (error) {
+        console.error('Error syncing task:', error);
+        updateTaskSyncStatus(taskId, 'error');
+        showToast(`❌ Sync failed: ${error.message}`, 'error');
+        
+    } finally {
+        // Restore button
+        syncBtn.innerHTML = originalText;
+        syncBtn.disabled = false;
+    }
+}
+
+// Update sync status indicator
+function updateTaskSyncStatus(taskId, status) {
+    const taskCard = document.querySelector(`[data-task-id="${taskId}"]`);
+    if (!taskCard) return;
+    
+    const syncStatus = taskCard.querySelector('.sync-status');
+    const icon = getSyncStatusIcon(status);
+    
+    syncStatus.innerHTML = icon;
+    syncStatus.className = `sync-status ${status}`;
+    
+    // Update local storage
+    updateTaskInMyDashboard(taskId, { syncStatus: status });
+}
+
+// Helper functions
+function getStatusClass(status) {
+    const statusClasses = {
+        'Project': 'status-project',
+        'Priority Project': 'status-priority',
+        'Current Project': 'status-current',
+        'Revision': 'status-revision',
+        'Waiting Approval': 'status-waiting',
+        'Project Finished': 'status-finished',
+        'Rejected': 'status-rejected'
+    };
+    return statusClasses[status] || 'status-project';
+}
+
+function formatDate(dateString) {
+    if (!dateString) return 'Never';
+    try {
+        return new Date(dateString).toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    } catch (e) {
+        return 'Invalid date';
+    }
+}
+
+async function editImportedTask(taskId) {
+    const task = availableTasks.find(t => t.id === taskId);
+    if (!task) {
+        showToast('Task not found', 'error');
+        return;
+    }
+    
+    // Open task editor modal
+    if (!document.getElementById('taskEditorModal')) {
+        createTaskEditorModal();
+    }
+    
+    // Pre-fill the IDs
+    document.getElementById('masterBoardId').value = task.masterBoardId;
+    document.getElementById('companyBoardId').value = task.companyBoardId;
+    
+    // Display task for editing
+    displayTaskForEditing(task, task.masterBoardId, task.companyBoardId);
+    
+    // Show modal
+    document.getElementById('taskEditorModal').style.display = 'block';
+}
+
+async function removeImportedTask(taskId) {
+    if (!confirm('Are you sure you want to remove this task from your dashboard?\n\nThis will not affect the task in Infinity, only remove it from your personal dashboard.')) {
+        return;
+    }
+    
+    if (!currentEmployee) return;
+    
+    try {
+        const tasksKey = `myTasks_${currentEmployee}`;
+        let myTasks = [];
+        
+        const saved = localStorage.getItem(tasksKey);
+        if (saved) {
+            myTasks = JSON.parse(saved);
+        }
+        
+        // Remove task
+        myTasks = myTasks.filter(t => t.id !== taskId);
+        
+        // Save back
+        localStorage.setItem(tasksKey, JSON.stringify(myTasks));
+        availableTasks = myTasks;
+        
+        // ✅ Protect localStorage after modification
+        protectLocalStorage();
+        
+        // Refresh display
+        await loadAssignedTasks();
+        
+        showToast('🗑️ Task removed from your dashboard', 'success');
+        
+    } catch (error) {
+        console.error('Error removing task:', error);
+        showToast('Error removing task', 'error');
+    }
+}
+
+// Daily Report Handler - ADD THIS TO YOUR SCRIPT.JS
+async function handleDailyReport(e) {
+    e.preventDefault();
+    
+    if (!currentEmployee) {
+        showToast('Please select an employee first', 'warning');
+        return;
+    }
+    
+    const form = e.target;
+    const formData = new FormData(form);
+    
+    try {
+        showToast('📊 Submitting daily report...', 'info');
+        
+        // Handle photo upload (required)
+        const photoFile = formData.get('reportPhoto');
+        if (!photoFile || photoFile.size === 0) {
+            showToast('Please select a photo for your daily report', 'warning');
+            return;
+        }
+        
+        console.log('📸 Uploading photo to ImgBB...');
+        
+        const imgbbFormData = new FormData();
+        imgbbFormData.append('image', photoFile);
+        
+        const imgbbResponse = await fetch(`https://api.imgbb.com/1/upload?key=${CONFIG.imgbbApiKey}`, {
+            method: 'POST',
+            body: imgbbFormData
+        });
+        
+        if (!imgbbResponse.ok) {
+            throw new Error('Failed to upload photo');
+        }
+        
+        const imgbbData = await imgbbResponse.json();
+        console.log('✅ Photo uploaded successfully');
+        
+        // Build report data with EXACT field names from n8n workflow
+        const reportData = {
+            action: 'daily_report',
+            'Name': currentEmployee,
+            'Company': formData.get('reportCompany'),
+            'Project Name': formData.get('projectName'),
+            'Number of Revisions': formData.get('numRevisions'),
+            'Total Time Spent on Project': formData.get('totalTimeSpent'),
+            'Notes': formData.get('reportNotes'),
+            'Links': formData.get('reportLinks') || '',
+            'Date': formData.get('reportDate'),
+            'Photo for report': imgbbData.data.url,
+            'Feedback or Requests': formData.get('feedbackRequests') || '',
+            'Timestamp': new Date().toISOString()
+        };
+        
+        console.log('📤 Sending report data:', reportData);
+        
+        const response = await fetch(CONFIG.reportLoggerUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(reportData)
+        });
+        
+        console.log('📡 Report response status:', response.status);
+        
+        if (response.ok) {
+            const result = await response.json();
+            console.log('✅ Daily report submitted successfully:', result);
+            showToast('✅ Daily report submitted successfully!', 'success');
+            form.reset();
+            
+            // Clear photo preview
+            const photoPreview = document.getElementById('reportPhotoPreview');
+            if (photoPreview) photoPreview.innerHTML = '';
+            
+        } else {
+            const errorData = await response.json().catch(() => ({}));
+            console.error('❌ Report submission error:', errorData);
+            throw new Error(`HTTP ${response.status}: ${errorData.error || response.statusText}`);
+        }
+        
+    } catch (error) {
+        console.error('❌ Daily report error:', error);
+        showToast(`Failed to submit daily report: ${error.message}`, 'error');
+    }
+}
+
+// Stub implementations for form handlers
+// ✅ ENHANCED - Task intake with optional image handling
+async function handleTaskIntake(e) {
+    e.preventDefault();
+    
+    if (!currentEmployee) {
+        showToast('Please select an employee first', 'warning');
+        return;
+    }
+    
+    const form = e.target;
+    const formData = new FormData(form);
+    
+    try {
+        showToast('📝 Creating new task...', 'info');
+        
+        // ✅ Handle optional image upload
+        const imageFile = formData.get('taskImage');
+        let imageUrl = '';
+        
+        if (imageFile && imageFile.size > 0) {
+            console.log('📸 Uploading image to ImgBB...');
+            
+            const imgbbFormData = new FormData();
+            imgbbFormData.append('image', imageFile);
+            
+            const imgbbResponse = await fetch(`https://api.imgbb.com/1/upload?key=${CONFIG.imgbbApiKey}`, {
+                method: 'POST',
+                body: imgbbFormData
+            });
+            
+            if (imgbbResponse.ok) {
+                const imgbbData = await imgbbResponse.json();
+                imageUrl = imgbbData.data.url;
+                console.log('✅ Image uploaded successfully:', imageUrl);
+            } else {
+                console.warn('⚠️ Image upload failed, proceeding without image');
+                showToast('⚠️ Image upload failed, but task will be created without image', 'warning');
+            }
+        } else {
+            console.log('📝 No image provided - creating task without image');
+        }
+        
+        // Get assigned users (multiple select)
+        const assignedElements = form.querySelectorAll('#taskAssigned option:checked');
+        const assignedArray = Array.from(assignedElements).map(option => option.value);
+        
+        // ✅ Build comprehensive task data with ALL required fields
+        const taskData = {
+            action: 'task_intake',
+            
+            // ✅ Core required fields
+            'Project Title': formData.get('taskTitle') || '',
+            'Description': formData.get('taskDescription') || '',
+            'Company': formData.get('taskCompany') || '',
+            'Is this project a priority?': formData.get('taskPriority') || 'No',
+            'Due Date': formData.get('taskDueDate') || '',
+            'Links': formData.get('taskLinks') || '',
+            'Assigned': assignedArray,
+            'Name': currentEmployee,
+            'Employee Name': currentEmployee,
+            
+            // ✅ Optional image URL (empty string if no image)
+            'Image_URL': imageUrl,
+            
+            // ✅ Metadata
+            'Timestamp': new Date().toISOString()
+        };
+        
+        console.log('📤 Sending task data:', taskData);
+        
+        const response = await fetch(CONFIG.taskIntakeUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(taskData)
+        });
+        
+        console.log('📡 Response status:', response.status);
+        
+        if (response.ok) {
+            const result = await response.json();
+            console.log('✅ Task created successfully:', result);
+            
+            if (imageUrl) {
+                showToast('✅ Task created successfully with image!', 'success');
+            } else {
+                showToast('✅ Task created successfully!', 'success');
+            }
+            
+            form.reset();
+            
+            // Clear image preview
+            const imagePreview = document.getElementById('taskImagePreview');
+            if (imagePreview) imagePreview.innerHTML = '';
+            
+        } else {
+            const errorData = await response.json().catch(() => ({}));
+            console.error('❌ Server error:', errorData);
+            throw new Error(`HTTP ${response.status}: ${errorData.error || response.statusText}`);
+        }
+        
+    } catch (error) {
+        console.error('❌ Task intake error:', error);
+        showToast(`Failed to create task: ${error.message}`, 'error');
+    }
+}
+
+// ✅ ENHANCED - Clear image preview function
+function clearTaskImagePreview() {
+    const input = document.getElementById('taskImage');
+    const preview = document.getElementById('taskImagePreview');
+    
+    if (input) input.value = '';
+    if (preview) preview.innerHTML = '';
+    
+    showToast('Image removed', 'info');
+}
+
+// ✅ ENHANCED - Image preview with better validation
+function handleTaskImagePreview(e) {
+    const file = e.target.files[0];
+    const previewContainer = document.getElementById('taskImagePreview');
+    
+    // Clear previous preview
+    previewContainer.innerHTML = '';
+    
+    if (!file) {
+        console.log('📸 No file selected for task image');
+        return;
+    }
+    
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp'];
+    if (!allowedTypes.includes(file.type.toLowerCase())) {
+        showToast('❌ Please select a valid image file (JPEG, PNG, GIF, BMP, WebP)', 'error');
+        e.target.value = ''; // Clear the input
+        return;
+    }
+    
+    // Validate file size (32MB limit for ImgBB)
+    const maxSize = 32 * 1024 * 1024; // 32MB in bytes
+    if (file.size > maxSize) {
+        showToast('❌ Image too large. Please select an image under 32MB', 'error');
+        e.target.value = ''; // Clear the input
+        return;
+    }
+    
+    // Create file reader
+    const reader = new FileReader();
+    
+    reader.onload = function(event) {
+        console.log('📸 Task image preview loaded:', file.name, `(${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+        
+        // Create preview HTML
+        const previewHTML = `
+            <div style="margin-top: var(--spacing-md); padding: var(--spacing-md); background: rgba(0, 0, 0, 0.2); border-radius: var(--radius-md); border: 1px solid rgba(255, 255, 255, 0.1);">
+                <div style="display: flex; align-items: center; gap: var(--spacing-md); margin-bottom: var(--spacing-sm);">
+                    <span style="color: var(--text-primary); font-weight: 600;">📸 Image Preview (Optional):</span>
+                    <span style="color: var(--text-secondary); font-size: 0.875rem;">${file.name}</span>
+                    <span style="color: var(--text-secondary); font-size: 0.75rem; background: rgba(102, 126, 234, 0.2); padding: 2px 8px; border-radius: 12px;">${(file.size / 1024 / 1024).toFixed(2)}MB</span>
+                </div>
+                <div style="text-align: center;">
+                    <img src="${event.target.result}" 
+                         alt="Task Image Preview" 
+                         style="max-width: 300px; max-height: 200px; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); border: 2px solid var(--border); object-fit: cover;">
+                </div>
+                <button type="button" 
+                        onclick="clearTaskImagePreview()" 
+                        style="margin-top: var(--spacing-sm); padding: var(--spacing-xs) var(--spacing-sm); background: rgba(252, 129, 129, 0.2); color: #fc8181; border: 1px solid rgba(252, 129, 129, 0.3); border-radius: var(--radius-sm); font-size: 0.75rem; cursor: pointer; transition: all 0.3s ease;"
+                        onmouseover="this.style.background='rgba(252, 129, 129, 0.3)'"
+                        onmouseout="this.style.background='rgba(252, 129, 129, 0.2)'">
+                    🗑️ Remove Image
+                </button>
+            </div>
+        `;
+        
+        previewContainer.innerHTML = previewHTML;
+        showToast('✅ Task image loaded successfully (optional)', 'success');
+    };
+    
+    reader.onerror = function() {
+        console.error('❌ Error reading task image file');
+        showToast('❌ Error reading image file', 'error');
+        previewContainer.innerHTML = '';
+    };
+    
+    // Read the file as data URL
+    reader.readAsDataURL(file);
+}
+
+function handleReportPhotoPreview(e) {
+    const file = e.target.files[0];
+    const previewContainer = document.getElementById('reportPhotoPreview');
+    
+    // Clear previous preview
+    previewContainer.innerHTML = '';
+    
+    if (!file) {
+        console.log('📸 No file selected for report photo');
+        return;
+    }
+    
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp'];
+    if (!allowedTypes.includes(file.type.toLowerCase())) {
+        showToast('❌ Please select a valid image file (JPEG, PNG, GIF, BMP, WebP)', 'error');
+        e.target.value = ''; // Clear the input
+        return;
+    }
+    
+    // Validate file size (32MB limit for ImgBB)
+    const maxSize = 32 * 1024 * 1024; // 32MB in bytes
+    if (file.size > maxSize) {
+        showToast('❌ Image too large. Please select an image under 32MB', 'error');
+        e.target.value = ''; // Clear the input
+        return;
+    }
+    
+    // Create file reader
+    const reader = new FileReader();
+    
+    reader.onload = function(event) {
+        console.log('📸 Report photo preview loaded:', file.name, `(${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+        
+        // Create preview HTML
+        const previewHTML = `
+            <div style="margin-top: var(--spacing-md); padding: var(--spacing-md); background: rgba(0, 0, 0, 0.2); border-radius: var(--radius-md); border: 1px solid rgba(255, 255, 255, 0.1);">
+                <div style="display: flex; align-items: center; gap: var(--spacing-md); margin-bottom: var(--spacing-sm);">
+                    <span style="color: var(--text-primary); font-weight: 600;">📷 Report Photo:</span>
+                    <span style="color: var(--text-secondary); font-size: 0.875rem;">${file.name}</span>
+                    <span style="color: var(--text-secondary); font-size: 0.75rem; background: rgba(72, 187, 120, 0.2); padding: 2px 8px; border-radius: 12px;">${(file.size / 1024 / 1024).toFixed(2)}MB</span>
+                </div>
+                <div style="text-align: center;">
+                    <img src="${event.target.result}" 
+                         alt="Report Photo Preview" 
+                         style="max-width: 300px; max-height: 200px; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); border: 2px solid var(--border); object-fit: cover;">
+                </div>
+                <button type="button" 
+                        onclick="clearReportPhotoPreview()" 
+                        style="margin-top: var(--spacing-sm); padding: var(--spacing-xs) var(--spacing-sm); background: rgba(252, 129, 129, 0.2); color: #fc8181; border: 1px solid rgba(252, 129, 129, 0.3); border-radius: var(--radius-sm); font-size: 0.75rem; cursor: pointer; transition: all 0.3s ease;"
+                        onmouseover="this.style.background='rgba(252, 129, 129, 0.3)'"
+                        onmouseout="this.style.background='rgba(252, 129, 129, 0.2)'">
+                    🗑️ Remove Photo
+                </button>
+            </div>
+        `;
+        
+        previewContainer.innerHTML = previewHTML;
+        showToast('✅ Report photo loaded successfully', 'success');
+    };
+    
+    reader.onerror = function() {
+        console.error('❌ Error reading report photo file');
+        showToast('❌ Error reading photo file', 'error');
+        previewContainer.innerHTML = '';
+    };
+    
+    // Read the file as data URL
+    reader.readAsDataURL(file);
+}
+
+// ✅ ENHANCED - Clear report photo preview function
+function clearReportPhotoPreview() {
+    const input = document.getElementById('reportPhoto');
+    const preview = document.getElementById('reportPhotoPreview');
+    
+    if (input) input.value = '';
+    if (preview) preview.innerHTML = '';
+    
+    showToast('Photo removed', 'info');
+}
+
+// Modal close on outside click
+window.addEventListener('click', function(event) {
+    const taskEditorModal = document.getElementById('taskEditorModal');
+    const passwordModal = document.getElementById('passwordModal');
+    
+    if (event.target === taskEditorModal) {
+        closeTaskEditorModal();
+    }
+    
+    if (event.target === passwordModal) {
+        closePasswordModal();
+    }
+});
+
+// Debug function
+window.debugStartButton = function() {
+    console.log('🔧 DEBUGGING START BUTTON...');
+    
+    const startBtn = document.getElementById('startWorkBtn');
+    
+    if (startBtn) {
+        startBtn.disabled = false;
+        startBtn.classList.remove('btn-disabled');
+        startBtn.style.pointerEvents = 'auto';
+        startBtn.style.opacity = '1';
+        
+        currentEmployee = currentEmployee || 'Tony Herrera';
+        currentWorkflowState = WORKFLOW_STATES.NOT_STARTED;
+        
+        if (!document.getElementById('employeeSelect').value) {
+            document.getElementById('employeeSelect').value = 'Tony Herrera';
+        }
+        
+        console.log('✅ START button force-enabled!');
+        return 'START button should now work!';
+    } else {
+        console.error('❌ START button not found!');
+        return 'START button element not found!';
+    }
+};
+
+// ✅ Add this debug function to your script.js to check n8n responses
+window.debugN8nResponse = async function() {
+    const masterBoardId = document.getElementById('masterBoardId').value.trim();
+    const companyBoardId = document.getElementById('companyBoardId').value.trim();
+    
+    if (!masterBoardId || !companyBoardId) {
+        console.log('❌ Please enter both IDs first');
+        return;
+    }
+    
+    try {
+        console.log('🔍 DEBUGGING N8N RESPONSE...');
+        console.log('📤 Sending request with IDs:');
+        console.log('- Master:', masterBoardId);
+        console.log('- Company:', companyBoardId);
+        
+        const response = await fetch('/api/task-action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'get_task_by_ids',
+                master_board_id: masterBoardId,
+                company_board_id: companyBoardId
+            })
+        });
+        
+        console.log('📡 Response status:', response.status);
+        console.log('📡 Response headers:', [...response.headers.entries()]);
+        
+        const responseText = await response.text();
+        console.log('📄 Raw response text:', responseText);
+        
+        try {
+            const jsonData = JSON.parse(responseText);
+            console.log('📊 Parsed JSON data:', jsonData);
+            console.log('📊 JSON structure:');
+            console.log('- Type:', typeof jsonData);
+            console.log('- Is Array:', Array.isArray(jsonData));
+            console.log('- Keys:', Object.keys(jsonData));
+            console.log('- Has success:', 'success' in jsonData);
+            console.log('- Has task:', 'task' in jsonData);
+            console.log('- Has data:', 'data' in jsonData);
+            
+            if (jsonData.task) {
+                console.log('✅ Found task object:', jsonData.task);
+            } else if (jsonData.data && jsonData.data.task) {
+                console.log('✅ Found nested task object:', jsonData.data.task);
+            } else {
+                console.log('❌ No task object found in expected locations');
+            }
+            
+        } catch (parseError) {
+            console.error('❌ Failed to parse JSON:', parseError);
+            console.log('📄 Response is not valid JSON');
+        }
+        
+    } catch (error) {
+        console.error('❌ Debug request failed:', error);
+    }
+};
+
+// ✅ Call this in browser console: debugN8nResponse()
+console.log('🔧 Debug function available: Call debugN8nResponse() in console after entering IDs');
+
+console.log('🚀 Simplified VEBLEN Task Tracker loaded!');// Configuration - SIMPLIFIED VERSION
 const CONFIG = {
     taskIntakeUrl: '/api/task-action',
     taskUpdateUrl: '/api/task-action',  // ✅ Use unified endpoint
@@ -37,8 +1310,99 @@ let currentWorkflowState = WORKFLOW_STATES.NOT_STARTED;
 let shiftResetTime = null;
 let availableTasks = [];
 
+// ✅ NEW: Congratulations tracking
+let congratsShown = false;
+let congratsShownToday = false;
+
 // TESTING BYPASS FUNCTIONALITY - ADMIN ONLY
 const BYPASS_PASSWORD = 'veblenone123';
+
+// ✅ ENHANCED: localStorage Protection System
+function protectLocalStorage() {
+    if (!currentEmployee) return {};
+    
+    const criticalKeys = [
+        `workflowState_${currentEmployee}`,
+        `workClock_${currentEmployee}`,
+        `myTasks_${currentEmployee}`,
+        'selectedEmployee',
+        'lastShiftResetCheck',
+        `congratsShown_${currentEmployee}_${new Date().toDateString()}`
+    ];
+    
+    const backup = {};
+    criticalKeys.forEach(key => {
+        const value = localStorage.getItem(key);
+        if (value) {
+            backup[key] = value;
+        }
+    });
+    
+    // Store backup in sessionStorage as additional protection
+    try {
+        sessionStorage.setItem('veblen_localStorage_backup', JSON.stringify({
+            timestamp: new Date().toISOString(),
+            employee: currentEmployee,
+            data: backup
+        }));
+        console.log('✅ localStorage backup created');
+    } catch (error) {
+        console.warn('⚠️ Could not create sessionStorage backup:', error);
+    }
+    
+    return backup;
+}
+
+function restoreFromBackup() {
+    try {
+        const backupStr = sessionStorage.getItem('veblen_localStorage_backup');
+        if (!backupStr) return false;
+        
+        const backup = JSON.parse(backupStr);
+        if (!backup.data) return false;
+        
+        let restoredCount = 0;
+        Object.keys(backup.data).forEach(key => {
+            if (!localStorage.getItem(key)) {
+                localStorage.setItem(key, backup.data[key]);
+                restoredCount++;
+            }
+        });
+        
+        if (restoredCount > 0) {
+            console.log(`✅ Restored ${restoredCount} items from backup`);
+            showToast(`🔄 Restored ${restoredCount} items from backup`, 'info');
+            return true;
+        }
+    } catch (error) {
+        console.error('❌ Failed to restore from backup:', error);
+    }
+    return false;
+}
+
+function checkLocalStorageIntegrity() {
+    if (!currentEmployee) return;
+    
+    const expectedKeys = [
+        `workflowState_${currentEmployee}`,
+        'selectedEmployee'
+    ];
+    
+    const missingKeys = expectedKeys.filter(key => !localStorage.getItem(key));
+    
+    if (missingKeys.length > 0) {
+        console.warn('⚠️ Missing localStorage keys:', missingKeys);
+        const restored = restoreFromBackup();
+        
+        if (!restored) {
+            console.log('🔄 Reinitializing missing data...');
+            // Reinitialize basic data
+            if (!localStorage.getItem('selectedEmployee') && currentEmployee) {
+                localStorage.setItem('selectedEmployee', currentEmployee);
+            }
+        }
+    }
+}
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
@@ -58,6 +1422,13 @@ document.addEventListener('DOMContentLoaded', function() {
 function initializeApp() {
     console.log('🚀 Initializing VEBLEN Task Tracker...');
     
+    // ✅ ENHANCED: Check and restore localStorage integrity
+    try {
+        restoreFromBackup();
+    } catch (error) {
+        console.warn('⚠️ Backup restore failed:', error);
+    }
+    
     // Initialize Brisbane clock first
     initializeBrisbaneClock();
     
@@ -67,6 +1438,12 @@ function initializeApp() {
         document.getElementById('employeeSelect').value = savedEmployee;
         currentEmployee = savedEmployee;
         console.log('🔄 Loaded saved employee:', currentEmployee);
+        
+        // ✅ Check congratulations state for today
+        const congratsKey = `congratsShown_${currentEmployee}_${new Date().toDateString()}`;
+        congratsShownToday = localStorage.getItem(congratsKey) === 'true';
+        congratsShown = congratsShownToday;
+        
         loadEmployeeData();
     }
 
@@ -93,6 +1470,28 @@ function initializeApp() {
     console.log('🔄 Initializing workflow state...');
     currentWorkflowState = WORKFLOW_STATES.NOT_STARTED;
     initializeWorkflowState();
+    
+    // ✅ Set up periodic localStorage protection
+    setInterval(() => {
+        if (currentEmployee) {
+            protectLocalStorage();
+            checkLocalStorageIntegrity();
+        }
+    }, 30000); // Every 30 seconds
+    
+    // ✅ Set up page visibility change handler to protect on tab switches
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden && currentEmployee) {
+            protectLocalStorage();
+        }
+    });
+    
+    // ✅ Set up beforeunload handler to protect on page refresh/close
+    window.addEventListener('beforeunload', function() {
+        if (currentEmployee) {
+            protectLocalStorage();
+        }
+    });
     
     // Debug: Log button state after 1 second
     setTimeout(() => {
@@ -185,6 +1584,12 @@ function performTestingBypass() {
     
     localStorage.removeItem(workflowStateKey);
     localStorage.removeItem(clockStateKey);
+    
+    // ✅ Reset congratulations state for testing
+    const congratsKey = `congratsShown_${currentEmployee}_${new Date().toDateString()}`;
+    localStorage.removeItem(congratsKey);
+    congratsShown = false;
+    congratsShownToday = false;
     
     // Clear any active timers for testing
     clearWorkClockState();
@@ -390,6 +1795,7 @@ function checkForShiftReset(brisbaneNow) {
         localStorage.setItem('lastShiftResetCheck', brisbaneNow.toISOString());
     }
 }
+
 window.debugTimezones = function() {
     const now = new Date();
     
@@ -421,6 +1827,14 @@ function performShiftReset() {
     clearWorkClockState();
     updateWorkflowButtonStates();
     saveWorkflowState();
+    
+    // ✅ Reset congratulations state for new day
+    if (currentEmployee) {
+        const congratsKey = `congratsShown_${currentEmployee}_${new Date().toDateString()}`;
+        localStorage.removeItem(congratsKey);
+        congratsShown = false;
+        congratsShownToday = false;
+    }
     
     showToast('🌅 New shift day has begun! You can now start work.', 'info');
 }
@@ -463,6 +1877,9 @@ function saveWorkflowState() {
     };
     
     localStorage.setItem(workflowStateKey, JSON.stringify(state));
+    
+    // ✅ Trigger backup protection
+    protectLocalStorage();
 }
 
 function loadWorkflowState() {
@@ -735,7 +2152,7 @@ function createTaskEditorModal() {
     <div id="taskEditorModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>📥 Import Task from Infinity</h2>
+                <h2>🔥 Import Task from Infinity</h2>
                 <span class="close" onclick="closeTaskEditorModal()">&times;</span>
             </div>
             
@@ -752,7 +2169,7 @@ function createTaskEditorModal() {
                     </div>
                     
                     <button type="button" class="btn btn-primary" onclick="importTaskToMyDashboard()">
-                        📥 Import Task to My Dashboard
+                        🔥 Import Task to My Dashboard
                     </button>
                 </div>
                 
@@ -800,7 +2217,7 @@ async function importTaskToMyDashboard() {
         importBtn.innerHTML = '🔄 Importing from StartInfinity...';
         importBtn.disabled = true;
         
-        console.log('📥 Importing task via n8n workflow...');
+        console.log('🔥 Importing task via n8n workflow...');
         console.log('- Master ID:', masterBoardId);
         console.log('- Company ID:', companyBoardId);
         
@@ -936,7 +2353,7 @@ async function importTaskToMyDashboard() {
         // Restore button
         const importBtn = document.querySelector('button[onclick="importTaskToMyDashboard()"]');
         if (importBtn) {
-            importBtn.innerHTML = '📥 Import Task to My Dashboard';
+            importBtn.innerHTML = '🔥 Import Task to My Dashboard';
             importBtn.disabled = false;
         }
     }
@@ -961,6 +2378,9 @@ async function removeTaskFromDashboard(taskId) {
     myTasks = myTasks.filter(t => t.id !== taskId);
     localStorage.setItem(tasksKey, JSON.stringify(myTasks));
     availableTasks = myTasks;
+    
+    // ✅ Protect localStorage after modification
+    protectLocalStorage();
     
     // Refresh display
     await loadAssignedTasks();
@@ -1166,6 +2586,9 @@ async function saveTaskToMyDashboard(task, masterBoardId, companyBoardId) {
     // Save to localStorage
     localStorage.setItem(tasksKey, JSON.stringify(myTasks));
     availableTasks = myTasks;
+    
+    // ✅ Protect localStorage after modification
+    protectLocalStorage();
     
     console.log('💾 Task saved to dashboard:', taskForDashboard.id);
 }
@@ -1524,6 +2947,9 @@ async function updateTaskInMyDashboard(masterBoardId, companyBoardId, updates) {
         
         localStorage.setItem(tasksKey, JSON.stringify(myTasks));
         availableTasks = myTasks;
+        
+        // ✅ Protect localStorage after modification
+        protectLocalStorage();
     }
 }
 
@@ -1543,8 +2969,16 @@ function handleEmployeeChange(e) {
     currentEmployee = e.target.value;
     localStorage.setItem('selectedEmployee', currentEmployee);
     
+    // ✅ Reset congratulations state for new employee
     if (currentEmployee) {
+        const congratsKey = `congratsShown_${currentEmployee}_${new Date().toDateString()}`;
+        congratsShownToday = localStorage.getItem(congratsKey) === 'true';
+        congratsShown = congratsShownToday;
+        
         loadEmployeeData();
+        
+        // ✅ Protect localStorage after employee change
+        protectLocalStorage();
     } else {
         clearEmployeeData();
     }
@@ -1552,6 +2986,9 @@ function handleEmployeeChange(e) {
 
 async function loadEmployeeData() {
     if (!currentEmployee) return;
+    
+    // ✅ Check localStorage integrity first
+    checkLocalStorageIntegrity();
     
     await loadAssignedTasks();
     await loadWorkClockState();
@@ -1564,6 +3001,8 @@ function clearEmployeeData() {
     availableTasks = [];
     currentWorkflowState = WORKFLOW_STATES.NOT_STARTED;
     updateWorkflowButtonStates();
+    congratsShown = false;
+    congratsShownToday = false;
 }
 
 // ============= ESSENTIAL UTILITY FUNCTIONS =============
@@ -1685,6 +3124,7 @@ function formatElapsedTime(milliseconds) {
     return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
+// ✅ ENHANCED: Regular showToast for normal messages
 function showToast(message, type = 'info') {
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
@@ -1697,6 +3137,57 @@ function showToast(message, type = 'info') {
         setTimeout(() => {
             toast.remove();
         }, 5000);
+    }
+}
+
+// ✅ NEW: Long-duration toast function for congratulations (1 minute)
+function showLongToast(message, type = 'success', duration = 60000) {
+    const toast = document.createElement('div');
+    toast.className = `toast ${type} long-toast`;
+    toast.innerHTML = `
+        <div class="toast-content" style="display: flex; justify-content: space-between; align-items: center;">
+            <span class="toast-message">${message}</span>
+            <button class="toast-close" onclick="this.parentElement.parentElement.remove()" style="
+                background: none;
+                border: none;
+                color: white;
+                font-size: 1.2rem;
+                cursor: pointer;
+                padding: 0 0 0 10px;
+                opacity: 0.8;
+            ">×</button>
+        </div>
+    `;
+    
+    // Enhanced styling for long toast
+    toast.style.cssText = `
+        background: linear-gradient(135deg, rgba(72, 187, 120, 0.95) 0%, rgba(56, 161, 105, 0.95) 100%);
+        backdrop-filter: blur(10px);
+        border: 2px solid rgba(72, 187, 120, 0.5);
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-bottom: 12px;
+        box-shadow: 0 8px 32px rgba(72, 187, 120, 0.3);
+        min-width: 350px;
+        max-width: 450px;
+        animation: slideInRight 0.5s ease, pulseGlow 3s ease-in-out infinite;
+        color: white;
+        font-weight: 600;
+        position: relative;
+        overflow: hidden;
+    `;
+    
+    const container = document.getElementById('toastContainer');
+    if (container) {
+        container.appendChild(toast);
+        
+        // Auto-remove after duration
+        setTimeout(() => {
+            if (toast.parentElement) {
+                toast.style.animation = 'fadeOut 0.5s ease forwards';
+                setTimeout(() => toast.remove(), 500);
+            }
+        }, duration);
     }
 }
 
@@ -1792,6 +3283,7 @@ function updateBreakTimer() {
     }
 }
 
+// ✅ FIXED: updateShiftProgress with once-per-shift congratulations
 function updateShiftProgress(totalShiftTimeMs) {
     if (!dailyShiftData) return;
     
@@ -1818,15 +3310,29 @@ function updateShiftProgress(totalShiftTimeMs) {
         } else {
             shiftStatus.textContent = `🎉 Shift Complete! ${hours.toFixed(1)} hours completed`;
         }
+        
+        // ✅ FIXED: Only show congratulations once per shift, and only when crossing 100%
+        if (percentage >= 100 && percentage < 101 && !congratsShown && !congratsShownToday) {
+            congratsShown = true;
+            congratsShownToday = true;
+            
+            // ✅ Save the congratulations state to prevent re-showing
+            if (currentEmployee) {
+                const congratsKey = `congratsShown_${currentEmployee}_${new Date().toDateString()}`;
+                localStorage.setItem(congratsKey, 'true');
+                protectLocalStorage(); // Protect the state
+            }
+            
+            // ✅ Show 1-minute congratulations toast
+            showLongToast('🎉 Congratulations! You\'ve completed your 8-hour shift! Well done! 🎯', 'success', 60000);
+            
+            console.log('✅ Congratulations shown for 8-hour completion');
+        }
     } else {
         progressBar.className = 'shift-bar';
         shiftStatus.className = 'shift-target';
         const remainingHours = (8 - hours).toFixed(1);
         shiftStatus.textContent = `${percentage.toFixed(0)}% of 8 hours completed (${remainingHours}h remaining)`;
-    }
-    
-    if (percentage >= 100 && percentage < 101) {
-        showToast('🎉 Congratulations! You\'ve completed your 8-hour shift!', 'success');
     }
 }
 
@@ -1965,6 +3471,9 @@ function saveWorkClockState(status, startTime) {
     };
     
     localStorage.setItem(clockStateKey, JSON.stringify(state));
+    
+    // ✅ Protect localStorage after clock state change
+    protectLocalStorage();
 }
 
 function clearWorkClockState() {
@@ -1991,6 +3500,7 @@ function clearWorkClockState() {
     if (currentEmployee) {
         const clockStateKey = `workClock_${currentEmployee}`;
         localStorage.removeItem(clockStateKey);
+        protectLocalStorage();
     }
 }
 
@@ -2026,8 +3536,8 @@ async function loadAssignedTasks() {
             document.getElementById('assignedTasksList').innerHTML = `
                 <p class="loading">No tasks imported yet.</p>
                 <div style="background: rgba(102, 126, 234, 0.1); border: 2px solid rgba(102, 126, 234, 0.3); border-radius: var(--radius-md); padding: var(--spacing-lg); margin-top: var(--spacing-md);">
-                    <h4 style="color: var(--text-primary); margin-bottom: var(--spacing-sm);">📥 Import Your First Task:</h4>
-                    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">1. Click "📥 Import Task from Infinity" button above</p>
+                    <h4 style="color: var(--text-primary); margin-bottom: var(--spacing-sm);">🔥 Import Your First Task:</h4>
+                    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">1. Click "🔥 Import Task from Infinity" button above</p>
                     <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">2. Enter your Master Board Item ID and Company Board Item ID</p>
                     <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">3. Click "Import Task" to add it to your personal dashboard</p>
                     <p style="color: var(--text-secondary);">4. Edit progress, status, and sync changes back to Infinity</p>
@@ -2046,1408 +3556,3 @@ async function loadAssignedTasks() {
         showToast('Error loading your imported tasks', 'error');
     }
 }
-
-// ✅ ADD THESE MISSING FUNCTIONS TO YOUR script.js
-
-function getSyncStatusIcon(status) {
-    switch (status) {
-        case 'synced': return '✅ Synced';
-        case 'pending': return '⏳ Pending';
-        case 'syncing': return '🔄 Syncing';
-        case 'error': return '❌ Error';
-        default: return '📥 Imported';
-    }
-}
-
-function attachTaskEventListeners(taskId) {
-    // Placeholder for task event listeners
-    console.log('Event listeners attached for task:', taskId);
-}
-
-// ✅ COMPLETE renderMyImportedTasks function
-// ✅ ENHANCED - Task cards with image thumbnails
-// ✅ UPDATED - Task cards without Notes textarea
-function renderMyImportedTasks(tasks) {
-    const tasksList = document.getElementById('assignedTasksList');
-    
-    if (tasks.length === 0) {
-        tasksList.innerHTML = `
-            <div style="text-align: center; padding: var(--spacing-2xl);">
-                <p style="color: var(--text-secondary); margin-bottom: var(--spacing-lg);">No tasks imported yet.</p>
-                <div style="background: rgba(102, 126, 234, 0.1); border: 2px solid rgba(102, 126, 234, 0.3); border-radius: var(--radius-lg); padding: var(--spacing-xl);">
-                    <h4 style="color: var(--text-primary); margin-bottom: var(--spacing-md);">📥 Import Your First Task:</h4>
-                    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">1. Click "📥 Import Task from Infinity" button above</p>
-                    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">2. Enter Master Board Item ID and Company Board Item ID</p>
-                    <p style="color: var(--text-secondary);">3. Task will appear here for editing and syncing</p>
-                </div>
-            </div>
-        `;
-        return;
-    }
-    
-    tasksList.innerHTML = `
-        <div style="margin-bottom: var(--spacing-xl); text-align: center;">
-            <h3 style="color: var(--text-primary); margin-bottom: var(--spacing-sm);">📋 Your Personal Task Dashboard</h3>
-            <p style="color: var(--text-secondary);">${tasks.length} imported task${tasks.length === 1 ? '' : 's'} • Click any task to edit inline</p>
-        </div>
-        <div class="tasks-grid">
-${tasks.map(task => {
-    // Calculate progress bar color based on real progress
-    const progressColor = task.progress >= 80 ? '#10B981' : 
-                        task.progress >= 50 ? '#F59E0B' : '#EF4444';
-    
-    // Status badge styling with real status
-    const statusClass = getStatusClass(task.status);
-    
-    // Truncate description if too long
-    const shortDescription = task.description ? 
-        (task.description.length > 120 ? 
-            task.description.substring(0, 120) + '...' : 
-            task.description) 
-        : 'No description available';
-    
-    // ✅ Handle task image with fallback
-    const taskImage = task.imageUrl || task.image_url || task.Image_URL || null;
-    const hasImage = taskImage && taskImage.trim() !== '';
-    
-    return `
-        <div class="task-card" data-task-id="${task.id}" style="
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 12px;
-            padding: 1.5rem;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            transition: all 0.3s ease;
-            margin-bottom: var(--spacing-lg);
-            ${hasImage ? 'min-height: 420px;' : ''}
-        ">
-            <!-- ✅ Task Image Thumbnail (if exists) -->
-            ${hasImage ? `
-            <div style="
-                margin-bottom: 1rem;
-                text-align: center;
-                position: relative;
-                overflow: hidden;
-                border-radius: 8px;
-                background: rgba(0, 0, 0, 0.2);
-                border: 1px solid rgba(255, 255, 255, 0.1);
-            ">
-                <img src="${taskImage}" 
-                     alt="Task Image" 
-                     loading="lazy"
-                     onclick="openImageModal('${taskImage}', '${task.name}')"
-                     style="
-                         width: 100%;
-                         height: 120px;
-                         object-fit: cover;
-                         cursor: pointer;
-                         transition: all 0.3s ease;
-                         border-radius: 6px;
-                     "
-                     onmouseover="this.style.transform='scale(1.05)'"
-                     onmouseout="this.style.transform='scale(1)'"
-                     onerror="this.parentElement.style.display='none'">
-                <div style="
-                    position: absolute;
-                    bottom: 4px;
-                    right: 4px;
-                    background: rgba(0, 0, 0, 0.7);
-                    color: white;
-                    padding: 2px 6px;
-                    border-radius: 4px;
-                    font-size: 0.7rem;
-                    pointer-events: none;
-                ">🔍 Click to expand</div>
-            </div>
-            ` : ''}
-            
-            <!-- Task Header with Real Data -->
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; gap: 1rem;">
-                <h3 style="
-                    font-size: 1.1rem;
-                    font-weight: 600;
-                    color: var(--text-primary);
-                    margin: 0;
-                    flex: 1;
-                    line-height: 1.4;
-                " title="${task.name}">
-                    ${hasImage ? '🖼️ ' : ''}${task.name || 'Untitled Task'}
-                </h3>
-                <span class="task-status ${statusClass}" style="
-                    padding: 0.25rem 0.75rem;
-                    border-radius: 12px;
-                    font-size: 0.75rem;
-                    font-weight: 600;
-                    text-transform: uppercase;
-                    letter-spacing: 0.05em;
-                    white-space: nowrap;
-                ">
-                    ${task.status || 'Unknown'}
-                </span>
-            </div>
-            
-            <!-- Company Info -->
-            <div style="margin-bottom: 0.75rem; opacity: 0.8;">
-                <small>🏢 ${task.company || 'No Company'}</small>
-            </div>
-            
-            <!-- Description -->
-            <div style="
-                color: var(--text-secondary);
-                font-size: 0.9rem;
-                line-height: 1.5;
-                margin-bottom: 1rem;
-                min-height: 2.7rem;
-            ">
-                ${shortDescription}
-            </div>
-            
-            <!-- Progress Bar -->
-            <div style="margin-bottom: 1rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                    <span>Progress</span>
-                    <span style="font-weight: 700; color: ${progressColor};">${task.progress || 0}%</span>
-                </div>
-                <div style="height: 8px; background: rgba(0, 0, 0, 0.3); border-radius: 4px; overflow: hidden;">
-                    <div style="
-                        height: 100%;
-                        border-radius: 4px;
-                        transition: width 0.5s ease;
-                        background-color: ${progressColor};
-                        width: ${task.progress || 0}%;
-                    "></div>
-                </div>
-            </div>
-            
-            <!-- Due Date Info -->
-            ${task.dueDate && task.dueDate !== 'Not set' ? `
-            <div style="margin-bottom: 1rem; font-size: 0.85rem; color: var(--text-secondary);">
-                📅 <strong>Due:</strong> ${task.dueDate}
-            </div>
-            ` : ''}
-            
-            <!-- Links Info -->
-            ${task.links && task.links.trim() !== '' ? `
-            <div style="margin-bottom: 1rem; font-size: 0.85rem; color: var(--text-secondary);">
-                🔗 <strong>Links:</strong> ${task.links.split('\\n').length} link(s) attached
-            </div>
-            ` : ''}
-            
-            <!-- Task Metadata -->
-            <div style="margin-bottom: 1rem; font-size: 0.8rem; color: var(--text-secondary);">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
-                    <small>🆔 Master: ${task.masterBoardId?.substring(0, 8)}...</small>
-                    <small>🏢 Company: ${task.companyBoardId?.substring(0, 8)}...</small>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
-                    <small>📅 Updated: ${formatDate(task.lastUpdated)}</small>
-                    <small>${getSyncStatusIcon(task.syncStatus || 'synced')}</small>
-                </div>
-                ${hasImage ? `<div style="text-align: center; margin-top: 0.5rem;"><small>📷 Image attached</small></div>` : ''}
-            </div>
-            
-            <!-- Action Buttons -->
-            <div style="display: flex; gap: 0.5rem;">
-                <button class="btn btn-primary" style="
-                    flex: 1; 
-                    font-size: 0.85rem; 
-                    padding: 0.6rem 0.8rem;
-                    background: var(--primary-gradient);
-                    border: none;
-                    border-radius: var(--radius-md);
-                    color: white;
-                    font-weight: 600;
-                    cursor: pointer;
-                    transition: all 0.3s ease;
-                " onclick="editImportedTask('${task.id}')">
-                    ✏️ Edit
-                </button>
-                
-                <button class="btn btn-success" style="
-                    flex: 1; 
-                    font-size: 0.85rem; 
-                    padding: 0.6rem 0.8rem;
-                    background: linear-gradient(135deg, #10B981, #059669);
-                    border: none;
-                    border-radius: var(--radius-md);
-                    color: white;
-                    font-weight: 600;
-                    cursor: pointer;
-                    transition: all 0.3s ease;
-                " onclick="syncTaskToInfinity('${task.id}')">
-                    🔄 Sync
-                </button>
-                
-                <button class="btn btn-danger" style="
-                    flex: 0.8; 
-                    font-size: 0.85rem; 
-                    padding: 0.6rem 0.8rem;
-                    background: linear-gradient(135deg, #EF4444, #DC2626);
-                    border: none;
-                    border-radius: var(--radius-md);
-                    color: white;
-                    font-weight: 600;
-                    cursor: pointer;
-                    transition: all 0.3s ease;
-                " onclick="removeTaskFromDashboard('${task.id}')">
-                    🗑️ Remove
-                </button>
-            </div>
-        </div>
-    `;
-}).join('')}
-        </div>
-    `;
-    
-    // Add event listeners for inline editing
-    tasks.forEach(task => {
-        attachTaskEventListeners(task.id);
-    });
-}
-
-// ✅ NEW - Image modal for full-size viewing
-function openImageModal(imageUrl, taskName) {
-    // Create modal if it doesn't exist
-    let modal = document.getElementById('imageModal');
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'imageModal';
-        modal.className = 'modal';
-        modal.style.display = 'none';
-        modal.innerHTML = `
-            <div class="modal-content" style="
-                background: var(--surface);
-                margin: 2% auto;
-                padding: 0;
-                border-radius: var(--radius-xl);
-                width: 90%;
-                max-width: 800px;
-                box-shadow: var(--shadow-xl);
-                border: 2px solid var(--border);
-                position: relative;
-            ">
-                <div class="modal-header" style="
-                    padding: var(--spacing-lg);
-                    border-bottom: 1px solid var(--border);
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    background: var(--dark-gradient);
-                    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-                ">
-                    <h3 id="imageModalTitle" style="margin: 0; color: var(--text-primary);">Task Image</h3>
-                    <span class="close" onclick="closeImageModal()" style="
-                        color: var(--text-secondary);
-                        font-size: 2rem;
-                        font-weight: 300;
-                        cursor: pointer;
-                        transition: all 0.3s ease;
-                        padding: 0;
-                        background: none;
-                        border: none;
-                        width: 40px;
-                        height: 40px;
-                        border-radius: 50%;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                    ">&times;</span>
-                </div>
-                <div class="modal-body" style="
-                    padding: var(--spacing-lg);
-                    text-align: center;
-                    background: var(--surface);
-                ">
-                    <img id="imageModalImg" 
-                         style="
-                             max-width: 100%;
-                             max-height: 70vh;
-                             border-radius: var(--radius-md);
-                             box-shadow: var(--shadow-lg);
-                             border: 1px solid var(--border);
-                         "
-                         alt="Task Image">
-                    <div style="
-                        margin-top: var(--spacing-md);
-                        color: var(--text-secondary);
-                        font-size: 0.875rem;
-                    ">
-                        Click image to open in new tab • Press ESC to close
-                    </div>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(modal);
-        
-        // Add click outside to close
-        modal.addEventListener('click', function(e) {
-            if (e.target === modal) {
-                closeImageModal();
-            }
-        });
-        
-        // Add ESC key to close
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape' && modal.style.display === 'block') {
-                closeImageModal();
-            }
-        });
-    }
-    
-    // Update modal content
-    document.getElementById('imageModalTitle').textContent = `📷 ${taskName || 'Task Image'}`;
-    const img = document.getElementById('imageModalImg');
-    img.src = imageUrl;
-    img.onclick = () => window.open(imageUrl, '_blank');
-    
-    // Show modal
-    modal.style.display = 'block';
-    modal.style.animation = 'fadeIn 0.3s ease';
-}
-
-function closeImageModal() {
-    const modal = document.getElementById('imageModal');
-    if (modal) {
-        modal.style.animation = 'fadeOut 0.3s ease';
-        setTimeout(() => {
-            modal.style.display = 'none';
-        }, 300);
-    }
-}
-
-// ✅ UPDATE - Enhanced saveTaskToMyDashboard to preserve image URLs
-async function saveTaskToMyDashboard(task, masterBoardId, companyBoardId) {
-    if (!currentEmployee) {
-        console.error('❌ No current employee set');
-        return;
-    }
-    
-    // Get user's personal task list
-    const tasksKey = `myTasks_${currentEmployee}`;
-    let myTasks = [];
-    
-    try {
-        const saved = localStorage.getItem(tasksKey);
-        if (saved) {
-            myTasks = JSON.parse(saved);
-        }
-    } catch (error) {
-        console.error('Error loading existing tasks:', error);
-        myTasks = [];
-    }
-    
-    // ✅ Ensure task has required fields
-    const taskForDashboard = {
-        // Core identifiers
-        id: task.id || `${masterBoardId}_${companyBoardId}`,
-        masterBoardId: masterBoardId,
-        companyBoardId: companyBoardId,
-        
-        // Required fields with fallbacks
-        name: task.name || 'Imported Task',
-        description: task.description || '',
-        progress: Math.max(0, Math.min(100, parseInt(task.progress) || 0)),
-        status: task.status || 'Project',
-        company: task.company || 'Unknown Company',
-        
-        // Optional fields
-        dueDate: task.dueDate || 'Not set',
-        dueDateRaw: task.dueDateRaw || '',
-        links: task.links || '',
-        imageUrl: task.imageUrl || '',
-        
-        // Metadata
-        createdDate: task.createdDate || new Date().toLocaleDateString(),
-        updatedDate: task.updatedDate || new Date().toLocaleDateString(),
-        importedBy: currentEmployee,
-        importedAt: task.importedAt || new Date().toISOString(),
-        lastUpdated: new Date().toISOString(),
-        lastSyncedAt: new Date().toISOString(),
-        syncStatus: 'synced',
-        isEditable: true,
-        
-        // UI flags
-        isHighPriority: task.status === 'Priority Project',
-        isCurrentProject: task.status === 'Current Project',
-        isComplete: task.status === 'Project Finished' || task.progress >= 100,
-        
-        // Debug info
-        debug: {
-            importSource: 'n8n_workflow',
-            importTimestamp: new Date().toISOString(),
-            originalTaskData: task
-        }
-    };
-    
-    // Check if task already exists (update) or add new
-    const existingIndex = myTasks.findIndex(t => t.id === taskForDashboard.id);
-    
-    if (existingIndex >= 0) {
-        // Update existing task
-        myTasks[existingIndex] = {
-            ...myTasks[existingIndex], // Keep existing metadata
-            ...taskForDashboard,       // Override with fresh data
-            importedAt: myTasks[existingIndex].importedAt, // Keep original import time
-            lastUpdated: new Date().toISOString() // Update the last updated time
-        };
-        console.log('🔄 Updated existing task:', taskForDashboard.name);
-    } else {
-        // Add new task
-        myTasks.push(taskForDashboard);
-        console.log('➕ Added new task:', taskForDashboard.name);
-    }
-    
-    // Save to localStorage
-    try {
-        localStorage.setItem(tasksKey, JSON.stringify(myTasks));
-        availableTasks = myTasks;
-        console.log('💾 Task saved to dashboard:', taskForDashboard.id);
-    } catch (error) {
-        console.error('❌ Failed to save task to localStorage:', error);
-        throw new Error('Failed to save task to local storage');
-    }
-}
-    
-// ✅ FIXED - Sync function with proper variable scope
-// ✅ ENHANCED - Bi-directional sync (pull FROM Infinity, then push TO Infinity)
-async function syncTaskToInfinity(taskId) {
-    const task = availableTasks.find(t => t.id === taskId);
-    if (!task) {
-        showToast('Task not found', 'error');
-        return;
-    }
-    
-    const syncBtn = document.querySelector(`[onclick="syncTaskToInfinity('${taskId}')"]`);
-    let originalText = '🔄 Sync';
-    
-    if (!syncBtn) {
-        console.error('Sync button not found for task:', taskId);
-        showToast('Sync button not found', 'error');
-        return;
-    }
-    
-    originalText = syncBtn.innerHTML;
-    
-    try {
-        // ✅ STEP 1: PULL latest data FROM Infinity first
-        syncBtn.innerHTML = '📥 Fetching latest...';
-        syncBtn.disabled = true;
-        
-        console.log('🔄 Starting bi-directional sync for:', task.name);
-        console.log('📥 Step 1: Pulling latest data FROM StartInfinity...');
-        
-        // Fetch latest data from Infinity
-        const getResponse = await fetch('/api/task-action', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'get_task_by_ids',
-                master_board_id: task.masterBoardId,
-                company_board_id: task.companyBoardId
-            })
-        });
-        
-        let latestTaskData = task; // Fallback to current data
-        let changesFromInfinity = [];
-        
-        if (getResponse.ok) {
-            const getResult = await getResponse.json();
-            if (getResult.success && getResult.task) {
-                latestTaskData = getResult.task;
-                
-                // Compare with local data to detect changes made in Infinity
-                if (latestTaskData.name !== task.name) {
-                    changesFromInfinity.push(`Name: "${task.name}" → "${latestTaskData.name}"`);
-                }
-                if (latestTaskData.progress !== task.progress) {
-                    changesFromInfinity.push(`Progress: ${task.progress}% → ${latestTaskData.progress}%`);
-                }
-                if (latestTaskData.status !== task.status) {
-                    changesFromInfinity.push(`Status: "${task.status}" → "${latestTaskData.status}"`);
-                }
-                if (latestTaskData.description !== task.description) {
-                    changesFromInfinity.push('Description updated');
-                }
-                
-                console.log('📊 Changes detected from Infinity:', changesFromInfinity);
-                
-                // Update local task with latest Infinity data
-                const updatedTask = {
-                    ...task, // Keep local metadata
-                    ...latestTaskData, // Override with fresh Infinity data
-                    lastSyncedAt: new Date().toISOString(),
-                    syncStatus: 'synced'
-                };
-                
-                // Save the updated data locally
-                await saveTaskToMyDashboard(updatedTask, task.masterBoardId, task.companyBoardId);
-                
-                // Update our working reference
-                const taskIndex = availableTasks.findIndex(t => t.id === taskId);
-                if (taskIndex >= 0) {
-                    availableTasks[taskIndex] = updatedTask;
-                }
-                
-                if (changesFromInfinity.length > 0) {
-                    const changesSummary = changesFromInfinity.length > 2 
-                        ? `${changesFromInfinity.slice(0, 2).join(', ')} +${changesFromInfinity.length - 2} more`
-                        : changesFromInfinity.join(', ');
-                    showToast(`📥 Pulled changes from Infinity: ${changesSummary}`, 'info');
-                } else {
-                    console.log('✅ No changes detected in Infinity');
-                }
-            } else {
-                console.warn('Could not fetch latest data from Infinity, using local data');
-                showToast('⚠️ Could not fetch latest from Infinity, syncing local data', 'warning');
-            }
-        } else {
-            console.warn('Failed to fetch from Infinity, proceeding with local data');
-            showToast('⚠️ Could not fetch latest from Infinity, syncing local data', 'warning');
-        }
-        
-        // ✅ STEP 2: PUSH the (now current) data TO Infinity
-        syncBtn.innerHTML = '🔄 Syncing to Infinity...';
-        
-        console.log('🔄 Step 2: Pushing data TO StartInfinity...');
-        
-        const syncData = {
-            action: 'update_task',
-            master_board_id: latestTaskData.masterBoardId || task.masterBoardId,
-            company_board_id: latestTaskData.companyBoardId || task.companyBoardId,
-            company: latestTaskData.company || task.company || 'VEBLEN (Internal)',
-            task_name: latestTaskData.name || task.name,
-            description: latestTaskData.description || '',
-            progress: latestTaskData.progress || 0,
-            status: latestTaskData.status || 'Project',
-            notes: latestTaskData.notes || ''
-        };
-        
-        const syncResponse = await fetch('/api/task-action', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(syncData)
-        });
-        
-        if (syncResponse.ok) {
-            const syncResult = await syncResponse.json();
-            if (syncResult.success) {
-                // Final update of sync status
-                const finalTask = {
-                    ...latestTaskData,
-                    syncStatus: 'synced',
-                    lastSyncedAt: new Date().toISOString(),
-                    lastUpdated: new Date().toISOString()
-                };
-                
-                await saveTaskToMyDashboard(finalTask, finalTask.masterBoardId, finalTask.companyBoardId);
-                
-                // Success message
-                if (changesFromInfinity.length > 0) {
-                    showToast(`✅ Bi-directional sync complete! Pulled ${changesFromInfinity.length} change(s) and synced to Infinity`, 'success');
-                } else {
-                    showToast(`✅ Sync complete! Task is up-to-date with Infinity`, 'success');
-                }
-                
-                // Refresh dashboard to show all updates
-                await loadAssignedTasks();
-                
-            } else {
-                throw new Error(syncResult.error || 'Sync to Infinity failed');
-            }
-        } else {
-            throw new Error(`HTTP ${syncResponse.status}: Failed to sync to Infinity`);
-        }
-        
-} catch (error) {
-        console.error('❌ Bi-directional sync error:', error);
-        
-        // Update error status
-        if (task) {
-            task.syncStatus = 'error';
-            await saveTaskToMyDashboard(task, task.masterBoardId, task.companyBoardId);
-        }
-        
-        let errorMessage = 'Sync failed';
-        if (error.message.includes('HTTP error! status: 502')) {
-            errorMessage = 'Server unavailable (502) - n8n workflow may be down. Try again in a few minutes.';
-        } else if (error.message.includes('HTTP error! status: 504')) {
-            errorMessage = 'Request timeout (504) - the update is taking too long. Check StartInfinity manually.';
-        } else if (error.message.includes('HTTP error! status: 401')) {
-            errorMessage = 'Authentication failed (401) - API token may be expired';
-        } else if (error.message.includes('HTTP error! status: 400')) {
-            errorMessage = 'Invalid request (400) - check the task data format';
-        } else if (error.message.includes('network') || error.message.includes('fetch')) {
-            errorMessage = 'Network error - check your internet connection';
-        } else if (error.message.includes('404')) {
-            errorMessage = 'Task not found in Infinity - it may have been deleted';
-        } else {
-            errorMessage = `Sync failed: ${error.message}`;
-        }
-        
-        showToast(`❌ ${errorMessage}`, 'error');
-        await loadAssignedTasks();
-        
-    } finally {
-        // Restore button
-        if (syncBtn) {
-            syncBtn.innerHTML = originalText;
-            syncBtn.disabled = false;
-        }
-        
-        console.log('🔄 Bi-directional sync completed for:', taskId);
-    }
-}
-// Handle field changes and show save button
-function handleTaskFieldChange(taskId, field) {
-    const taskCard = document.querySelector(`[data-task-id="${taskId}"]`);
-    const saveBtn = taskCard.querySelector('.save-btn');
-    const syncBtn = taskCard.querySelector('.sync-btn');
-    
-    // Show save button, hide sync button
-    saveBtn.style.display = 'inline-flex';
-    syncBtn.style.opacity = '0.5';
-    
-    // Update progress display if it's the progress field
-    if (field.classList.contains('task-progress-edit')) {
-        const progressValue = taskCard.querySelector('.progress-value');
-        const progressBar = taskCard.querySelector('.progress-bar');
-        const value = field.value;
-        
-        progressValue.textContent = `${value}%`;
-        progressBar.style.width = `${value}%`;
-    }
-    
-    // Mark task as having unsaved changes
-    taskCard.classList.add('has-unsaved-changes');
-    
-    // Update sync status
-    updateTaskSyncStatus(taskId, 'pending');
-}
-
-// Save task changes locally
-async function saveTaskChanges(taskId) {
-    const taskCard = document.querySelector(`[data-task-id="${taskId}"]`);
-    const saveBtn = taskCard.querySelector('.save-btn');
-    const syncBtn = taskCard.querySelector('.sync-btn');
-    
-    // Collect all field values
-    const updatedData = {
-        name: taskCard.querySelector('.task-name-edit').value.trim(),
-        description: taskCard.querySelector('.task-description-edit').value.trim(),
-        status: taskCard.querySelector('.task-status-edit').value,
-        progress: parseInt(taskCard.querySelector('.task-progress-edit').value),
-        notes: taskCard.querySelector('.task-notes-edit').value.trim()
-    };
-    
-    // Validate required fields
-    if (!updatedData.name) {
-        showToast('Task name is required', 'warning');
-        return;
-    }
-    
-    try {
-        // Update task in local storage
-        await updateTaskInMyDashboard(taskId, updatedData);
-        
-        // Update UI
-        saveBtn.style.display = 'none';
-        syncBtn.style.opacity = '1';
-        taskCard.classList.remove('has-unsaved-changes');
-        
-        // Update status badge
-        const statusBadge = taskCard.querySelector('.task-status');
-        statusBadge.textContent = updatedData.status;
-        statusBadge.className = `task-status ${getStatusClass(updatedData.status)}`;
-        
-        updateTaskSyncStatus(taskId, 'pending');
-        showToast('💾 Changes saved locally. Click "Sync to Infinity" to update Infinity.', 'success');
-        
-    } catch (error) {
-        console.error('Error saving task changes:', error);
-        showToast('Error saving changes', 'error');
-    }
-}
-
-// Sync task with Infinity
-async function syncTaskWithInfinity(taskId) {
-    const task = availableTasks.find(t => t.id === taskId);
-    if (!task) {
-        showToast('Task not found', 'error');
-        return;
-    }
-    
-    const syncBtn = document.querySelector(`[data-task-id="${taskId}"] .sync-btn`);
-    const originalText = syncBtn.innerHTML;
-    
-    try {
-        // Update button to show loading
-        syncBtn.innerHTML = '⏳ Syncing...';
-        syncBtn.disabled = true;
-        
-        updateTaskSyncStatus(taskId, 'syncing');
-        
-        const updateData = {
-            action: 'update_task',
-            master_board_id: task.masterBoardId,
-            company_board_id: task.companyBoardId,
-            task_name: task.name,
-            progress: task.progress,
-            status: task.status,
-            description: task.description,
-            notes: task.notes,
-            timestamp: new Date().toISOString(),
-            updated_by: currentEmployee || 'Unknown User'
-        };
-        
-        console.log('🔄 Syncing task to Infinity:', updateData);
-        
-        const response = await fetch(CONFIG.taskUpdateUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updateData)
-        });
-        
-        console.log('📡 Sync response status:', response.status);
-        
-        if (response.ok) {
-            const result = await response.json();
-            console.log('✅ Sync result:', result);
-            
-            if (result.success) {
-                // Update sync status and timestamp
-                await updateTaskSyncStatus(taskId, 'synced');
-                await updateTaskInMyDashboard(taskId, {
-                    lastSyncedAt: new Date().toISOString(),
-                    syncStatus: 'synced'
-                });
-                
-                showToast('✅ Task synced successfully with Infinity!', 'success');
-                
-                // Refresh dashboard to show updated sync time
-                await loadAssignedTasks();
-                
-            } else {
-                throw new Error(result.message || 'Sync failed');
-            }
-        } else {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || `HTTP error ${response.status}`);
-        }
-        
-    } catch (error) {
-        console.error('Error syncing task:', error);
-        updateTaskSyncStatus(taskId, 'error');
-        showToast(`❌ Sync failed: ${error.message}`, 'error');
-        
-    } finally {
-        // Restore button
-        syncBtn.innerHTML = originalText;
-        syncBtn.disabled = false;
-    }
-}
-
-// Update task in dashboard storage
-async function updateTaskInMyDashboard(taskId, updates) {
-    if (!currentEmployee) return;
-    
-    const tasksKey = `myTasks_${currentEmployee}`;
-    let myTasks = [];
-    
-    try {
-        const saved = localStorage.getItem(tasksKey);
-        if (saved) {
-            myTasks = JSON.parse(saved);
-        }
-    } catch (error) {
-        console.error('Error loading tasks for update:', error);
-        return;
-    }
-    
-    const taskIndex = myTasks.findIndex(t => t.id === taskId);
-    
-    if (taskIndex >= 0) {
-        // Update existing task
-        myTasks[taskIndex] = {
-            ...myTasks[taskIndex],
-            ...updates,
-            lastUpdated: new Date().toISOString()
-        };
-        
-        localStorage.setItem(tasksKey, JSON.stringify(myTasks));
-        availableTasks = myTasks;
-    }
-}
-
-// Update sync status indicator
-function updateTaskSyncStatus(taskId, status) {
-    const taskCard = document.querySelector(`[data-task-id="${taskId}"]`);
-    if (!taskCard) return;
-    
-    const syncStatus = taskCard.querySelector('.sync-status');
-    const icon = getSyncStatusIcon(status);
-    
-    syncStatus.innerHTML = icon;
-    syncStatus.className = `sync-status ${status}`;
-    
-    // Update local storage
-    updateTaskInMyDashboard(taskId, { syncStatus: status });
-}
-
-// Helper functions
-function getSyncStatusIcon(status) {
-    switch (status) {
-        case 'synced': return '✅ Synced';
-        case 'pending': return '⏳ Pending';
-        case 'syncing': return '🔄 Syncing';
-        case 'error': return '❌ Error';
-        default: return '📥 Imported';
-    }
-}
-
-function getStatusClass(status) {
-    const statusClasses = {
-        'Project': 'status-project',
-        'Priority Project': 'status-priority',
-        'Current Project': 'status-current',
-        'Revision': 'status-revision',
-        'Waiting Approval': 'status-waiting',
-        'Project Finished': 'status-finished',
-        'Rejected': 'status-rejected'
-    };
-    return statusClasses[status] || 'status-project';
-}
-
-function formatDate(dateString) {
-    if (!dateString) return 'Never';
-    try {
-        return new Date(dateString).toLocaleString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    } catch (e) {
-        return 'Invalid date';
-    }
-}
-function getStatusClass(status) {
-    const statusClasses = {
-        'Project': 'status-project',
-        'Priority Project': 'status-priority',
-        'Current Project': 'status-current',
-        'Revision': 'status-revision',
-        'Waiting Approval': 'status-waiting',
-        'Project Finished': 'status-finished',
-        'Rejected': 'status-rejected'
-    };
-    return statusClasses[status] || 'status-project';
-}
-
-async function editImportedTask(taskId) {
-    const task = availableTasks.find(t => t.id === taskId);
-    if (!task) {
-        showToast('Task not found', 'error');
-        return;
-    }
-    
-    // Open task editor modal
-    if (!document.getElementById('taskEditorModal')) {
-        createTaskEditorModal();
-    }
-    
-    // Pre-fill the IDs
-    document.getElementById('masterBoardId').value = task.masterBoardId;
-    document.getElementById('companyBoardId').value = task.companyBoardId;
-    
-    // Display task for editing
-    displayTaskForEditing(task, task.masterBoardId, task.companyBoardId);
-    
-    // Show modal
-    document.getElementById('taskEditorModal').style.display = 'block';
-}
-
-async function removeImportedTask(taskId) {
-    if (!confirm('Are you sure you want to remove this task from your dashboard?\n\nThis will not affect the task in Infinity, only remove it from your personal dashboard.')) {
-        return;
-    }
-    
-    if (!currentEmployee) return;
-    
-    try {
-        const tasksKey = `myTasks_${currentEmployee}`;
-        let myTasks = [];
-        
-        const saved = localStorage.getItem(tasksKey);
-        if (saved) {
-            myTasks = JSON.parse(saved);
-        }
-        
-        // Remove task
-        myTasks = myTasks.filter(t => t.id !== taskId);
-        
-        // Save back
-        localStorage.setItem(tasksKey, JSON.stringify(myTasks));
-        availableTasks = myTasks;
-        
-        // Refresh display
-        await loadAssignedTasks();
-        
-        showToast('🗑️ Task removed from your dashboard', 'success');
-        
-    } catch (error) {
-        console.error('Error removing task:', error);
-        showToast('Error removing task', 'error');
-    }
-}
-// Daily Report Handler - ADD THIS TO YOUR SCRIPT.JS
-async function handleDailyReport(e) {
-    e.preventDefault();
-    
-    if (!currentEmployee) {
-        showToast('Please select an employee first', 'warning');
-        return;
-    }
-    
-    const form = e.target;
-    const formData = new FormData(form);
-    
-    try {
-        showToast('📊 Submitting daily report...', 'info');
-        
-        // Handle photo upload (required)
-        const photoFile = formData.get('reportPhoto');
-        if (!photoFile || photoFile.size === 0) {
-            showToast('Please select a photo for your daily report', 'warning');
-            return;
-        }
-        
-        console.log('📸 Uploading photo to ImgBB...');
-        
-        const imgbbFormData = new FormData();
-        imgbbFormData.append('image', photoFile);
-        
-        const imgbbResponse = await fetch(`https://api.imgbb.com/1/upload?key=${CONFIG.imgbbApiKey}`, {
-            method: 'POST',
-            body: imgbbFormData
-        });
-        
-        if (!imgbbResponse.ok) {
-            throw new Error('Failed to upload photo');
-        }
-        
-        const imgbbData = await imgbbResponse.json();
-        console.log('✅ Photo uploaded successfully');
-        
-        // Build report data with EXACT field names from n8n workflow
-        const reportData = {
-            action: 'daily_report',
-            'Name': currentEmployee,
-            'Company': formData.get('reportCompany'),
-            'Project Name': formData.get('projectName'),
-            'Number of Revisions': formData.get('numRevisions'),
-            'Total Time Spent on Project': formData.get('totalTimeSpent'),
-            'Notes': formData.get('reportNotes'),
-            'Links': formData.get('reportLinks') || '',
-            'Date': formData.get('reportDate'),
-            'Photo for report': imgbbData.data.url,
-            'Feedback or Requests': formData.get('feedbackRequests') || '',
-            'Timestamp': new Date().toISOString()
-        };
-        
-        console.log('📤 Sending report data:', reportData);
-        
-        const response = await fetch(CONFIG.reportLoggerUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(reportData)
-        });
-        
-        console.log('📡 Report response status:', response.status);
-        
-        if (response.ok) {
-            const result = await response.json();
-            console.log('✅ Daily report submitted successfully:', result);
-            showToast('✅ Daily report submitted successfully!', 'success');
-            form.reset();
-            
-            // Clear photo preview
-            const photoPreview = document.getElementById('reportPhotoPreview');
-            if (photoPreview) photoPreview.innerHTML = '';
-            
-        } else {
-            const errorData = await response.json().catch(() => ({}));
-            console.error('❌ Report submission error:', errorData);
-            throw new Error(`HTTP ${response.status}: ${errorData.error || response.statusText}`);
-        }
-        
-    } catch (error) {
-        console.error('❌ Daily report error:', error);
-        showToast(`Failed to submit daily report: ${error.message}`, 'error');
-    }
-}
-// Stub implementations for form handlers
-// ✅ ENHANCED - Task intake with optional image handling
-async function handleTaskIntake(e) {
-    e.preventDefault();
-    
-    if (!currentEmployee) {
-        showToast('Please select an employee first', 'warning');
-        return;
-    }
-    
-    const form = e.target;
-    const formData = new FormData(form);
-    
-    try {
-        showToast('📝 Creating new task...', 'info');
-        
-        // ✅ Handle optional image upload
-        const imageFile = formData.get('taskImage');
-        let imageUrl = '';
-        
-        if (imageFile && imageFile.size > 0) {
-            console.log('📸 Uploading image to ImgBB...');
-            
-            const imgbbFormData = new FormData();
-            imgbbFormData.append('image', imageFile);
-            
-            const imgbbResponse = await fetch(`https://api.imgbb.com/1/upload?key=${CONFIG.imgbbApiKey}`, {
-                method: 'POST',
-                body: imgbbFormData
-            });
-            
-            if (imgbbResponse.ok) {
-                const imgbbData = await imgbbResponse.json();
-                imageUrl = imgbbData.data.url;
-                console.log('✅ Image uploaded successfully:', imageUrl);
-            } else {
-                console.warn('⚠️ Image upload failed, proceeding without image');
-                showToast('⚠️ Image upload failed, but task will be created without image', 'warning');
-            }
-        } else {
-            console.log('📝 No image provided - creating task without image');
-        }
-        
-        // Get assigned users (multiple select)
-        const assignedElements = form.querySelectorAll('#taskAssigned option:checked');
-        const assignedArray = Array.from(assignedElements).map(option => option.value);
-        
-        // ✅ Build comprehensive task data with ALL required fields
-        const taskData = {
-            action: 'task_intake',
-            
-            // ✅ Core required fields
-            'Project Title': formData.get('taskTitle') || '',
-            'Description': formData.get('taskDescription') || '',
-            'Company': formData.get('taskCompany') || '',
-            'Is this project a priority?': formData.get('taskPriority') || 'No',
-            'Due Date': formData.get('taskDueDate') || '',
-            'Links': formData.get('taskLinks') || '',
-            'Assigned': assignedArray,
-            'Name': currentEmployee,
-            'Employee Name': currentEmployee,
-            
-            // ✅ Optional image URL (empty string if no image)
-            'Image_URL': imageUrl,
-            
-            // ✅ Metadata
-            'Timestamp': new Date().toISOString()
-        };
-        
-        console.log('📤 Sending task data:', taskData);
-        
-        const response = await fetch(CONFIG.taskIntakeUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(taskData)
-        });
-        
-        console.log('📡 Response status:', response.status);
-        
-        if (response.ok) {
-            const result = await response.json();
-            console.log('✅ Task created successfully:', result);
-            
-            if (imageUrl) {
-                showToast('✅ Task created successfully with image!', 'success');
-            } else {
-                showToast('✅ Task created successfully!', 'success');
-            }
-            
-            form.reset();
-            
-            // Clear image preview
-            const imagePreview = document.getElementById('taskImagePreview');
-            if (imagePreview) imagePreview.innerHTML = '';
-            
-        } else {
-            const errorData = await response.json().catch(() => ({}));
-            console.error('❌ Server error:', errorData);
-            throw new Error(`HTTP ${response.status}: ${errorData.error || response.statusText}`);
-        }
-        
-    } catch (error) {
-        console.error('❌ Task intake error:', error);
-        showToast(`Failed to create task: ${error.message}`, 'error');
-    }
-}
-
-// ✅ ENHANCED - Clear image preview function
-function clearTaskImagePreview() {
-    const input = document.getElementById('taskImage');
-    const preview = document.getElementById('taskImagePreview');
-    
-    if (input) input.value = '';
-    if (preview) preview.innerHTML = '';
-    
-    showToast('Image removed', 'info');
-}
-
-// ✅ ENHANCED - Image preview with better validation
-function handleTaskImagePreview(e) {
-    const file = e.target.files[0];
-    const previewContainer = document.getElementById('taskImagePreview');
-    
-    // Clear previous preview
-    previewContainer.innerHTML = '';
-    
-    if (!file) {
-        console.log('📸 No file selected for task image');
-        return;
-    }
-    
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp'];
-    if (!allowedTypes.includes(file.type.toLowerCase())) {
-        showToast('❌ Please select a valid image file (JPEG, PNG, GIF, BMP, WebP)', 'error');
-        e.target.value = ''; // Clear the input
-        return;
-    }
-    
-    // Validate file size (32MB limit for ImgBB)
-    const maxSize = 32 * 1024 * 1024; // 32MB in bytes
-    if (file.size > maxSize) {
-        showToast('❌ Image too large. Please select an image under 32MB', 'error');
-        e.target.value = ''; // Clear the input
-        return;
-    }
-    
-    // Create file reader
-    const reader = new FileReader();
-    
-    reader.onload = function(event) {
-        console.log('📸 Task image preview loaded:', file.name, `(${(file.size / 1024 / 1024).toFixed(2)}MB)`);
-        
-        // Create preview HTML
-        const previewHTML = `
-            <div style="margin-top: var(--spacing-md); padding: var(--spacing-md); background: rgba(0, 0, 0, 0.2); border-radius: var(--radius-md); border: 1px solid rgba(255, 255, 255, 0.1);">
-                <div style="display: flex; align-items: center; gap: var(--spacing-md); margin-bottom: var(--spacing-sm);">
-                    <span style="color: var(--text-primary); font-weight: 600;">📸 Image Preview (Optional):</span>
-                    <span style="color: var(--text-secondary); font-size: 0.875rem;">${file.name}</span>
-                    <span style="color: var(--text-secondary); font-size: 0.75rem; background: rgba(102, 126, 234, 0.2); padding: 2px 8px; border-radius: 12px;">${(file.size / 1024 / 1024).toFixed(2)}MB</span>
-                </div>
-                <div style="text-align: center;">
-                    <img src="${event.target.result}" 
-                         alt="Task Image Preview" 
-                         style="max-width: 300px; max-height: 200px; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); border: 2px solid var(--border); object-fit: cover;">
-                </div>
-                <button type="button" 
-                        onclick="clearTaskImagePreview()" 
-                        style="margin-top: var(--spacing-sm); padding: var(--spacing-xs) var(--spacing-sm); background: rgba(252, 129, 129, 0.2); color: #fc8181; border: 1px solid rgba(252, 129, 129, 0.3); border-radius: var(--radius-sm); font-size: 0.75rem; cursor: pointer; transition: all 0.3s ease;"
-                        onmouseover="this.style.background='rgba(252, 129, 129, 0.3)'"
-                        onmouseout="this.style.background='rgba(252, 129, 129, 0.2)'">
-                    🗑️ Remove Image
-                </button>
-            </div>
-        `;
-        
-        previewContainer.innerHTML = previewHTML;
-        showToast('✅ Task image loaded successfully (optional)', 'success');
-    };
-    
-    reader.onerror = function() {
-        console.error('❌ Error reading task image file');
-        showToast('❌ Error reading image file', 'error');
-        previewContainer.innerHTML = '';
-    };
-    
-    // Read the file as data URL
-    reader.readAsDataURL(file);
-}
-
-function handleReportPhotoPreview(e) {
-    const file = e.target.files[0];
-    const previewContainer = document.getElementById('reportPhotoPreview');
-    
-    // Clear previous preview
-    previewContainer.innerHTML = '';
-    
-    if (!file) {
-        console.log('📸 No file selected for report photo');
-        return;
-    }
-    
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp'];
-    if (!allowedTypes.includes(file.type.toLowerCase())) {
-        showToast('❌ Please select a valid image file (JPEG, PNG, GIF, BMP, WebP)', 'error');
-        e.target.value = ''; // Clear the input
-        return;
-    }
-    
-    // Validate file size (32MB limit for ImgBB)
-    const maxSize = 32 * 1024 * 1024; // 32MB in bytes
-    if (file.size > maxSize) {
-        showToast('❌ Image too large. Please select an image under 32MB', 'error');
-        e.target.value = ''; // Clear the input
-        return;
-    }
-    
-    // Create file reader
-    const reader = new FileReader();
-    
-    reader.onload = function(event) {
-        console.log('📸 Report photo preview loaded:', file.name, `(${(file.size / 1024 / 1024).toFixed(2)}MB)`);
-        
-        // Create preview HTML
-        const previewHTML = `
-            <div style="margin-top: var(--spacing-md); padding: var(--spacing-md); background: rgba(0, 0, 0, 0.2); border-radius: var(--radius-md); border: 1px solid rgba(255, 255, 255, 0.1);">
-                <div style="display: flex; align-items: center; gap: var(--spacing-md); margin-bottom: var(--spacing-sm);">
-                    <span style="color: var(--text-primary); font-weight: 600;">📷 Report Photo:</span>
-                    <span style="color: var(--text-secondary); font-size: 0.875rem;">${file.name}</span>
-                    <span style="color: var(--text-secondary); font-size: 0.75rem; background: rgba(72, 187, 120, 0.2); padding: 2px 8px; border-radius: 12px;">${(file.size / 1024 / 1024).toFixed(2)}MB</span>
-                </div>
-                <div style="text-align: center;">
-                    <img src="${event.target.result}" 
-                         alt="Report Photo Preview" 
-                         style="max-width: 300px; max-height: 200px; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); border: 2px solid var(--border); object-fit: cover;">
-                </div>
-                <button type="button" 
-                        onclick="clearReportPhotoPreview()" 
-                        style="margin-top: var(--spacing-sm); padding: var(--spacing-xs) var(--spacing-sm); background: rgba(252, 129, 129, 0.2); color: #fc8181; border: 1px solid rgba(252, 129, 129, 0.3); border-radius: var(--radius-sm); font-size: 0.75rem; cursor: pointer; transition: all 0.3s ease;"
-                        onmouseover="this.style.background='rgba(252, 129, 129, 0.3)'"
-                        onmouseout="this.style.background='rgba(252, 129, 129, 0.2)'">
-                    🗑️ Remove Photo
-                </button>
-            </div>
-        `;
-        
-        previewContainer.innerHTML = previewHTML;
-        showToast('✅ Report photo loaded successfully', 'success');
-    };
-    
-    reader.onerror = function() {
-        console.error('❌ Error reading report photo file');
-        showToast('❌ Error reading photo file', 'error');
-        previewContainer.innerHTML = '';
-    };
-    
-    // Read the file as data URL
-    reader.readAsDataURL(file);
-}
-
-// Modal close on outside click
-window.addEventListener('click', function(event) {
-    const taskEditorModal = document.getElementById('taskEditorModal');
-    const passwordModal = document.getElementById('passwordModal');
-    
-    if (event.target === taskEditorModal) {
-        closeTaskEditorModal();
-    }
-    
-    if (event.target === passwordModal) {
-        closePasswordModal();
-    }
-});
-
-// Debug function
-window.debugStartButton = function() {
-    console.log('🔧 DEBUGGING START BUTTON...');
-    
-    const startBtn = document.getElementById('startWorkBtn');
-    
-    if (startBtn) {
-        startBtn.disabled = false;
-        startBtn.classList.remove('btn-disabled');
-        startBtn.style.pointerEvents = 'auto';
-        startBtn.style.opacity = '1';
-        
-        currentEmployee = currentEmployee || 'Tony Herrera';
-        currentWorkflowState = WORKFLOW_STATES.NOT_STARTED;
-        
-        if (!document.getElementById('employeeSelect').value) {
-            document.getElementById('employeeSelect').value = 'Tony Herrera';
-        }
-        
-        console.log('✅ START button force-enabled!');
-        return 'START button should now work!';
-    } else {
-        console.error('❌ START button not found!');
-        return 'START button element not found!';
-    }
-};
-
-// ✅ Add this debug function to your script.js to check n8n responses
-window.debugN8nResponse = async function() {
-    const masterBoardId = document.getElementById('masterBoardId').value.trim();
-    const companyBoardId = document.getElementById('companyBoardId').value.trim();
-    
-    if (!masterBoardId || !companyBoardId) {
-        console.log('❌ Please enter both IDs first');
-        return;
-    }
-    
-    try {
-        console.log('🔍 DEBUGGING N8N RESPONSE...');
-        console.log('📤 Sending request with IDs:');
-        console.log('- Master:', masterBoardId);
-        console.log('- Company:', companyBoardId);
-        
-        const response = await fetch('/api/task-action', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'get_task_by_ids',
-                master_board_id: masterBoardId,
-                company_board_id: companyBoardId
-            })
-        });
-        
-        console.log('📡 Response status:', response.status);
-        console.log('📡 Response headers:', [...response.headers.entries()]);
-        
-        const responseText = await response.text();
-        console.log('📄 Raw response text:', responseText);
-        
-        try {
-            const jsonData = JSON.parse(responseText);
-            console.log('📊 Parsed JSON data:', jsonData);
-            console.log('📊 JSON structure:');
-            console.log('- Type:', typeof jsonData);
-            console.log('- Is Array:', Array.isArray(jsonData));
-            console.log('- Keys:', Object.keys(jsonData));
-            console.log('- Has success:', 'success' in jsonData);
-            console.log('- Has task:', 'task' in jsonData);
-            console.log('- Has data:', 'data' in jsonData);
-            
-            if (jsonData.task) {
-                console.log('✅ Found task object:', jsonData.task);
-            } else if (jsonData.data && jsonData.data.task) {
-                console.log('✅ Found nested task object:', jsonData.data.task);
-            } else {
-                console.log('❌ No task object found in expected locations');
-            }
-            
-        } catch (parseError) {
-            console.error('❌ Failed to parse JSON:', parseError);
-            console.log('📄 Response is not valid JSON');
-        }
-        
-    } catch (error) {
-        console.error('❌ Debug request failed:', error);
-    }
-};
-
-// ✅ Call this in browser console: debugN8nResponse()
-console.log('🔧 Debug function available: Call debugN8nResponse() in console after entering IDs');
-
-console.log('🚀 Simplified VEBLEN Task Tracker loaded!');
