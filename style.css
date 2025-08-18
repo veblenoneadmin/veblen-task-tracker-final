@@ -4131,7 +4131,124 @@ section h2 {
         max-height: 60vh;
     }
 }
+/* ============================================
+   ADD THESE STYLES TO YOUR EXISTING style.css
+   ============================================ */
 
+/* ✅ ENHANCED TOAST NOTIFICATIONS - Add to existing toast section */
+.toast.long-toast {
+    min-width: 350px;
+    max-width: 450px;
+    padding: 16px 20px;
+    animation: slideInRight 0.5s ease, pulseGlow 3s ease-in-out infinite;
+    animation-fill-mode: forwards;
+    box-shadow: 0 8px 32px rgba(72, 187, 120, 0.3);
+    border: 2px solid rgba(72, 187, 120, 0.5);
+    background: linear-gradient(135deg, rgba(72, 187, 120, 0.95) 0%, rgba(56, 161, 105, 0.95) 100%);
+    color: white;
+    font-weight: 600;
+    position: relative;
+}
+
+.toast.long-toast .toast-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.toast.long-toast .toast-message {
+    flex: 1;
+    font-size: 0.95rem;
+    line-height: 1.4;
+}
+
+.toast.long-toast .toast-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0 0 0 10px;
+    opacity: 0.8;
+    transition: all 0.3s ease;
+    min-width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+}
+
+.toast.long-toast .toast-close:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.1);
+}
+
+/* ✅ ENHANCED: Glow animation for long toasts */
+@keyframes pulseGlow {
+    0%, 100% { 
+        box-shadow: 0 8px 32px rgba(72, 187, 120, 0.3);
+        transform: scale(1);
+    }
+    50% { 
+        box-shadow: 0 12px 40px rgba(72, 187, 120, 0.5);
+        transform: scale(1.02);
+    }
+}
+
+/* ✅ RESPONSIVE: Enhanced mobile support for toasts */
+@media (max-width: 768px) {
+    .toast-container {
+        top: 10px;
+        right: 10px;
+        left: 10px;
+        max-width: none;
+    }
+    
+    .toast {
+        min-width: auto;
+        width: 100%;
+    }
+    
+    .toast.long-toast {
+        min-width: auto;
+        max-width: none;
+        width: 100%;
+        padding: 14px 16px;
+    }
+    
+    .toast.long-toast .toast-message {
+        font-size: 0.9rem;
+    }
+}
+
+/* ✅ ACCESSIBILITY: Reduced motion support for toasts */
+@media (prefers-reduced-motion: reduce) {
+    .toast,
+    .toast.long-toast {
+        animation: slideInRight 0.3s ease !important;
+    }
+    
+    .toast.long-toast .toast-close {
+        transition: none !important;
+    }
+}
+
+/* ✅ HIGH CONTRAST: Enhanced visibility for toasts */
+@media (prefers-contrast: high) {
+    .toast.long-toast {
+        background: #006400 !important;
+        border: 3px solid #ffffff !important;
+        color: #ffffff !important;
+    }
+    
+    .toast.long-toast .toast-close {
+        color: #ffffff !important;
+        border: 1px solid #ffffff !important;
+    }
+}
 /* ============================================
    END OF STYLESHEET
    ============================================ */
