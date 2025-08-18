@@ -9,12 +9,12 @@ const PORT = process.env.PORT || 3000;
 // Your working webhook URLs
 const WEBHOOKS = {
     // Working webhooks from your n8n workflow
-    taskIntake: 'https://primary-s0q-production.up.railway.app/webhook/taskintakewebhooktest',
-    taskUpdate: 'https://primary-s0q-production.up.railway.app/webhook/task-updatetest',
-    timeLogger: 'https://primary-s0q-production.up.railway.app/webhook/timeloggingtest',
-    reportLogger: 'https://primary-s0q-production.up.railway.app/webhook/reportloggingtest',
+    taskIntake: 'https://primary-s0q-production.up.railway.app/webhook/taskintakewebhook',
+    taskUpdate: 'https://primary-s0q-production.up.railway.app/webhook/task-update',
+    timeLogger: 'https://primary-s0q-production.up.railway.app/webhook/timelogging',
+    reportLogger: 'https://primary-s0q-production.up.railway.app/webhook/reportlogging',
     // New task editor webhooks
-    getTasks: 'https://primary-s0q-production.up.railway.app/webhook/get-taskstest'
+    getTasks: 'https://primary-s0q-production.up.railway.app/webhook/get-tasks'
 };
 
 // Middleware
