@@ -9,12 +9,12 @@ const PORT = process.env.PORT || 3000;
 // Your working webhook URLs
 const WEBHOOKS = {
     // Working webhooks from your n8n workflow
-    taskIntake: 'https://primary-s0q-production.up.railway.app/webhook/taskintakewebhook',
-    taskUpdate: 'https://primary-s0q-production.up.railway.app/webhook/task-update',
-    timeLogger: 'https://primary-s0q-production.up.railway.app/webhook/timelogging',
-    reportLogger: 'https://primary-s0q-production.up.railway.app/webhook/reportlogging',
+    taskIntake: 'https://primary-s0q-production.up.railway.app/webhook/taskintakewebhooktest',
+    taskUpdate: 'https://primary-s0q-production.up.railway.app/webhook/task-updatetest',
+    timeLogger: 'https://primary-s0q-production.up.railway.app/webhook/timeloggingtest',
+    reportLogger: 'https://primary-s0q-production.up.railway.app/webhook/reportloggingtest',
     // New task editor webhooks
-    getTasks: 'https://primary-s0q-production.up.railway.app/webhook/get-tasks'
+    getTasks: 'https://primary-s0q-production.up.railway.app/webhook/get-taskstest'
 };
 
 // Middleware
@@ -69,13 +69,13 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// ============= NEW UNIFIED TASK ACTION API =============
-// This handles all task actions with proper routing
+// ============= FIXED UNIFIED TASK ACTION API =============
+// ✅ FIXED: Added time_clock action support
 app.post('/api/task-action', async (req, res) => {
     try {
         const { action } = req.body;
         
-        console.log('📥 Task action received:', action);
+        console.log('🔥 Task action received:', action);
         console.log('Request body:', JSON.stringify(req.body, null, 2));
         
         let webhookUrl;
@@ -95,7 +95,7 @@ app.post('/api/task-action', async (req, res) => {
             case 'update_task':
                 webhookUrl = WEBHOOKS.taskUpdate;
                 break;
-            case 'time_clock':
+            case 'time_clock':  // ✅ FIXED: Added missing time_clock action
                 webhookUrl = WEBHOOKS.timeLogger;
                 break;
             default:
@@ -147,6 +147,7 @@ app.post('/api/task-action', async (req, res) => {
         });
     }
 });
+
 // ============= LEGACY TASK INTAKE API (for backward compatibility) =============
 // This proxies to your working task intake webhook
 app.post('/api/task-intake', async (req, res) => {
@@ -171,8 +172,6 @@ app.post('/api/task-intake', async (req, res) => {
     }
 });
 
-// ============= LEGACY TASK UPDATE API (for backward compatibility) =============
-// ✅ ADD THIS ROUTE - Point sync to your UPDATE workflow
 // ============= ENHANCED TASK UPDATE API WITH BETTER ERROR HANDLING =============
 app.post('/api/task-update', async (req, res) => {
     try {
