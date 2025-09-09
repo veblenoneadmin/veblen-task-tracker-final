@@ -1278,7 +1278,7 @@ const CONFIG = {
     timeLoggerUrl: '/api/task-action',
     reportLoggerUrl: '/api/task-action', 
     taskRetrievalUrl: '/api/task-action', // ✅ Use unified endpoint
-    imgbbApiKey: '679bd601ac49c50cae877fb240620cfe'
+    imgbbApiKey: 'cea3505ad10557ae320f0859761a3f2d'
 };
 
 // WORKFLOW STATES - SIMPLIFIED
